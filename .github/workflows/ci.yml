@@ -14,8 +14,8 @@ jobs:
       - name: Build
         run: swift build
       # Capture tests self-skip via `.enabled(if: CGPreflightScreenCaptureAccess())`
-      # (headless runners have no Screen Recording grant); scripts/bundle.sh
-      # falls back to ad-hoc signing here since the dev signing keychain
-      # (scripts/setup-signing.sh) only exists on the dev Mac.
+      # — headless runners have no Screen Recording grant. (A future release job
+      # that runs scripts/bundle.sh will sign ad-hoc, since the dev signing
+      # keychain from scripts/setup-signing.sh only exists on the dev Mac.)
       - name: Test
         run: swift test
