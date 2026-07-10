@@ -25,7 +25,9 @@ final class CaptureCoordinator {
     /// effects run per artifact; the last one wins the clipboard (single-display
     /// systems are unaffected). Completion reports how many files were produced.
     func captureFullscreen(completion: (@MainActor (Int) -> Void)?) {
+        AppLog.log("captureFullscreen invoked; preflight=\(PermissionOnboardingController.isGranted())")
         guard PermissionOnboardingController.ensurePermission() else {
+            AppLog.log("captureFullscreen aborted: Screen Recording not granted")
             completion?(0)
             return
         }
@@ -33,6 +35,7 @@ final class CaptureCoordinator {
         Task { @MainActor in
             do {
                 let displays = try await DisplayCapture.captureAllDisplays(showCursor: false)
+                AppLog.log("captureAllDisplays returned \(displays.count) display(s)")
                 var count = 0
                 for display in displays {
                     if self.deliver(image: display.image, appName: appName) {
@@ -72,7 +75,7 @@ final class CaptureCoordinator {
         do {
             let result = try AfterCapturePipeline(settings: settings, effects: effects)
                 .process(artifact)
-            NSLog("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
+            AppLog.log("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
             return true
         } catch {
             reportFailure(error)
@@ -85,7 +88,7 @@ final class CaptureCoordinator {
     }
 
     private func reportFailure(_ error: Error) {
-        NSLog("Capture failed: \(error)")
+        AppLog.log("Capture failed: \(error)")
         effects.notify(title: "Capture failed", body: error.localizedDescription, fileURL: nil)
     }
 }

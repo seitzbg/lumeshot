@@ -21,7 +21,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.coordinator = coordinator
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
-        NSLog("ShareX for Mac launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"))")
+        AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")
 
         handleCLIArguments()
     }
@@ -59,7 +59,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let manager = HotkeyManager()
         hotkeys = manager
         if let combo = config.fullscreen {
-            manager.register(combo) { [weak self] in self?.coordinator?.captureFullscreen() }
+            manager.register(combo) { [weak self] in
+                AppLog.log("Fullscreen hotkey fired")
+                self?.coordinator?.captureFullscreen()
+            }
         }
         if let combo = config.region {
             manager.register(combo) { [weak self] in self?.coordinator?.captureRegion() }
@@ -67,6 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let combo = config.window {
             manager.register(combo) { [weak self] in self?.coordinator?.captureWindow() }
         }
+        AppLog.log("Hotkeys registered (fullscreen=\(config.fullscreen != nil), region=\(config.region != nil), window=\(config.window != nil))")
     }
 
     func buildMenu() -> NSMenu {
@@ -91,7 +95,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func menuCaptureRegion() { coordinator?.captureRegion() }
     @objc private func menuCaptureWindow() { coordinator?.captureWindow() }
-    @objc private func menuCaptureFullscreen() { coordinator?.captureFullscreen() }
+    @objc private func menuCaptureFullscreen() {
+        AppLog.log("Menu: Capture Full Screen clicked")
+        coordinator?.captureFullscreen()
+    }
 
     @objc private func openCapturesFolder() {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)

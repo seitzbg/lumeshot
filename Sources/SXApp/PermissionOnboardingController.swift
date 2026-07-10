@@ -6,6 +6,11 @@ final class PermissionOnboardingController: NSObject {
     private static var shared: PermissionOnboardingController?
     private var window: NSWindow?
 
+    /// Current Screen Recording grant state, without side effects.
+    static func isGranted() -> Bool {
+        CapturePermission.preflight()
+    }
+
     /// True if Screen Recording is granted. Otherwise prompts (first run) and
     /// shows the onboarding window; the caller must abort the capture attempt.
     static func ensurePermission() -> Bool {
