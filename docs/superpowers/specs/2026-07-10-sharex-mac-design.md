@@ -28,7 +28,7 @@
 
 **Build system.** SwiftPM-first; no checked-in Xcode project. `swift build` produces the executable; `scripts/bundle.sh` assembles the `.app` (Info.plist from template, icns, entitlements, codesign — ad-hoc by default). Everything is CLI-drivable over SSH; Xcode users open `Package.swift`. The bundle identifier stays stable from day one so TCC grants (Screen Recording) survive rebuilds.
 
-**Identity.** App display name: **ShareX for Mac**. Bundle ID is chosen at M1 start (reverse-DNS on a domain the owner controls, e.g. `house.fiber.sharex-mac`, or `io.github.<owner>.sharex-mac`) and is immutable thereafter — TCC grants, Keychain items, and settings paths all key off it.
+**Identity.** App display name: **ShareX for Mac**. Bundle ID: `org.sharexmac.app` — fixed now and immutable, since TCC grants, Keychain items, and settings paths all key off it.
 
 **Modules** (SwiftPM targets; each is independently buildable and testable):
 
@@ -101,7 +101,7 @@ sharex-mac/
 ```
 
 - New independent repo (not a git fork). `~/git/sharex` remains a read-only reference beside it. README credits ShareX upstream prominently.
-- **Dev loop:** git is source of truth; the Mac holds a clone. `scripts/remote.sh` drives the tight loop from the Linux box: sync → `ssh <mac> 'swift build && swift test && scripts/bundle.sh'` → stream results. Interactive verification (TCC prompts, overlay feel, hotkeys) happens on the Mac against a per-milestone smoke checklist. Mac SSH host + work directory to be provided at implementation start.
+- **Dev loop:** git is source of truth; the Mac (`seitz@macmini1.fiber.house`) holds a clone at `~/git/sharex-mac`. `scripts/remote.sh` drives the tight loop from the Linux box: sync → `ssh seitz@macmini1.fiber.house 'cd ~/git/sharex-mac && swift build && swift test && scripts/bundle.sh'` → stream results. Interactive verification (TCC prompts, overlay feel, hotkeys) happens on the Mac against a per-milestone smoke checklist.
 - **CI:** GitHub Actions `macos-15` (arm64): build + unit tests on push; release workflow assembles .app and .dmg (`hdiutil`). Signing is ad-hoc by default; Developer ID signing + `notarytool` + `stapler` light up via repo secrets if/when an Apple Developer account exists. Sparkle auto-update is post-v1.
 
 ## 5. Error handling
