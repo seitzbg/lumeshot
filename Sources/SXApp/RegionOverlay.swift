@@ -52,7 +52,9 @@ final class RegionOverlaySession {
         let crop = CaptureGeometry.pixelCropRect(selection: selection, scale: display.scale,
                                                  imageWidth: display.image.width,
                                                  imageHeight: display.image.height)
-        guard !crop.isEmpty, let cropped = display.image.cropping(to: crop) else {
+        guard !crop.isEmpty else { onComplete(nil); return }
+        guard let cropped = display.image.cropping(to: crop) else {
+            AppLog.log("Region crop failed for rect \(crop)")
             onComplete(nil); return
         }
         onComplete(cropped)

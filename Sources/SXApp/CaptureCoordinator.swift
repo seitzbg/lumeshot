@@ -12,6 +12,7 @@ final class CaptureCoordinator {
     private let settingsStore: SettingsStore
     private let effects: AppPipelineEffects
     private var regionSession: RegionOverlaySession?
+    private var regionCaptureInFlight = false
 
     init(settingsStore: SettingsStore, effects: AppPipelineEffects) {
         self.settingsStore = settingsStore
@@ -57,7 +58,8 @@ final class CaptureCoordinator {
             AppLog.log("captureRegion aborted: Screen Recording not granted")
             return
         }
-        guard regionSession == nil else { return }   // one overlay at a time
+        guard !regionCaptureInFlight, regionSession == nil else { return }  // one overlay at a time
+        regionCaptureInFlight = true
         let appName = frontmostAppName()
         Task { @MainActor in
             do {
@@ -65,6 +67,7 @@ final class CaptureCoordinator {
                 AppLog.log("captureAllDisplays returned \(displays.count) display(s) for region overlay")
                 let session = RegionOverlaySession(displays: displays) { [weak self] image in
                     self?.regionSession = nil
+                    self?.regionCaptureInFlight = false
                     if let image {
                         self?.deliver(image: image, appName: appName)
                     } else {
@@ -74,6 +77,7 @@ final class CaptureCoordinator {
                 self.regionSession = session
                 session.begin()
             } catch {
+                self.regionCaptureInFlight = false
                 self.reportFailure(error)
             }
         }
