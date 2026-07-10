@@ -61,7 +61,13 @@ final class PermissionOnboardingController: NSObject {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
         task.arguments = ["-n", bundlePath]
-        try? task.run()
+        do {
+            try task.run()
+        } catch {
+            NSLog("Relaunch failed: \(error)")
+            NSSound.beep()
+            return   // keep the app alive; user can relaunch manually
+        }
         NSApp.terminate(nil)
     }
 }
