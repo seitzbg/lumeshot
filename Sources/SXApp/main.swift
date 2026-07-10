@@ -1,0 +1,1 @@
+print("sharex-mac scaffold")
