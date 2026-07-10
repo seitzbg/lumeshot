@@ -1,0 +1,21 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build-test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Swift version
+        run: swift --version
+      - name: Build
+        run: swift build
+      # Capture tests self-skip via `.enabled(if: CGPreflightScreenCaptureAccess())`
+      # (headless runners have no Screen Recording grant); scripts/bundle.sh
+      # falls back to ad-hoc signing here since the dev signing keychain
+      # (scripts/setup-signing.sh) only exists on the dev Mac.
+      - name: Test
+        run: swift test
