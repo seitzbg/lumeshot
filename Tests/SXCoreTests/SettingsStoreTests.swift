@@ -44,6 +44,25 @@ private func tempFile() -> URL {
         #expect(!FileManager.default.fileExists(atPath: url.path))
     }
 
+    @Test func unreadableFileYieldsDefaultsWithReadFailedIssue() throws {
+        let url = tempFile()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        let store = SettingsStore(fileURL: url)
+        try store.save(.default)
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: url.path)
+        defer {
+            try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        }
+
+        let (settings, issue) = store.loadOrDefault()
+
+        #expect(settings == AppSettings.default)
+        guard case .readFailed? = issue else {
+            Issue.record("expected readFailed issue"); return
+        }
+    }
+
     @Test func defaultsHaveExpectedHotkeys() {
         let d = AppSettings.default
         #expect(d.hotkeys.fullscreen == HotkeyCombo(keyCode: 20, modifiers: 2560)) // ⌥⇧3

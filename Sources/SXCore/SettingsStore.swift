@@ -2,6 +2,8 @@ import Foundation
 
 public enum SettingsLoadIssue: Equatable, Sendable {
     case corruptBackedUp(URL)
+    case corruptBackupFailed(String)   // corrupt file left in place
+    case readFailed(String)            // file exists but could not be read
 }
 
 public struct SettingsStore: Sendable {
@@ -17,16 +19,26 @@ public struct SettingsStore: Sendable {
     }
 
     public func loadOrDefault() -> (AppSettings, SettingsLoadIssue?) {
-        guard let data = try? Data(contentsOf: fileURL) else {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else {
             return (.default, nil)
+        }
+        let data: Data
+        do {
+            data = try Data(contentsOf: fileURL)
+        } catch {
+            return (.default, .readFailed(error.localizedDescription))
         }
         do {
             return (try JSONDecoder().decode(AppSettings.self, from: data), nil)
         } catch {
             let backup = fileURL.appendingPathExtension("corrupt")
-            try? FileManager.default.removeItem(at: backup)
-            try? FileManager.default.moveItem(at: fileURL, to: backup)
-            return (.default, .corruptBackedUp(backup))
+            do {
+                try? FileManager.default.removeItem(at: backup)
+                try FileManager.default.moveItem(at: fileURL, to: backup)
+                return (.default, .corruptBackedUp(backup))
+            } catch {
+                return (.default, .corruptBackupFailed(error.localizedDescription))
+            }
         }
     }
 
