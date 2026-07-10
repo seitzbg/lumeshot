@@ -13,6 +13,8 @@ final class CaptureCoordinator {
     private let effects: AppPipelineEffects
     private var regionSession: RegionOverlaySession?
     private var regionCaptureInFlight = false
+    private var windowSession: WindowPickerSession?
+    private var windowCaptureInFlight = false
 
     init(settingsStore: SettingsStore, effects: AppPipelineEffects) {
         self.settingsStore = settingsStore
@@ -84,8 +86,42 @@ final class CaptureCoordinator {
     }
 
     func captureWindow() {
-        // Replaced with the window picker session in Task 12.
-        NSLog("Window capture not implemented yet")
+        AppLog.log("captureWindow invoked; preflight=\(PermissionOnboardingController.isGranted())")
+        guard PermissionOnboardingController.ensurePermission() else {
+            AppLog.log("captureWindow aborted: Screen Recording not granted")
+            return
+        }
+        guard !windowCaptureInFlight, windowSession == nil else { return }  // one overlay at a time
+        windowCaptureInFlight = true
+        Task { @MainActor in
+            do {
+                let candidates = try await WindowCapture.candidates(
+                    excludingBundleID: Bundle.main.bundleIdentifier)
+                AppLog.log("WindowCapture.candidates returned \(candidates.count) candidate(s)")
+                let session = WindowPickerSession(candidates: candidates) { [weak self] pick in
+                    self?.windowSession = nil
+                    self?.windowCaptureInFlight = false
+                    if let pick {
+                        AppLog.log("Window picked: \(pick.appName ?? "?") — \(pick.title ?? "Untitled")")
+                        Task { @MainActor in
+                            do {
+                                let image = try await WindowCapture.capture(windowID: pick.windowID)
+                                self?.deliver(image: image, appName: pick.appName)
+                            } catch {
+                                self?.reportFailure(error)
+                            }
+                        }
+                    } else {
+                        AppLog.log("Window capture cancelled")
+                    }
+                }
+                self.windowSession = session
+                session.begin()
+            } catch {
+                self.windowCaptureInFlight = false
+                self.reportFailure(error)
+            }
+        }
     }
 
     @discardableResult
