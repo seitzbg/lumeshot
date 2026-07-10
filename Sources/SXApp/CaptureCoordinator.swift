@@ -2,13 +2,18 @@ import AppKit
 import SXCapture
 import SXCore
 
+enum DeliveryError: Error, LocalizedError {
+    case pngEncodingFailed
+    var errorDescription: String? { "Could not encode the capture as PNG." }
+}
+
 @MainActor
 final class CaptureCoordinator {
-    private let settings: AppSettings
+    private let settingsStore: SettingsStore
     private let effects: AppPipelineEffects
 
-    init(settings: AppSettings, effects: AppPipelineEffects) {
-        self.settings = settings
+    init(settingsStore: SettingsStore, effects: AppPipelineEffects) {
+        self.settingsStore = settingsStore
         self.effects = effects
     }
 
@@ -30,8 +35,9 @@ final class CaptureCoordinator {
                 let displays = try await DisplayCapture.captureAllDisplays(showCursor: false)
                 var count = 0
                 for display in displays {
-                    self.deliver(image: display.image, appName: appName)
-                    count += 1
+                    if self.deliver(image: display.image, appName: appName) {
+                        count += 1
+                    }
                 }
                 completion?(count)
             } catch {
@@ -51,19 +57,26 @@ final class CaptureCoordinator {
         NSLog("Window capture not implemented yet")
     }
 
-    func deliver(image: CGImage, appName: String?) {
+    @discardableResult
+    func deliver(image: CGImage, appName: String?) -> Bool {
         guard let png = ImageEncoder.png(from: image) else {
-            NSLog("PNG encoding failed")
-            return
+            reportFailure(DeliveryError.pngEncodingFailed)
+            return false
         }
         let artifact = CaptureArtifact(pngData: png, width: image.width, height: image.height,
                                        capturedAt: Date(), appName: appName)
+        // Settings are reloaded fresh here (not the launch-time snapshot) so hand-edits
+        // to settings.json take effect on the next capture; per-capture reload
+        // deliberately ignores the load-issue channel (already reported at launch).
+        let (settings, _) = settingsStore.loadOrDefault()
         do {
             let result = try AfterCapturePipeline(settings: settings, effects: effects)
                 .process(artifact)
             NSLog("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
+            return true
         } catch {
             reportFailure(error)
+            return false
         }
     }
 

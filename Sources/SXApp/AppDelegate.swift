@@ -17,7 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         effects.setUpNotifications()
-        let coordinator = CaptureCoordinator(settings: settings, effects: effects)
+        let coordinator = CaptureCoordinator(settingsStore: store, effects: effects)
         self.coordinator = coordinator
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
