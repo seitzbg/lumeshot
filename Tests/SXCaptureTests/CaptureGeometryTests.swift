@@ -25,4 +25,16 @@ import Testing
                                               imageWidth: 200, imageHeight: 100)
         #expect(r.isEmpty)
     }
+
+    @Test func flipsCGGlobalRectToAppKitCoordinates() {
+        let r = CaptureGeometry.appKitRect(fromCGGlobal: CGRect(x: 100, y: 50, width: 200, height: 150),
+                                           primaryHeight: 1000)
+        #expect(r == CGRect(x: 100, y: 800, width: 200, height: 150))
+    }
+
+    @Test func flipsRectTouchingTheTop() {
+        let r = CaptureGeometry.appKitRect(fromCGGlobal: CGRect(x: 0, y: 0, width: 300, height: 120),
+                                           primaryHeight: 1000)
+        #expect(r == CGRect(x: 0, y: 880, width: 300, height: 120))
+    }
 }

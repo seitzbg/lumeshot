@@ -28,9 +28,7 @@ public struct WindowCandidate: Sendable, Equatable {
 @MainActor
 private func backingScale(forCGGlobalFrame frame: CGRect) -> CGFloat {
     guard let primaryHeight = NSScreen.screens.first?.frame.height else { return 2 }
-    let appKit = CGRect(x: frame.origin.x,
-                        y: primaryHeight - frame.origin.y - frame.height,
-                        width: frame.width, height: frame.height)
+    let appKit = CaptureGeometry.appKitRect(fromCGGlobal: frame, primaryHeight: primaryHeight)
     let best = NSScreen.screens.max { a, b in
         a.frame.intersection(appKit).area < b.frame.intersection(appKit).area
     }

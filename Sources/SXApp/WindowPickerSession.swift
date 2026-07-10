@@ -17,6 +17,10 @@ final class WindowPickerSession {
 
     func begin() {
         guard !candidates.isEmpty else { onPick(nil); return }
+        // Activate first so the borderless overlay reliably takes keyboard focus
+        // (this is a background LSUIElement app; without this the first invocation
+        // can show an unfocused overlay that ignores Escape).
+        NSApp.activate(ignoringOtherApps: true)
         for screen in NSScreen.screens {
             let window = PickerWindow(contentRect: screen.frame, styleMask: .borderless,
                                       backing: .buffered, defer: false)
@@ -35,7 +39,6 @@ final class WindowPickerSession {
             window.makeFirstResponder(view)
             windows.append(window)
         }
-        NSApp.activate()
     }
 
     private func finish(_ pick: WindowCandidate?) {
@@ -71,10 +74,8 @@ private final class WindowPickerView: NSView {
 
     /// CG global (top-left origin) -> this view's coordinates (bottom-left origin).
     private func viewRect(fromCGGlobal rect: CGRect) -> CGRect {
-        let primaryHeight = NSScreen.screens[0].frame.height
-        let appKit = CGRect(x: rect.origin.x,
-                            y: primaryHeight - rect.origin.y - rect.height,
-                            width: rect.width, height: rect.height)
+        let primaryHeight = NSScreen.screens.first?.frame.height ?? 0
+        let appKit = CaptureGeometry.appKitRect(fromCGGlobal: rect, primaryHeight: primaryHeight)
         return CGRect(x: appKit.origin.x - screen.frame.origin.x,
                       y: appKit.origin.y - screen.frame.origin.y,
                       width: appKit.width, height: appKit.height)

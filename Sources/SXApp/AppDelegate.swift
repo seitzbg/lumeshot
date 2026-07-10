@@ -13,7 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let (settings, issue) = store.loadOrDefault()
         handleLoadIssue(issue)
         if !FileManager.default.fileExists(atPath: store.fileURL.path) {
-            try? store.save(settings)   // materialize defaults for hand-editing
+            do {
+                try store.save(settings)   // materialize defaults for hand-editing
+            } catch {
+                AppLog.log("Failed to materialize default settings at \(store.fileURL.path): \(error)")
+            }
         }
 
         effects.setUpNotifications()
@@ -104,7 +108,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
         let (settings, _) = store.loadOrDefault()
         let path = (settings.captureSavePath as NSString).expandingTildeInPath
-        try? FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(atPath: path, withIntermediateDirectories: true)
+        } catch {
+            AppLog.log("Failed to create captures folder at \(path): \(error)")
+        }
         NSWorkspace.shared.open(URL(fileURLWithPath: path, isDirectory: true))
     }
 

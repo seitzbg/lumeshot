@@ -16,4 +16,13 @@ public enum CaptureGeometry {
         let bounds = CGRect(x: 0, y: 0, width: imageWidth, height: imageHeight)
         return scaled.intersection(bounds).integral
     }
+
+    /// Converts a CoreGraphics-global rect (origin top-left of the primary
+    /// display) into AppKit global coordinates (origin bottom-left), given the
+    /// primary display's height in points.
+    public static func appKitRect(fromCGGlobal rect: CGRect, primaryHeight: CGFloat) -> CGRect {
+        CGRect(x: rect.origin.x,
+               y: primaryHeight - rect.origin.y - rect.height,
+               width: rect.width, height: rect.height)
+    }
 }
