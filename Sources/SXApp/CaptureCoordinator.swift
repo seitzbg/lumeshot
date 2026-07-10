@@ -98,6 +98,13 @@ final class CaptureCoordinator {
                 let candidates = try await WindowCapture.candidates(
                     excludingBundleID: Bundle.main.bundleIdentifier)
                 AppLog.log("WindowCapture.candidates returned \(candidates.count) candidate(s)")
+                guard !candidates.isEmpty else {
+                    AppLog.log("Window capture: no capturable windows found")
+                    self.effects.notify(title: "No windows to capture",
+                                        body: "No capturable windows were found.", fileURL: nil)
+                    self.windowCaptureInFlight = false
+                    return
+                }
                 let session = WindowPickerSession(candidates: candidates) { [weak self] pick in
                     self?.windowSession = nil
                     self?.windowCaptureInFlight = false

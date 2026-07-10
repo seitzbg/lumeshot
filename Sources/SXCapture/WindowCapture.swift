@@ -23,6 +23,24 @@ public struct WindowCandidate: Sendable, Equatable {
     }
 }
 
+/// Backing scale of the screen most overlapping the given CG-global rect
+/// (top-left origin), converting to AppKit coords for the comparison.
+@MainActor
+private func backingScale(forCGGlobalFrame frame: CGRect) -> CGFloat {
+    guard let primaryHeight = NSScreen.screens.first?.frame.height else { return 2 }
+    let appKit = CGRect(x: frame.origin.x,
+                        y: primaryHeight - frame.origin.y - frame.height,
+                        width: frame.width, height: frame.height)
+    let best = NSScreen.screens.max { a, b in
+        a.frame.intersection(appKit).area < b.frame.intersection(appKit).area
+    }
+    return best?.backingScaleFactor ?? 2
+}
+
+private extension CGRect {
+    var area: CGFloat { width * height }
+}
+
 public enum WindowFilter {
     /// Pickable windows: normal layer, on screen, big enough to be intentional,
     /// owned by an identifiable app, not ourselves. Sorted by area descending so
@@ -63,7 +81,7 @@ public enum WindowCapture {
         guard let window = content.windows.first(where: { $0.windowID == windowID }) else {
             throw CaptureError.noMatchingWindow
         }
-        let scale = NSScreen.main?.backingScaleFactor ?? 2
+        let scale = backingScale(forCGGlobalFrame: window.frame)
         let filter = SCContentFilter(desktopIndependentWindow: window)
         let config = SCStreamConfiguration()
         config.width = Int(window.frame.width * scale)
