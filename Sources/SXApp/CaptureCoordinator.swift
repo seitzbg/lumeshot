@@ -11,6 +11,7 @@ enum DeliveryError: Error, LocalizedError {
 final class CaptureCoordinator {
     private let settingsStore: SettingsStore
     private let effects: AppPipelineEffects
+    private var regionSession: RegionOverlaySession?
 
     init(settingsStore: SettingsStore, effects: AppPipelineEffects) {
         self.settingsStore = settingsStore
@@ -51,8 +52,31 @@ final class CaptureCoordinator {
     }
 
     func captureRegion() {
-        // Replaced with the region overlay session in Task 11.
-        NSLog("Region capture not implemented yet")
+        AppLog.log("captureRegion invoked; preflight=\(PermissionOnboardingController.isGranted())")
+        guard PermissionOnboardingController.ensurePermission() else {
+            AppLog.log("captureRegion aborted: Screen Recording not granted")
+            return
+        }
+        guard regionSession == nil else { return }   // one overlay at a time
+        let appName = frontmostAppName()
+        Task { @MainActor in
+            do {
+                let displays = try await DisplayCapture.captureAllDisplays(showCursor: false)
+                AppLog.log("captureAllDisplays returned \(displays.count) display(s) for region overlay")
+                let session = RegionOverlaySession(displays: displays) { [weak self] image in
+                    self?.regionSession = nil
+                    if let image {
+                        self?.deliver(image: image, appName: appName)
+                    } else {
+                        AppLog.log("Region capture cancelled")
+                    }
+                }
+                self.regionSession = session
+                session.begin()
+            } catch {
+                self.reportFailure(error)
+            }
+        }
     }
 
     func captureWindow() {
