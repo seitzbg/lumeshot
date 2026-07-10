@@ -19,6 +19,10 @@ final class RegionOverlaySession {
     }
 
     func begin() {
+        // Activate first so the borderless overlay reliably takes keyboard focus
+        // (this is a background LSUIElement app; without this the first invocation
+        // can show an unfocused overlay that ignores Escape).
+        NSApp.activate(ignoringOtherApps: true)
         for display in displays {
             let window = KeyableWindow(contentRect: display.screenFrame,
                                        styleMask: .borderless, backing: .buffered, defer: false)
@@ -36,7 +40,6 @@ final class RegionOverlaySession {
             window.makeFirstResponder(view)
             windows.append(window)
         }
-        NSApp.activate()
         NSCursor.crosshair.set()
     }
 
@@ -191,8 +194,14 @@ private final class RegionSelectionView: NSView {
         guard let start = dragStart else { return }
         current = convert(event.locationInWindow, from: nil)
         let selection = CaptureGeometry.normalizedRect(from: start, to: current)
-        // A sub-4pt drag is a slip, not a selection.
-        onDone(selection.width >= 4 && selection.height >= 4 ? selection : nil)
+        if selection.width >= 4 && selection.height >= 4 {
+            onDone(selection)
+        } else {
+            // A click or sub-4pt slip is not a selection; keep the overlay up
+            // (only Escape cancels) so a stray click doesn't dismiss it.
+            dragStart = nil
+            needsDisplay = true
+        }
     }
 
     override func keyDown(with event: NSEvent) {
