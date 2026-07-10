@@ -33,6 +33,9 @@ public enum DisplayCapture {
                 ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID)
                     == display.displayID
             }
+            if screen == nil {
+                NSLog("No NSScreen match for display \(display.displayID); using fallback scale/frame")
+            }
             let scale = screen?.backingScaleFactor ?? 2
             let filter = SCContentFilter(display: display, excludingWindows: [])
             let config = SCStreamConfiguration()

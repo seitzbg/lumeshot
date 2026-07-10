@@ -35,7 +35,9 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
     func copyImageToClipboard(_ pngData: Data) {
         let pb = NSPasteboard.general
         pb.clearContents()
-        pb.setData(pngData, forType: .png)
+        if !pb.setData(pngData, forType: .png) {
+            NSLog("Pasteboard write failed")
+        }
     }
 
     func notify(title: String, body: String, fileURL: URL?) {
