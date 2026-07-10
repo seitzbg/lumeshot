@@ -1,5 +1,7 @@
 import AppKit
-import ScreenCaptureKit
+// See DisplayCapture.swift: @preconcurrency keeps the Xcode 16 / macOS 15 SDK
+// (non-Sendable SCShareableContent) building under Swift 6 strict concurrency.
+@preconcurrency import ScreenCaptureKit
 
 /// `frame` is in CoreGraphics global coordinates (origin top-left of primary display).
 public struct WindowCandidate: Sendable, Equatable {

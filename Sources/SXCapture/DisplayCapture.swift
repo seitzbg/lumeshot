@@ -1,5 +1,8 @@
 import AppKit
-import ScreenCaptureKit
+// @preconcurrency: on the Xcode 16 / macOS 15 SDK, SCShareableContent is not
+// Sendable, so awaiting its factory methods from @MainActor errors under Swift 6
+// strict concurrency. Newer SDKs annotate it correctly; this keeps both building.
+@preconcurrency import ScreenCaptureKit
 
 /// A display frozen at capture time. `screenFrame` is in AppKit screen coordinates (points).
 public struct FrozenDisplay: @unchecked Sendable {   // CGImage is immutable; safe to pass
