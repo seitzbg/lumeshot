@@ -8,6 +8,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
     private var destinationsWindow: DestinationsWindowController?
+    private var historyStore: HistoryStore?
+    private var historyWindow: HistoryWindowController?
     private let effects = AppPipelineEffects()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -27,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fileURL: SettingsStore.defaultFileURL.deletingLastPathComponent()
                 .appendingPathComponent("history.sqlite"))
         if historyStore == nil { AppLog.log("History store unavailable; captures won't be recorded") }
+        self.historyStore = historyStore
         let uploadService = UploadService(credentials: KeychainCredentialStore())
         let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
                                              uploadService: uploadService,
@@ -103,6 +106,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         uploadToggle.state = currentUploadAfterCapture() ? .on : .off
         menu.addItem(uploadToggle)
         menu.addItem(.separator())
+        menu.addItem(menuItem("History…", #selector(showHistory)))
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit ShareX for Mac",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
@@ -127,6 +132,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func manageDestinations() { destinationsWindow?.show() }
+
+    @objc private func showHistory() {
+        guard let store = historyStore else {
+            effects.notify(title: "History unavailable",
+                           body: "The history database could not be opened.", fileURL: nil)
+            return
+        }
+        if historyWindow == nil { historyWindow = HistoryWindowController(store: store) }
+        historyWindow?.show()
+    }
 
     @objc private func importSxcu() {
         // runModal (synchronous, @MainActor) avoids the Swift 6 concurrency friction
