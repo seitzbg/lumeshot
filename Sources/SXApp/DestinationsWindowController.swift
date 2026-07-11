@@ -5,6 +5,7 @@ import SXCore
 @MainActor
 final class DestinationsWindowController {
     private var window: NSWindow?
+    private var model: DestinationsModel?
     private let store: SettingsStore
     private let credentials: CredentialStore
     private let onChange: () -> Void
@@ -17,11 +18,13 @@ final class DestinationsWindowController {
 
     func show() {
         if let window {
+            model?.reloadFromDisk()
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
             return
         }
         let model = DestinationsModel(store: store, credentials: credentials, onChange: onChange)
+        self.model = model
         let hosting = NSHostingController(rootView: DestinationsView(model: model))
         let w = NSWindow(contentViewController: hosting)
         w.title = "Manage Destinations"

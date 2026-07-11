@@ -17,16 +17,24 @@ final class DestinationsModel: ObservableObject {
     }
 
     /// Reload full settings, mutate `.upload`, persist, and refresh the menu.
-    private func persist(_ mutate: (inout AppSettings) -> Void) {
+    @discardableResult
+    private func persist(_ mutate: (inout AppSettings) -> Void) -> Bool {
         var (all, _) = store.loadOrDefault()
         mutate(&all)
         do {
             try store.save(all)
             settings = all.upload
             onChange()
+            return true
         } catch {
             AppLog.log("Destinations: save failed: \(error)")
+            return false
         }
+    }
+
+    /// Re-read settings from disk (e.g. after a .sxcu import happened elsewhere).
+    func reloadFromDisk() {
+        settings = store.loadOrDefault().0.upload
     }
 
     func setActive(_ id: String) {
@@ -77,7 +85,11 @@ final class DestinationsModel: ObservableObject {
                               customDomain: customDomain.isEmpty ? nil : customDomain)
         let dest = UploadDestination(id: id, name: name.isEmpty ? "S3" : name,
                                      kind: .s3, s3Config: config)
-        persist { $0.upload = $0.upload.addingOrUpdating(dest).settingActive(id: id) }
+        if !persist({ $0.upload = $0.upload.addingOrUpdating(dest).settingActive(id: id) }) {
+            // Save failed: roll back the orphaned Keychain secret we just wrote,
+            // so the Keychain never drifts out of sync with settings.json.
+            try? S3Credentials.purge(id: id, from: credentials)
+        }
     }
 
     func kindLabel(_ kind: UploadDestinationKind) -> String {
