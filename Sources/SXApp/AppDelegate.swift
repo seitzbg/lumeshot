@@ -1,5 +1,6 @@
 import AppKit
 import SXCore
+import UniformTypeIdentifiers
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -92,6 +93,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(menuItem("Open Captures Folder", #selector(openCapturesFolder)))
         menu.addItem(.separator())
+        menu.addItem(menuItem("Import .sxcu…", #selector(importSxcu)))
+        let uploadToggle = menuItem("Upload After Capture", #selector(toggleUploadAfterCapture))
+        uploadToggle.state = currentUploadAfterCapture() ? .on : .off
+        menu.addItem(uploadToggle)
+        menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit ShareX for Mac",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
@@ -109,6 +115,64 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func menuCaptureFullscreen() {
         AppLog.log("Menu: Capture Full Screen clicked")
         coordinator?.captureFullscreen()
+    }
+
+    private func currentUploadAfterCapture() -> Bool {
+        SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault().0.upload.uploadAfterCapture
+    }
+
+    @objc private func importSxcu() {
+        // runModal (synchronous, @MainActor) avoids the Swift 6 concurrency friction
+        // of an escaping completion closure; UTType filtering avoids the deprecated
+        // `allowedFileTypes` API (which would emit a build warning).
+        let panel = NSOpenPanel()
+        if let sxcuType = UTType(filenameExtension: "sxcu") {
+            panel.allowedContentTypes = [sxcuType]
+        } else {
+            panel.allowsOtherFileTypes = true
+        }
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        performSxcuImport(from: url)
+    }
+
+    func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        performSxcuImport(from: URL(fileURLWithPath: filename))
+        return true
+    }
+
+    private func performSxcuImport(from url: URL) {
+        do {
+            let data = try Data(contentsOf: url)
+            let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
+            var (settings, _) = store.loadOrDefault()
+            let id = UUID().uuidString
+            let destination = try SxcuImporter.makeDestination(
+                from: data, id: id, credentials: KeychainCredentialStore())
+            settings.upload.destinations.append(destination)
+            settings.upload.activeDestinationID = id      // make the freshly imported one active
+            try store.save(settings)
+            AppLog.log("Imported .sxcu destination '\(destination.name)' (id \(id))")
+            effects.notify(title: "Uploader imported",
+                           body: "\(destination.name) is now the active destination.",
+                           fileURL: nil)
+            rebuildMenu()
+        } catch {
+            AppLog.log("Import .sxcu failed: \(error)")
+            effects.notify(title: "Import failed", body: "\(error)", fileURL: nil)
+        }
+    }
+
+    @objc private func toggleUploadAfterCapture() {
+        let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
+        var (settings, _) = store.loadOrDefault()
+        settings.upload.uploadAfterCapture.toggle()
+        try? store.save(settings)
+        AppLog.log("Upload after capture: \(settings.upload.uploadAfterCapture)")
+        rebuildMenu()
+    }
+
+    private func rebuildMenu() {
+        statusItem?.setMenu(buildMenu())
     }
 
     @objc private func openCapturesFolder() {

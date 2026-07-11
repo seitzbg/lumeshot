@@ -17,3 +17,5 @@ checklist.
 - [ ] Multi-display (if attached): fullscreen and region overlays appear on every screen; capture from a secondary display is correct and Retina-sharp
 - [ ] Filenames match `Screenshot_YYYY-MM-DD_HH-MM-SS.png`; a second capture in the same second gets a `_1` suffix
 - [ ] Quit from menu; `pgrep -x SXApp` confirms exit
+
+M2a upload smoke: see docs/smoke-m2a.md
