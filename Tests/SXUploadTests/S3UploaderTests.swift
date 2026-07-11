@@ -37,7 +37,7 @@ private final class MockHTTPClient: HTTPClient, @unchecked Sendable {
         let mock = MockHTTPClient(response: HTTPResponse(status: 403, headers: [:],
                                                          body: Data("AccessDenied".utf8)))
         let uploader = S3Uploader(config: config, credentials: creds, http: mock, now: fixedNow)
-        await #expect(throws: UploadError.self) {
+        await #expect(throws: UploadError.http(status: 403, body: "AccessDenied")) {
             _ = try await uploader.upload(png())
         }
     }
