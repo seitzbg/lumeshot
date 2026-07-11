@@ -15,7 +15,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 **Editor** (opt-in via the menu-bar "Annotate Before Sharing" toggle)
 - v1 vector toolset: rectangle, ellipse, line, arrow (single classic arrowhead), freehand, plus Select for move/resize
 - Toolbar: tool picker, one stroke color + width control, undo/redo, delete selected, Done/Cancel
-- Non-destructive document: base image + ordered annotation list, composited via CoreGraphics only on Done
+- Non-destructive document: base image + ordered annotation list, kept separate until Done flattens them into the final image via CoreGraphics
 - Undo/redo, bounded to the last 50 edits
 - Runs between capture and the existing save→clipboard→upload chain: Done flattens the document and continues that chain; Cancel (or closing the window) discards the capture
 
