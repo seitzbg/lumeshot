@@ -89,7 +89,12 @@ struct EditorView: View {
             Button("Cancel", role: .cancel) { onCancel() }
                 .keyboardShortcut(.cancelAction)
             Button("Done") {
-                if let image = model.flatten() { onDone(image) } else { onCancel() }
+                if let image = model.flatten() {
+                    onDone(image)
+                } else {
+                    AppLog.log("Editor: flatten failed; discarding capture")
+                    onCancel()
+                }
             }
             .keyboardShortcut(.defaultAction)
         }

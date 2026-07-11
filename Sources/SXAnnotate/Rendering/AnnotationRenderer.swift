@@ -88,11 +88,11 @@ public enum AnnotationRenderer {
         guard !style.strokeColor.isClear, style.strokeWidth > 0 else { return }
         let dx = end.x - start.x, dy = end.y - start.y
         let length = hypot(dx, dy)
+        guard length > 0.5 else { return }
         ctx.setStrokeColor(style.strokeColor.cgColor)
         ctx.setFillColor(style.strokeColor.cgColor)
-        guard length > 0.5 else { return }
         let ux = dx / length, uy = dy / length                 // unit direction
-        let headLength = Swift.max(12, CGFloat(style.strokeWidth) * 3)
+        let headLength = Swift.min(Swift.max(12, CGFloat(style.strokeWidth) * 3), length)
         let headHalfWidth = Swift.max(7, CGFloat(style.strokeWidth) * 1.8)
         // Shaft stops at the base of the head so it doesn't poke through the tip.
         let baseX = end.x - ux * headLength, baseY = end.y - uy * headLength

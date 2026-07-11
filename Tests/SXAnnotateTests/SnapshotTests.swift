@@ -2,7 +2,6 @@ import Testing
 import CoreGraphics
 import Foundation
 import ImageIO
-import UniformTypeIdentifiers
 @testable import SXAnnotate
 
 @Suite struct SnapshotTests {
@@ -31,14 +30,6 @@ import UniformTypeIdentifiers
                        style: AnnotationStyle(strokeColor: red, strokeWidth: 3)),
         ]
         return AnnotationRenderer.flatten(base: base, annotations: annotations)!
-    }
-
-    private func pngData(_ image: CGImage) -> Data {
-        let out = NSMutableData()
-        let dest = CGImageDestinationCreateWithData(out, UTType.png.identifier as CFString, 1, nil)!
-        CGImageDestinationAddImage(dest, image, nil)
-        CGImageDestinationFinalize(dest)
-        return out as Data
     }
 
     private func load(_ data: Data) -> CGImage {

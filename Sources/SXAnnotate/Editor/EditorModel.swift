@@ -10,7 +10,7 @@ public final class EditorModel: ObservableObject {
     public let baseImage: CGImage
 
     @Published public private(set) var annotations: [Annotation] = []
-    @Published public var activeTool: EditorTool = .select
+    @Published public private(set) var activeTool: EditorTool = .select
     @Published public var strokeColor: RGBAColor = .red
     @Published public var strokeWidth: Double = 4
     @Published public private(set) var selectedID: Annotation.ID?
