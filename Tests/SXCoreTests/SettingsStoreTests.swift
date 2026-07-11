@@ -68,6 +68,6 @@ private func tempFile() -> URL {
         #expect(d.hotkeys.fullscreen == HotkeyCombo(keyCode: 20, modifiers: 2560)) // ⌥⇧3
         #expect(d.hotkeys.region == HotkeyCombo(keyCode: 21, modifiers: 2560))     // ⌥⇧4
         #expect(d.hotkeys.window == HotkeyCombo(keyCode: 23, modifiers: 2560))     // ⌥⇧5
-        #expect(d.schemaVersion == 1)
+        #expect(d.schemaVersion == 2)
     }
 }

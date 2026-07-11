@@ -29,7 +29,11 @@ public struct SettingsStore: Sendable {
             return (.default, .readFailed(error.localizedDescription))
         }
         do {
-            return (try JSONDecoder().decode(AppSettings.self, from: data), nil)
+            var loaded = try JSONDecoder().decode(AppSettings.self, from: data)
+            if loaded.schemaVersion < 2 {
+                loaded.schemaVersion = 2   // `upload` already defaulted by the decoder
+            }
+            return (loaded, nil)
         } catch {
             let backup = fileURL.appendingPathExtension("corrupt")
             do {
