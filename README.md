@@ -2,7 +2,7 @@
 
 A Swift-native screenshot, annotation, upload, and screen-recording tool for macOS (Apple Silicon, macOS 15+), reimplementing the [ShareX](https://github.com/ShareX/ShareX) workflow as a first-class Mac citizen — menu-bar resident, ScreenCaptureKit capture, `.sxcu` custom-uploader compatibility.
 
-**Status:** M2b — capture, annotation, and upload complete. Uploaders: custom .sxcu, Imgur OAuth, and S3-compatible (AWS/R2/MinIO/B2). Destinations searchable and Keychain-managed. History browser with search and remote cleanup. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
+**Status:** M2b — capture and upload complete. Uploaders: custom .sxcu, Imgur OAuth, and S3-compatible (AWS/R2/MinIO/B2). Destinations searchable and Keychain-managed. History browser with search and remote cleanup. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
 
 ## Features
 
@@ -23,7 +23,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - Active destination persisted in settings; secrets stored in login Keychain (`org.sharexmac.app`), never in `settings.json`
 
 **History browser**
-- Thumbnail grid of all captures
+- List with thumbnails of all captures
 - Search by filename or URL
 - Actions: Copy URL, Open in browser, Reveal in Finder, Delete (local + remote cleanup via deletion URL)
 - SQLite-backed (`~/Library/Application Support/ShareX-Mac/history.sqlite`)
