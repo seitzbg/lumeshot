@@ -173,7 +173,8 @@ final class CaptureCoordinator {
         if let store = historyStore {
             let entry = HistoryEntry(id: entryID, capturedAt: capturedAt,
                                      filePath: savedURL?.path, url: nil, deletionURL: nil,
-                                     destinationName: destination?.name,
+                                     // Only attribute a destination when we actually upload to it.
+                                     destinationName: willUpload ? destination?.name : nil,
                                      uploadFailed: false)
             do { try store.insert(entry) } catch { AppLog.log("History insert failed: \(error)") }
         }
@@ -188,14 +189,24 @@ final class CaptureCoordinator {
                 AppLog.log("Upload succeeded: \(result.url)")
                 effects.copyTextToClipboard(result.url)
                 effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
-                try? historyStore?.setURL(id: entryID, url: result.url,
-                                          deletionURL: result.deletionURL, failed: false)
+                updateHistory(id: entryID, url: result.url, deletionURL: result.deletionURL,
+                              failed: false)
             } catch {
                 AppLog.log("Upload failed: \(error)")
                 effects.notify(title: "Upload failed",
                                body: "\(error). Local file kept.", fileURL: savedURL)
-                try? historyStore?.setURL(id: entryID, url: nil, deletionURL: nil, failed: true)
+                updateHistory(id: entryID, url: nil, deletionURL: nil, failed: true)
             }
+        }
+    }
+
+    /// Applies the upload outcome to the history row, logging rather than
+    /// swallowing a store failure (fail-loud).
+    private func updateHistory(id: String, url: String?, deletionURL: String?, failed: Bool) {
+        do {
+            try historyStore?.setURL(id: id, url: url, deletionURL: deletionURL, failed: failed)
+        } catch {
+            AppLog.log("History update failed for \(id): \(error)")
         }
     }
 
