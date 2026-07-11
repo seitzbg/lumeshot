@@ -10,6 +10,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var destinationsWindow: DestinationsWindowController?
     private var historyStore: HistoryStore?
     private var historyWindow: HistoryWindowController?
+    private let editorWindow = EditorWindowController()
     private let effects = AppPipelineEffects()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -33,7 +34,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let uploadService = UploadService(credentials: KeychainCredentialStore())
         let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
                                              uploadService: uploadService,
-                                             historyStore: historyStore)
+                                             historyStore: historyStore,
+                                             editorPresenter: editorWindow)
         self.coordinator = coordinator
         destinationsWindow = DestinationsWindowController(
             store: store, credentials: KeychainCredentialStore(),
@@ -105,6 +107,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let uploadToggle = menuItem("Upload After Capture", #selector(toggleUploadAfterCapture))
         uploadToggle.state = currentUploadAfterCapture() ? .on : .off
         menu.addItem(uploadToggle)
+        let annotateToggle = menuItem("Annotate Before Sharing", #selector(toggleAnnotateBeforeShare))
+        annotateToggle.state = currentAnnotateBeforeShare() ? .on : .off
+        menu.addItem(annotateToggle)
         menu.addItem(.separator())
         menu.addItem(menuItem("History…", #selector(showHistory)))
         menu.addItem(.separator())
@@ -129,6 +134,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func currentUploadAfterCapture() -> Bool {
         SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault().0.upload.uploadAfterCapture
+    }
+
+    private func currentAnnotateBeforeShare() -> Bool {
+        SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault().0.editor.annotateBeforeShare
     }
 
     @objc private func manageDestinations() { destinationsWindow?.show() }
@@ -193,6 +202,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             AppLog.log("Upload after capture: \(settings.upload.uploadAfterCapture)")
         } catch {
             AppLog.log("Failed to save upload-after-capture toggle: \(error)")
+        }
+        rebuildMenu()
+    }
+
+    @objc private func toggleAnnotateBeforeShare() {
+        let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
+        var (settings, _) = store.loadOrDefault()
+        settings.editor.annotateBeforeShare.toggle()
+        do {
+            try store.save(settings)
+            AppLog.log("Annotate before sharing: \(settings.editor.annotateBeforeShare)")
+        } catch {
+            AppLog.log("Failed to save annotate-before-sharing toggle: \(error)")
         }
         rebuildMenu()
     }

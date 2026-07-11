@@ -13,17 +13,20 @@ final class CaptureCoordinator {
     private let effects: AppPipelineEffects
     private let uploadService: UploadService
     private let historyStore: HistoryStore?
+    private let editorPresenter: EditorPresenting?
     private var regionSession: RegionOverlaySession?
     private var regionCaptureInFlight = false
     private var windowSession: WindowPickerSession?
     private var windowCaptureInFlight = false
 
     init(settingsStore: SettingsStore, effects: AppPipelineEffects,
-         uploadService: UploadService, historyStore: HistoryStore?) {
+         uploadService: UploadService, historyStore: HistoryStore?,
+         editorPresenter: EditorPresenting? = nil) {
         self.settingsStore = settingsStore
         self.effects = effects
         self.uploadService = uploadService
         self.historyStore = historyStore
+        self.editorPresenter = editorPresenter
     }
 
     func captureFullscreen() {
@@ -138,6 +141,25 @@ final class CaptureCoordinator {
 
     @discardableResult
     func deliver(image: CGImage, appName: String?) -> Bool {
+        let (settings, _) = settingsStore.loadOrDefault()
+        if settings.editor.annotateBeforeShare, let presenter = editorPresenter {
+            presenter.present(image: image) { [weak self] edited in
+                guard let self else { return }
+                guard let edited else {
+                    AppLog.log("Editor cancelled; capture discarded before save")
+                    return
+                }
+                self.finish(image: edited, appName: appName)
+            }
+            return true
+        }
+        return finish(image: image, appName: appName)
+    }
+
+    /// Encodes the (possibly edited) image and runs the after-capture chain.
+    /// Preserves the local-first invariant: disk save precedes any upload.
+    @discardableResult
+    private func finish(image: CGImage, appName: String?) -> Bool {
         guard let png = ImageEncoder.png(from: image) else {
             reportFailure(DeliveryError.pngEncodingFailed)
             return false

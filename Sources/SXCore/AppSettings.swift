@@ -20,6 +20,14 @@ public struct HotkeySettings: Codable, Equatable, Sendable {
     }
 }
 
+public struct EditorSettings: Codable, Equatable, Sendable {
+    public var annotateBeforeShare: Bool
+    public init(annotateBeforeShare: Bool) {
+        self.annotateBeforeShare = annotateBeforeShare
+    }
+    public static let `default` = EditorSettings(annotateBeforeShare: false)
+}
+
 public struct AppSettings: Codable, Equatable, Sendable {
     public var schemaVersion: Int
     public var captureSavePath: String     // supports leading ~
@@ -29,10 +37,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var showNotification: Bool
     public var hotkeys: HotkeySettings
     public var upload: UploadSettings
+    public var editor: EditorSettings
 
     public init(schemaVersion: Int, captureSavePath: String, filenameTemplate: String,
                 saveToDisk: Bool, copyToClipboard: Bool, showNotification: Bool,
-                hotkeys: HotkeySettings, upload: UploadSettings) {
+                hotkeys: HotkeySettings, upload: UploadSettings,
+                editor: EditorSettings = .default) {
         self.schemaVersion = schemaVersion
         self.captureSavePath = captureSavePath
         self.filenameTemplate = filenameTemplate
@@ -41,6 +51,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.showNotification = showNotification
         self.hotkeys = hotkeys
         self.upload = upload
+        self.editor = editor
     }
 
     // Tolerate a v1 file with no `upload` key by defaulting it (migration in SettingsStore
@@ -55,11 +66,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
         showNotification = try c.decode(Bool.self, forKey: .showNotification)
         hotkeys = try c.decode(HotkeySettings.self, forKey: .hotkeys)
         upload = try c.decodeIfPresent(UploadSettings.self, forKey: .upload) ?? .disabled
+        editor = try c.decodeIfPresent(EditorSettings.self, forKey: .editor) ?? .default
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, captureSavePath, filenameTemplate, saveToDisk,
-             copyToClipboard, showNotification, hotkeys, upload
+             copyToClipboard, showNotification, hotkeys, upload, editor
     }
 
     // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23
@@ -75,6 +87,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
             region: HotkeyCombo(keyCode: 21, modifiers: 2560),
             window: HotkeyCombo(keyCode: 23, modifiers: 2560)
         ),
-        upload: .disabled
+        upload: .disabled,
+        editor: .default
     )
 }
