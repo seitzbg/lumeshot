@@ -1,6 +1,5 @@
 import Testing
 @testable import SXUpload
 
-@Test func sxUploadModuleCompiles() {
-    #expect(true)
-}
+// Zero-assertion test: confirms the SXUpload module compiles and links.
+@Test func sxUploadModuleCompiles() {}
