@@ -57,9 +57,10 @@ public final class HistoryStore {
             """
         let stmt = try prepare(sql)
         defer { sqlite3_finalize(stmt) }
-        sqlite3_bind_int(stmt, 1, Int32(limit))
+        sqlite3_bind_int(stmt, 1, Int32(min(max(limit, 0), Int(Int32.max))))  // clamp: never trap
         var rows: [HistoryEntry] = []
-        while sqlite3_step(stmt) == SQLITE_ROW {
+        var rc = sqlite3_step(stmt)
+        while rc == SQLITE_ROW {
             rows.append(HistoryEntry(
                 id: text(stmt, 0) ?? "",
                 capturedAt: Date(timeIntervalSince1970: sqlite3_column_double(stmt, 1)),
@@ -68,7 +69,10 @@ public final class HistoryStore {
                 deletionURL: text(stmt, 4),
                 destinationName: text(stmt, 5),
                 uploadFailed: sqlite3_column_int(stmt, 6) != 0))
+            rc = sqlite3_step(stmt)
         }
+        // Distinguish "no more rows" (SQLITE_DONE) from a genuine read error mid-scan.
+        guard rc == SQLITE_DONE else { throw HistoryStoreError.exec(lastError) }
         return rows
     }
 
