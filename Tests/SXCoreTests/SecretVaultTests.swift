@@ -77,4 +77,12 @@ private final class DictCredentialStore: CredentialStore, @unchecked Sendable {
         #expect(!SecretVault.isSecretKey("album"))
         #expect(!SecretVault.isSecretKey("pretty"))
     }
+
+    @Test func purgeDeletesEveryStoredSecretAccount() throws {
+        let creds = DictCredentialStore()
+        let stripped = try SecretVault.strip(configWithSecretsEverywhere(), id: "d1", into: creds)
+        #expect(!creds.store.isEmpty)                 // secrets were stored
+        try SecretVault.purge(stripped, id: "d1", from: creds)
+        #expect(creds.store.isEmpty)                  // every namespaced account removed
+    }
 }
