@@ -2,7 +2,7 @@
 
 A Swift-native screenshot, annotation, upload, and screen-recording tool for macOS (Apple Silicon, macOS 15+), reimplementing the [ShareX](https://github.com/ShareX/ShareX) workflow as a first-class Mac citizen — menu-bar resident, ScreenCaptureKit capture, `.sxcu` custom-uploader compatibility.
 
-**Status:** M2b — capture and upload complete. Uploaders: custom .sxcu, Imgur OAuth, and S3-compatible (AWS/R2/MinIO/B2). Destinations searchable and Keychain-managed. History browser with search and remote cleanup. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
+**Status:** M2b — capture and upload complete. Uploaders: custom .sxcu, Imgur (anonymous), and S3-compatible (AWS/R2/MinIO/B2). Destinations searchable and Keychain-managed. History browser with search and remote cleanup. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
 
 ## Features
 
@@ -13,8 +13,8 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - Permission gating: System Settings + relaunch on first run (TCC Screen Recording grant)
 
 **Uploaders**
-- **Custom .sxcu**: Parses ShareX XML configs; request templating (parameters, headers, body); regex-based response URL extraction; secrets → Keychain
-- **Imgur OAuth**: Authenticated upload to Imgur; client-side OAuth flow (no server)
+- **Custom .sxcu**: Parses ShareX JSON configs; request templating (parameters, headers, body); regex-based response URL extraction; secrets → Keychain
+- **Imgur**: Anonymous upload via Client-ID; returns the share URL and a deletion URL (OAuth/authenticated albums deferred)
 - **S3-compatible**: Hand-rolled SigV4 signing (CryptoKit HMAC-SHA256) · supports AWS, Cloudflare R2, MinIO, Backblaze B2 · path-based and virtual-host addressing · optional ACL header · custom result-URL domain (CDN/reverse-proxy rewriting)
 
 **Destination management**
