@@ -32,6 +32,14 @@ private func ctx(body: String = "", headers: [String: String] = [:],
         #expect(ResponseURLParser.resolve("{regex:1|1}", context: c) == "abc123")
     }
 
+    @Test func regexOutOfRangeGroupResolvesEmpty() {
+        let c = ctx(body: "https://cdn/abc123", regex: ["https://cdn/(\\w+)"])
+        // Malformed / adversarial group indices from community .sxcu files must
+        // degrade to empty, never crash range(at:).
+        #expect(ResponseURLParser.resolve("{regex:1|-1}", context: c) == "")
+        #expect(ResponseURLParser.resolve("{regex:1|9}", context: c) == "")
+    }
+
     @Test func headerLookupIsCaseInsensitive() {
         let c = ctx(headers: ["Location": "https://x/y"])
         #expect(ResponseURLParser.resolve("{header:location}", context: c) == "https://x/y")

@@ -83,7 +83,7 @@ public enum ResponseURLParser {
         let group = parts.count > 1 ? (Int(parts[1]) ?? 0) : 0
         let range = NSRange(context.body.startIndex..., in: context.body)
         guard let match = regex.firstMatch(in: context.body, range: range),
-              group < match.numberOfRanges,
+              group >= 0, group < match.numberOfRanges,
               let r = Range(match.range(at: group), in: context.body) else { return "" }
         return String(context.body[r])
     }
