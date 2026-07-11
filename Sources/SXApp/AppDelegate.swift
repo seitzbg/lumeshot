@@ -7,6 +7,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
+    private var destinationsWindow: DestinationsWindowController?
+    private var historyStore: HistoryStore?
+    private var historyWindow: HistoryWindowController?
     private let effects = AppPipelineEffects()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -26,11 +29,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             fileURL: SettingsStore.defaultFileURL.deletingLastPathComponent()
                 .appendingPathComponent("history.sqlite"))
         if historyStore == nil { AppLog.log("History store unavailable; captures won't be recorded") }
+        self.historyStore = historyStore
         let uploadService = UploadService(credentials: KeychainCredentialStore())
         let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
                                              uploadService: uploadService,
                                              historyStore: historyStore)
         self.coordinator = coordinator
+        destinationsWindow = DestinationsWindowController(
+            store: store, credentials: KeychainCredentialStore(),
+            onChange: { [weak self] in self?.rebuildMenu() })
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
         AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")
@@ -94,9 +101,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(menuItem("Open Captures Folder", #selector(openCapturesFolder)))
         menu.addItem(.separator())
         menu.addItem(menuItem("Import .sxcu…", #selector(importSxcu)))
+        menu.addItem(menuItem("Manage Destinations…", #selector(manageDestinations)))
         let uploadToggle = menuItem("Upload After Capture", #selector(toggleUploadAfterCapture))
         uploadToggle.state = currentUploadAfterCapture() ? .on : .off
         menu.addItem(uploadToggle)
+        menu.addItem(.separator())
+        menu.addItem(menuItem("History…", #selector(showHistory)))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(title: "Quit ShareX for Mac",
                                 action: #selector(NSApplication.terminate(_:)),
@@ -119,6 +129,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func currentUploadAfterCapture() -> Bool {
         SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault().0.upload.uploadAfterCapture
+    }
+
+    @objc private func manageDestinations() { destinationsWindow?.show() }
+
+    @objc private func showHistory() {
+        guard let store = historyStore else {
+            effects.notify(title: "History unavailable",
+                           body: "The history database could not be opened.", fileURL: nil)
+            return
+        }
+        if historyWindow == nil { historyWindow = HistoryWindowController(store: store) }
+        historyWindow?.show()
     }
 
     @objc private func importSxcu() {

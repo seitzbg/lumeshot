@@ -55,6 +55,24 @@ public enum SecretVault {
         return out
     }
 
+    /// Delete every Keychain account this stripped config's secrets occupy.
+    /// Call on destination removal so no orphaned secrets linger.
+    public static func purge(_ config: CustomUploaderConfig, id: String,
+                             from credentials: CredentialStore) throws {
+        for (key, value) in config.headers where value == sentinel {
+            try credentials.deleteSecret(for: account(id: id, surface: "header", key: key))
+        }
+        for (key, value) in config.arguments where value == sentinel {
+            try credentials.deleteSecret(for: account(id: id, surface: "arg", key: key))
+        }
+        for (key, value) in config.parameters where value == sentinel {
+            try credentials.deleteSecret(for: account(id: id, surface: "param", key: key))
+        }
+        if config.data == sentinel {
+            try credentials.deleteSecret(for: account(id: id, surface: "data", key: "body"))
+        }
+    }
+
     private static func account(id: String, surface: String, key: String) -> String {
         "\(id)/\(surface)/\(key)"
     }
