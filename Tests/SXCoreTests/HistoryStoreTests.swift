@@ -52,4 +52,25 @@ private func entry(id: String, at seconds: TimeInterval, url: String? = nil) -> 
         let reopened = try HistoryStore(fileURL: url)
         #expect(try reopened.recent(limit: 10).map(\.id) == ["a"])
     }
+
+    @Test func searchMatchesUrlAndDestinationAndEmptyReturnsAll() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("sx-history-\(UUID().uuidString).sqlite")
+        let store = try HistoryStore(fileURL: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        try store.insert(HistoryEntry(id: "1", capturedAt: Date(timeIntervalSince1970: 100),
+                                      filePath: "/tmp/alpha.png", url: "https://cdn/alpha.png",
+                                      deletionURL: nil, destinationName: "S3", uploadFailed: false))
+        try store.insert(HistoryEntry(id: "2", capturedAt: Date(timeIntervalSince1970: 200),
+                                      filePath: "/tmp/beta.png", url: "https://i.imgur.com/beta",
+                                      deletionURL: nil, destinationName: "Imgur", uploadFailed: false))
+
+        #expect(try store.search(matching: "imgur", limit: 50).map(\.id) == ["2"])
+        #expect(try store.search(matching: "S3", limit: 50).map(\.id) == ["1"])
+        #expect(try store.search(matching: "alpha", limit: 50).map(\.id) == ["1"])
+        // Empty query falls back to recent() (newest first).
+        #expect(try store.search(matching: "   ", limit: 50).map(\.id) == ["2", "1"])
+        #expect(try store.all(limit: 50).map(\.id) == ["2", "1"])
+    }
 }
