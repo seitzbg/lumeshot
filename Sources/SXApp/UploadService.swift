@@ -32,6 +32,10 @@ struct UploadService {
             // from the Keychain immediately before building the request.
             let injected = try SecretVault.inject(config, id: destination.id, from: credentials)
             return CustomUploaderClient(config: injected, http: http)
+
+        case .s3:
+            // Placeholder; replaced with the real S3Uploader wiring in M2b Task 8.
+            throw UploadError.unsupported("S3 upload not wired yet")
         }
     }
 }
