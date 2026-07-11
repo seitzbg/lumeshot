@@ -21,7 +21,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         effects.setUpNotifications()
-        let coordinator = CaptureCoordinator(settingsStore: store, effects: effects)
+        let historyStore = try? HistoryStore(
+            fileURL: SettingsStore.defaultFileURL.deletingLastPathComponent()
+                .appendingPathComponent("history.sqlite"))
+        if historyStore == nil { AppLog.log("History store unavailable; captures won't be recorded") }
+        let uploadService = UploadService(credentials: KeychainCredentialStore())
+        let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
+                                             uploadService: uploadService,
+                                             historyStore: historyStore)
         self.coordinator = coordinator
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)

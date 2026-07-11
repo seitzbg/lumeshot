@@ -9,6 +9,8 @@ final class MockEffects: PipelineEffects {
     var clipboardCopies = 0
     var notifications: [(String, URL?)] = []
     var callOrder: [String] = []
+    var textCopies: [String] = []
+    var urlNotifications: [(String, String)] = []   // (body, url)
 
     func fileExists(at url: URL) -> Bool { existing.contains(url.lastPathComponent) }
     func writeFile(_ data: Data, to url: URL) throws {
@@ -19,6 +21,12 @@ final class MockEffects: PipelineEffects {
     }
     func notify(title: String, body: String, fileURL: URL?) {
         callOrder.append("notify"); notifications.append((body, fileURL))
+    }
+    func copyTextToClipboard(_ text: String) {
+        callOrder.append("copyText"); textCopies.append(text)
+    }
+    func notifyURL(title: String, body: String, url: String) {
+        callOrder.append("notifyURL"); urlNotifications.append((body, url))
     }
 }
 

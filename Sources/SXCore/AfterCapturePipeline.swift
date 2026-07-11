@@ -6,6 +6,8 @@ public protocol PipelineEffects {
     func writeFile(_ data: Data, to url: URL) throws
     func copyImageToClipboard(_ pngData: Data)
     func notify(title: String, body: String, fileURL: URL?)
+    func copyTextToClipboard(_ text: String)
+    func notifyURL(title: String, body: String, url: String)
 }
 
 public struct PipelineResult: Equatable, Sendable {
