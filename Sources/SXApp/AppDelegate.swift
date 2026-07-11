@@ -166,8 +166,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
         var (settings, _) = store.loadOrDefault()
         settings.upload.uploadAfterCapture.toggle()
-        try? store.save(settings)
-        AppLog.log("Upload after capture: \(settings.upload.uploadAfterCapture)")
+        do {
+            try store.save(settings)
+            AppLog.log("Upload after capture: \(settings.upload.uploadAfterCapture)")
+        } catch {
+            AppLog.log("Failed to save upload-after-capture toggle: \(error)")
+        }
         rebuildMenu()
     }
 

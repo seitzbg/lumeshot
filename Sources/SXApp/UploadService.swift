@@ -3,7 +3,6 @@ import SXCore
 import SXUpload
 
 struct UploadService {
-    static let secretSentinel = "$keychain$"
     private let http: HTTPClient
     private let credentials: CredentialStore
 
@@ -26,27 +25,13 @@ struct UploadService {
             return ImgurUploader(clientID: clientID, http: http)
 
         case .customUploader:
-            guard var config = destination.customUploader else {
+            guard let config = destination.customUploader else {
                 throw UploadError.unsupported("Destination has no custom-uploader config")
             }
-            config.headers = try injectSecrets(config.headers, destinationID: destination.id)
-            config.arguments = try injectSecrets(config.arguments, destinationID: destination.id)
-            return CustomUploaderClient(config: config, http: http)
+            // Re-hydrate every stripped secret (headers/arguments/parameters/data)
+            // from the Keychain immediately before building the request.
+            let injected = try SecretVault.inject(config, id: destination.id, from: credentials)
+            return CustomUploaderClient(config: injected, http: http)
         }
-    }
-
-    /// Replace any value equal to the sentinel with the secret stored under
-    /// "<destinationID>/<key>"; throw if the secret is missing.
-    private func injectSecrets(_ dict: [String: String],
-                               destinationID: String) throws -> [String: String] {
-        var result = dict
-        for (key, value) in dict where value == Self.secretSentinel {
-            let account = "\(destinationID)/\(key)"
-            guard let secret = try credentials.secret(for: account) else {
-                throw UploadError.missingCredential(account)
-            }
-            result[key] = secret
-        }
-        return result
     }
 }

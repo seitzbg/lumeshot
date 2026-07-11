@@ -2,30 +2,15 @@ import Foundation
 import SXCore
 
 enum SxcuImporter {
-    /// Heuristic: header/argument keys that typically carry secrets.
-    private static func isSecretKey(_ key: String) -> Bool {
-        let k = key.lowercased()
-        return k == "authorization" || k.contains("token") || k.contains("apikey")
-            || k.contains("api-key") || k.contains("secret") || k.contains("key")
-    }
-
+    /// Parse a `.sxcu`, move every secret it carries (across all surfaces) into
+    /// the Keychain via `SecretVault`, and return a destination whose persisted
+    /// config holds only sentinels — never a raw credential.
     static func makeDestination(from data: Data, id: String,
                                 credentials: CredentialStore) throws -> UploadDestination {
-        var config = try CustomUploaderConfig.parse(data)
-
-        func stripSecrets(_ dict: [String: String]) throws -> [String: String] {
-            var out = dict
-            for (key, value) in dict where isSecretKey(key) && !value.isEmpty {
-                try credentials.setSecret(value, for: "\(id)/\(key)")
-                out[key] = UploadService.secretSentinel
-            }
-            return out
-        }
-        config.headers = try stripSecrets(config.headers)
-        config.arguments = try stripSecrets(config.arguments)
-
-        return UploadDestination(id: id, name: config.name ?? "Custom uploader",
-                                 kind: .customUploader, customUploader: config,
+        let parsed = try CustomUploaderConfig.parse(data)
+        let stripped = try SecretVault.strip(parsed, id: id, into: credentials)
+        return UploadDestination(id: id, name: stripped.name ?? "Custom uploader",
+                                 kind: .customUploader, customUploader: stripped,
                                  imgurClientID: nil)
     }
 }
