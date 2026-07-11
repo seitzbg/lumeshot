@@ -1,4 +1,5 @@
 import AppKit
+import ImageIO
 import SwiftUI
 import SXCore
 import SXUpload
@@ -7,6 +8,7 @@ import SXUpload
 final class HistoryModel: ObservableObject {
     @Published var entries: [HistoryEntry] = []
     @Published var query: String = "" { didSet { reload() } }
+    @Published var loadError: String?
     private let store: HistoryStore
     private let http: HTTPClient
 
@@ -21,9 +23,11 @@ final class HistoryModel: ObservableObject {
             entries = query.trimmingCharacters(in: .whitespaces).isEmpty
                 ? try store.all(limit: 500)
                 : try store.search(matching: query, limit: 500)
+            loadError = nil
         } catch {
             AppLog.log("History: load failed: \(error)")
             entries = []
+            loadError = "Couldn’t load history."
         }
     }
 
@@ -70,7 +74,8 @@ struct HistoryView: View {
             Divider()
             if model.entries.isEmpty {
                 Spacer()
-                Text("No captures yet.").foregroundStyle(.secondary)
+                Text(model.loadError ?? "No captures yet.")
+                    .foregroundStyle(.secondary)
                 Spacer()
             } else {
                 List(model.entries) { entry in
@@ -121,7 +126,7 @@ private struct HistoryRow: View {
 private struct Thumbnail: View {
     let path: String?
     var body: some View {
-        if let path, let image = NSImage(contentsOfFile: path) {
+        if let path, let image = Thumbnail.downsampled(path: path, maxPixel: 96) {
             Image(nsImage: image)
                 .resizable().aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 36).clipped()
@@ -132,5 +137,21 @@ private struct Thumbnail: View {
                 .frame(width: 48, height: 36)
                 .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
         }
+    }
+
+    /// Decode a downsampled thumbnail directly via ImageIO, so a 4K+ screenshot
+    /// is never fully decoded just to render at 48×36 (maxPixel 96 covers Retina).
+    static func downsampled(path: String, maxPixel: Int) -> NSImage? {
+        let url = URL(fileURLWithPath: path) as CFURL
+        guard let src = CGImageSourceCreateWithURL(url, nil) else { return nil }
+        let opts: [CFString: Any] = [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxPixel,
+        ]
+        guard let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary) else {
+            return nil
+        }
+        return NSImage(cgImage: cg, size: NSSize(width: cg.width, height: cg.height))
     }
 }
