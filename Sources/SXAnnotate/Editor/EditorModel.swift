@@ -79,7 +79,7 @@ public final class EditorModel: ObservableObject {
     }
 
     public func pointerUp(at point: CGPoint) {
-        if let draft, let anchor = drawAnchor {
+        if draft != nil, let anchor = drawAnchor {
             let finished = updatedDraft(anchor: anchor, to: point)
             if isNonDegenerate(finished) {
                 annotations.append(finished)
