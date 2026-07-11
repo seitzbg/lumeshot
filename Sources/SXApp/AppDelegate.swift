@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
+    private var destinationsWindow: DestinationsWindowController?
     private let effects = AppPipelineEffects()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -31,6 +32,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                              uploadService: uploadService,
                                              historyStore: historyStore)
         self.coordinator = coordinator
+        destinationsWindow = DestinationsWindowController(
+            store: store, credentials: KeychainCredentialStore(),
+            onChange: { [weak self] in self?.rebuildMenu() })
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
         AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")
@@ -94,6 +98,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(menuItem("Open Captures Folder", #selector(openCapturesFolder)))
         menu.addItem(.separator())
         menu.addItem(menuItem("Import .sxcu…", #selector(importSxcu)))
+        menu.addItem(menuItem("Manage Destinations…", #selector(manageDestinations)))
         let uploadToggle = menuItem("Upload After Capture", #selector(toggleUploadAfterCapture))
         uploadToggle.state = currentUploadAfterCapture() ? .on : .off
         menu.addItem(uploadToggle)
@@ -120,6 +125,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func currentUploadAfterCapture() -> Bool {
         SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault().0.upload.uploadAfterCapture
     }
+
+    @objc private func manageDestinations() { destinationsWindow?.show() }
 
     @objc private func importSxcu() {
         // runModal (synchronous, @MainActor) avoids the Swift 6 concurrency friction

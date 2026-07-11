@@ -34,8 +34,11 @@ struct UploadService {
             return CustomUploaderClient(config: injected, http: http)
 
         case .s3:
-            // Placeholder; replaced with the real S3Uploader wiring in M2b Task 8.
-            throw UploadError.unsupported("S3 upload not wired yet")
+            guard let config = destination.s3Config else {
+                throw UploadError.unsupported("Destination has no S3 config")
+            }
+            let creds = try S3Credentials.load(id: destination.id, from: credentials)
+            return S3Uploader(config: config, credentials: creds, http: http)
         }
     }
 }
