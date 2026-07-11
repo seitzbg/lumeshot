@@ -2,7 +2,7 @@
 
 A Swift-native screenshot, annotation, upload, and screen-recording tool for macOS (Apple Silicon, macOS 15+), reimplementing the [ShareX](https://github.com/ShareX/ShareX) workflow as a first-class Mac citizen — menu-bar resident, ScreenCaptureKit capture, `.sxcu` custom-uploader compatibility.
 
-**Status:** M2b — capture and upload complete. Uploaders: custom .sxcu, Imgur (anonymous), and S3-compatible (AWS/R2/MinIO/B2). Destinations searchable and Keychain-managed. History browser with search and remote cleanup. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
+**Status:** M3a — capture, upload, and an opt-in "Annotate Before Sharing" editor. Editor: vector shapes (rectangle, ellipse, line, arrow, freehand), select/move/resize, undo/redo bounded to the last 50 edits. Uploaders: custom .sxcu, Imgur (anonymous), and S3-compatible (AWS/R2/MinIO/B2). Destinations searchable and Keychain-managed. History browser with search and remote cleanup. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
 
 ## Features
 
@@ -11,6 +11,13 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - Region — drag-to-select, saved PNG + clipboard copy
 - Window — hover-to-highlight, click to capture, saved PNG + clipboard copy
 - Permission gating: System Settings + relaunch on first run (TCC Screen Recording grant)
+
+**Editor** (opt-in via the menu-bar "Annotate Before Sharing" toggle)
+- v1 vector toolset: rectangle, ellipse, line, arrow (single classic arrowhead), freehand, plus Select for move/resize
+- Toolbar: tool picker, one stroke color + width control, undo/redo, delete selected, Done/Cancel
+- Non-destructive document: base image + ordered annotation list, composited via CoreGraphics only on Done
+- Undo/redo, bounded to the last 50 edits
+- Runs between capture and the existing save→clipboard→upload chain: Done flattens the document and continues that chain; Cancel (or closing the window) discards the capture
 
 **Uploaders**
 - **Custom .sxcu**: Parses ShareX JSON configs; request templating (parameters, headers, body); regex-based response URL extraction; secrets → Keychain
