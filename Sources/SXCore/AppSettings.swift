@@ -28,10 +28,43 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var copyToClipboard: Bool
     public var showNotification: Bool
     public var hotkeys: HotkeySettings
+    public var upload: UploadSettings
+
+    public init(schemaVersion: Int, captureSavePath: String, filenameTemplate: String,
+                saveToDisk: Bool, copyToClipboard: Bool, showNotification: Bool,
+                hotkeys: HotkeySettings, upload: UploadSettings) {
+        self.schemaVersion = schemaVersion
+        self.captureSavePath = captureSavePath
+        self.filenameTemplate = filenameTemplate
+        self.saveToDisk = saveToDisk
+        self.copyToClipboard = copyToClipboard
+        self.showNotification = showNotification
+        self.hotkeys = hotkeys
+        self.upload = upload
+    }
+
+    // Tolerate a v1 file with no `upload` key by defaulting it (migration in SettingsStore
+    // bumps the version); every other field is required as before.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
+        captureSavePath = try c.decode(String.self, forKey: .captureSavePath)
+        filenameTemplate = try c.decode(String.self, forKey: .filenameTemplate)
+        saveToDisk = try c.decode(Bool.self, forKey: .saveToDisk)
+        copyToClipboard = try c.decode(Bool.self, forKey: .copyToClipboard)
+        showNotification = try c.decode(Bool.self, forKey: .showNotification)
+        hotkeys = try c.decode(HotkeySettings.self, forKey: .hotkeys)
+        upload = try c.decodeIfPresent(UploadSettings.self, forKey: .upload) ?? .disabled
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case schemaVersion, captureSavePath, filenameTemplate, saveToDisk,
+             copyToClipboard, showNotification, hotkeys, upload
+    }
 
     // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23
     public static let `default` = AppSettings(
-        schemaVersion: 1,
+        schemaVersion: 2,
         captureSavePath: "~/Pictures/ShareX",
         filenameTemplate: "Screenshot_%y-%mo-%d_%h-%mi-%s",
         saveToDisk: true,
@@ -41,6 +74,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
             fullscreen: HotkeyCombo(keyCode: 20, modifiers: 2560),
             region: HotkeyCombo(keyCode: 21, modifiers: 2560),
             window: HotkeyCombo(keyCode: 23, modifiers: 2560)
-        )
+        ),
+        upload: .disabled
     )
 }

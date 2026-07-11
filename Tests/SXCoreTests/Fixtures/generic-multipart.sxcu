@@ -1,0 +1,13 @@
+{
+  "Version": "14.0.0",
+  "Name": "My Server",
+  "RequestMethod": "POST",
+  "RequestURL": "https://up.example.com/api",
+  "Headers": { "X-Auth-Token": "SECRET" },
+  "Body": "MultipartFormData",
+  "Arguments": { "album": "screenshots" },
+  "FileFormName": "file",
+  "RegexList": ["https://cdn\\.example\\.com/(\\w+)"],
+  "URL": "{regex:1}",
+  "ThumbnailURL": "{regex:1|1}.thumb"
+}

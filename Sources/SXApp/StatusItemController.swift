@@ -12,4 +12,8 @@ final class StatusItemController {
         }
         statusItem.menu = menu
     }
+
+    func setMenu(_ menu: NSMenu) {
+        statusItem.menu = menu
+    }
 }

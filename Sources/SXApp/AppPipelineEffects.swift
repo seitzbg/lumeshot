@@ -53,12 +53,38 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         }
     }
 
+    func copyTextToClipboard(_ text: String) {
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        if !pb.setString(text, forType: .string) {
+            AppLog.log("Pasteboard text write failed")
+        }
+    }
+
+    func notifyURL(title: String, body: String, url: String) {
+        guard notificationsAvailable else { return }
+        let content = UNMutableNotificationContent()
+        content.title = title
+        content.body = body
+        content.userInfo = ["url": url]
+        let request = UNNotificationRequest(identifier: UUID().uuidString,
+                                            content: content, trigger: nil)
+        UNUserNotificationCenter.current().add(request) { error in
+            if let error { NSLog("Notification error: \(error)") }
+        }
+    }
+
     // MARK: UNUserNotificationCenterDelegate
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
+        if let urlString = userInfo["url"] as? String, let url = URL(string: urlString) {
+            DispatchQueue.main.async { NSWorkspace.shared.open(url) }
+            completionHandler()
+            return
+        }
         if let path = userInfo["path"] as? String {
             let url = URL(fileURLWithPath: path)
             DispatchQueue.main.async {

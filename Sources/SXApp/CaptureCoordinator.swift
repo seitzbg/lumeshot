@@ -11,14 +11,19 @@ enum DeliveryError: Error, LocalizedError {
 final class CaptureCoordinator {
     private let settingsStore: SettingsStore
     private let effects: AppPipelineEffects
+    private let uploadService: UploadService
+    private let historyStore: HistoryStore?
     private var regionSession: RegionOverlaySession?
     private var regionCaptureInFlight = false
     private var windowSession: WindowPickerSession?
     private var windowCaptureInFlight = false
 
-    init(settingsStore: SettingsStore, effects: AppPipelineEffects) {
+    init(settingsStore: SettingsStore, effects: AppPipelineEffects,
+         uploadService: UploadService, historyStore: HistoryStore?) {
         self.settingsStore = settingsStore
         self.effects = effects
+        self.uploadService = uploadService
+        self.historyStore = historyStore
     }
 
     func captureFullscreen() {
@@ -147,10 +152,61 @@ final class CaptureCoordinator {
             let result = try AfterCapturePipeline(settings: settings, effects: effects)
                 .process(artifact)
             AppLog.log("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
+            recordAndMaybeUpload(settings: settings, savedURL: result.savedURL,
+                                 pngData: png, capturedAt: artifact.capturedAt)
             return true
         } catch {
             reportFailure(error)
             return false
+        }
+    }
+
+    /// Records a history row for the capture, then (if configured) uploads
+    /// asynchronously and updates the row with the URL or a failure marker.
+    /// Runs after the synchronous disk save, preserving the local-first invariant.
+    private func recordAndMaybeUpload(settings: AppSettings, savedURL: URL?,
+                                      pngData: Data, capturedAt: Date) {
+        let entryID = UUID().uuidString
+        let destination = settings.upload.activeDestination
+        let willUpload = settings.upload.uploadAfterCapture && destination != nil
+
+        if let store = historyStore {
+            let entry = HistoryEntry(id: entryID, capturedAt: capturedAt,
+                                     filePath: savedURL?.path, url: nil, deletionURL: nil,
+                                     // Only attribute a destination when we actually upload to it.
+                                     destinationName: willUpload ? destination?.name : nil,
+                                     uploadFailed: false)
+            do { try store.insert(entry) } catch { AppLog.log("History insert failed: \(error)") }
+        }
+
+        guard willUpload, let destination else { return }
+        let filename = savedURL?.lastPathComponent ?? "capture.png"
+        Task { @MainActor in
+            do {
+                let uploader = try uploadService.uploader(for: destination)
+                let file = UploadService.filePart(pngData: pngData, filename: filename)
+                let result = try await uploader.upload(file)
+                AppLog.log("Upload succeeded: \(result.url)")
+                effects.copyTextToClipboard(result.url)
+                effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+                updateHistory(id: entryID, url: result.url, deletionURL: result.deletionURL,
+                              failed: false)
+            } catch {
+                AppLog.log("Upload failed: \(error)")
+                effects.notify(title: "Upload failed",
+                               body: "\(error). Local file kept.", fileURL: savedURL)
+                updateHistory(id: entryID, url: nil, deletionURL: nil, failed: true)
+            }
+        }
+    }
+
+    /// Applies the upload outcome to the history row, logging rather than
+    /// swallowing a store failure (fail-loud).
+    private func updateHistory(id: String, url: String?, deletionURL: String?, failed: Bool) {
+        do {
+            try historyStore?.setURL(id: id, url: url, deletionURL: deletionURL, failed: failed)
+        } catch {
+            AppLog.log("History update failed for \(id): \(error)")
         }
     }
 
