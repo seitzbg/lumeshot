@@ -37,6 +37,15 @@ private let png = FilePart(fieldName: "IGNORED", filename: "shot.png",
         #expect(req.url == "https://up/api?key=v1")
     }
 
+    @Test func multipartDefaultAttachesFileWithDefaultFieldName() throws {
+        // The common .sxcu case: Body=MultipartFormData (default) and no FileFormName.
+        // The captured file must still be in the body, named "file".
+        let config = CustomUploaderConfig(requestURL: "https://up/api")   // no fileFormName
+        let req = try CustomUploaderEngine.prepare(config: config, file: png, boundary: "BND")
+        let s = String(data: req.body ?? Data(), encoding: .utf8) ?? ""
+        #expect(s.contains("name=\"file\"; filename=\"shot.png\""))
+    }
+
     @Test func prepareBinaryBodyUsesRawFileBytes() throws {
         var config = CustomUploaderConfig(requestURL: "https://up/bin")
         config.body = .binary

@@ -15,7 +15,9 @@ public enum CustomUploaderEngine {
         case .none:
             spec = .none
         case .multipartFormData:
-            spec = .multipart(fields: argFields, file: config.fileFormName != nil ? filePart : nil)
+            // Always attach the captured file (named by fileFormName, default "file").
+            // A multipart screenshot upload with no file part is never intended.
+            spec = .multipart(fields: argFields, file: filePart)
         case .formURLEncoded:
             spec = .formURLEncoded(argFields)
         case .json:
