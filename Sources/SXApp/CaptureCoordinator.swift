@@ -268,6 +268,41 @@ final class CaptureCoordinator {
         }
     }
 
+    /// Delivers an already-on-disk recording (mp4): the testable ordering /
+    /// local-first / fail-loud logic lives in `RecordingDelivery.deliver`
+    /// (SXCore, unit-tested there); this is thin glue that reloads settings,
+    /// resolves the mime + active destination, adapts `UploadService.upload`
+    /// into a `DeliveredUpload` closure, and awaits delivery on a MainActor
+    /// Task. `SCRecordingOutput` already wrote the file, so local-first holds
+    /// without a re-encode (this never routes through `AfterCapturePipeline`).
+    /// `appName` is accepted for parity with the still-image path (future
+    /// history metadata); `HistoryEntry` has no app-name column today.
+    func deliverRecording(fileURL: URL, appName: String?) {
+        let settings = settingsStore.loadOrDefault().0
+        AppLog.log("Recording saved: \(fileURL.path)")
+        let destination = settings.upload.activeDestination
+        let shouldUpload = settings.upload.uploadAfterCapture && destination != nil
+        let mime = MIMEType.forExtension(fileURL.pathExtension)
+        let service = uploadService
+        Task { @MainActor in
+            await RecordingDelivery.deliver(
+                fileURL: fileURL,
+                capturedAt: Date(),
+                destinationName: destination?.name,
+                shouldUpload: shouldUpload,
+                showNotification: settings.showNotification,
+                mime: mime,
+                history: historyStore,
+                effects: effects,
+                upload: { data, filename, mime in
+                    guard let destination else { throw UploadError.unsupported("No active destination") }
+                    let result = try await service.upload(data: data, filename: filename,
+                                                          mime: mime, destination: destination)
+                    return DeliveredUpload(url: result.url, deletionURL: result.deletionURL)
+                })
+        }
+    }
+
     func frontmostAppName() -> String? {
         NSWorkspace.shared.frontmostApplication?.localizedName
     }
