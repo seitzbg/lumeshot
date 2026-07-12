@@ -69,3 +69,27 @@ public enum RecordingDelivery {
         }
     }
 }
+
+extension RecordingDelivery {
+    /// Resolves a recording's destination path: the capture-save directory +
+    /// the same `NameParser` template used for stills, with a `.mp4` extension
+    /// and numeric-suffix collision handling. Pure and static — unit-testable
+    /// without SCK or real disk I/O (`fileExists` is injectable; production
+    /// calls default to the real filesystem). Mirrors
+    /// `AfterCapturePipeline.resolveCollisions`.
+    public static func outputURL(
+        settings: AppSettings, capturedAt: Date, appName: String?,
+        fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+    ) -> URL {
+        let dir = URL(fileURLWithPath: (settings.captureSavePath as NSString).expandingTildeInPath)
+        let ctx = NameContext(date: capturedAt, width: nil, height: nil, processName: appName, increment: 0)
+        let base = NameParser.sanitize(NameParser.render(settings.filenameTemplate, context: ctx))
+        var url = dir.appendingPathComponent(base + ".mp4")
+        var n = 1
+        while fileExists(url) {
+            url = dir.appendingPathComponent("\(base)_\(n).mp4")
+            n += 1
+        }
+        return url
+    }
+}

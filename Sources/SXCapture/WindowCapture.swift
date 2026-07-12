@@ -26,9 +26,11 @@ public struct WindowCandidate: Sendable, Equatable {
 }
 
 /// Backing scale of the screen most overlapping the given CG-global rect
-/// (top-left origin), converting to AppKit coords for the comparison.
+/// (top-left origin), converting to AppKit coords for the comparison. Public
+/// so window recording (SXApp) can compute the same dimension scale as
+/// window stills without duplicating this algorithm.
 @MainActor
-private func backingScale(forCGGlobalFrame frame: CGRect) -> CGFloat {
+public func backingScale(forCGGlobalFrame frame: CGRect) -> CGFloat {
     guard let primaryHeight = NSScreen.screens.first?.frame.height else { return 2 }
     let appKit = CaptureGeometry.appKitRect(fromCGGlobal: frame, primaryHeight: primaryHeight)
     let best = NSScreen.screens.max { a, b in
