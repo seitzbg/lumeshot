@@ -1,5 +1,6 @@
 import AppKit
 import SXCore
+import SXRecord
 import UniformTypeIdentifiers
 
 @MainActor
@@ -41,6 +42,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                              historyStore: historyStore,
                                              editorPresenter: editorWindow)
         self.coordinator = coordinator
+        let recorder = ScreenRecorder()
+        let recordingCoordinator = RecordingCoordinator(
+            recorder: recorder, settingsStore: store, effects: effects,
+            deliver: { [weak coordinator] url, appName in
+                coordinator?.deliverRecording(fileURL: url, appName: appName)
+            },
+            onStateChange: { [weak self] on in self?.updateRecordingUI(on) })
+        self.recordingCoordinator = recordingCoordinator
         destinationsWindow = DestinationsWindowController(
             store: store, credentials: KeychainCredentialStore(),
             onChange: { [weak self] in self?.rebuildMenu() })
