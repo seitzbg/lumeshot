@@ -52,6 +52,8 @@ public enum AnnotationRenderer {
                 $0.move(to: points[0])
                 for p in points.dropFirst() { $0.addLine(to: p) }
             }
+        default:
+            break               // M3b: real arms added in Task 4
         }
         ctx.restoreGState()
     }

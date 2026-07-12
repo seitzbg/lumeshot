@@ -16,6 +16,8 @@ public extension Annotation {
                 maxX = Swift.max(maxX, p.x); maxY = Swift.max(maxY, p.y)
             }
             return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+        default:
+            return .zero        // M3b: real arms added in Task 2
         }
     }
 
@@ -45,6 +47,8 @@ public extension Annotation {
                 }
             }
             return false
+        default:
+            return false        // M3b: real arms added in Task 2
         }
     }
 }

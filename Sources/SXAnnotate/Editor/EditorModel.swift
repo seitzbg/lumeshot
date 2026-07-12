@@ -153,6 +153,8 @@ public final class EditorModel: ObservableObject {
         case .arrow:     return .arrow(start: anchor, end: point)
         case .freehand:  return .freehand(points: [anchor])
         case .select:    return .rectangle(rect: CGRect(spanning: anchor, point))  // unreachable
+        default:
+            return .rectangle(rect: CGRect(spanning: anchor, point))   // M3b: real arms in Task 6
         }
     }
 
@@ -172,6 +174,8 @@ public final class EditorModel: ObservableObject {
             }
         case .select:
             break
+        default:
+            break               // M3b: real arms added in Task 6
         }
         return current
     }
@@ -184,6 +188,8 @@ public final class EditorModel: ObservableObject {
             return hypot(e.x - s.x, e.y - s.y) > 3
         case .freehand(let points):
             return points.count > 1
+        default:
+            return true         // M3b: real arms added in Task 6
         }
     }
 

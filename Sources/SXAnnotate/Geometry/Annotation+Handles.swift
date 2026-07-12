@@ -35,6 +35,8 @@ public extension Annotation {
             return [Handle(kind: .start, point: start), Handle(kind: .end, point: end)]
         case .freehand:
             return []
+        default:
+            return []           // M3b: real arms added in Task 3
         }
     }
 
@@ -62,6 +64,8 @@ public extension Annotation {
             copy.shape = .arrow(start: s.moved(by: delta), end: e.moved(by: delta))
         case .freehand(let points):
             copy.shape = .freehand(points: points.map { $0.moved(by: delta) })
+        default:
+            break               // M3b: real arms added in Task 3
         }
         return copy
     }
@@ -81,6 +85,8 @@ public extension Annotation {
             copy.shape = .arrow(start: handle == .start ? point : s, end: handle == .end ? point : e)
         case .freehand:
             break
+        default:
+            break               // M3b: real arms added in Task 3
         }
         return copy
     }
