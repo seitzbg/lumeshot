@@ -114,4 +114,46 @@ import CoreGraphics
         let st = ann(.step(center: CGPoint(x: 5, y: 5), number: 1))
         #expect(st.resized(handle: .bottomRight, to: CGPoint(x: 9, y: 9)) == st)
     }
+
+    @Test func movedTranslatesEllipseAndArrow() {
+        let d = CGVector(dx: 4, dy: 7)
+        let ell = ann(.ellipse(rect: CGRect(x: 0, y: 0, width: 10, height: 20))).moved(by: d)
+        #expect(ell.bounds == CGRect(x: 4, y: 7, width: 10, height: 20))
+        let arrow = ann(.arrow(start: CGPoint(x: 1, y: 1), end: CGPoint(x: 5, y: 9))).moved(by: d)
+        if case .arrow(let s, let e) = arrow.shape {
+            #expect(s == CGPoint(x: 5, y: 8)); #expect(e == CGPoint(x: 9, y: 16))
+        } else { Issue.record("expected arrow") }
+    }
+
+    @Test func resizedReshapesEllipseAndMovesArrowEndpoint() {
+        let ell = ann(.ellipse(rect: CGRect(x: 0, y: 0, width: 100, height: 40)))
+            .resized(handle: .bottomRight, to: CGPoint(x: 60, y: 20))
+        #expect(ell.bounds == CGRect(x: 0, y: 0, width: 60, height: 20))
+        let arrow = ann(.arrow(start: CGPoint(x: 0, y: 0), end: CGPoint(x: 10, y: 10)))
+            .resized(handle: .start, to: CGPoint(x: -5, y: -5))
+        if case .arrow(let s, let e) = arrow.shape {
+            #expect(s == CGPoint(x: -5, y: -5)); #expect(e == CGPoint(x: 10, y: 10))
+        } else { Issue.record("expected arrow") }
+    }
+
+    @Test func resizedBoxViaEdgeHandleMovesOnlyThatEdge() {
+        let a = ann(.rectangle(rect: CGRect(x: 0, y: 0, width: 100, height: 40)))
+        let right = a.resized(handle: .right, to: CGPoint(x: 130, y: 999))
+        #expect(right.bounds == CGRect(x: 0, y: 0, width: 130, height: 40))   // only maxX moves
+        let bottom = a.resized(handle: .bottom, to: CGPoint(x: 999, y: 10))
+        #expect(bottom.bounds == CGRect(x: 0, y: 0, width: 100, height: 10))  // only maxY moves
+    }
+
+    @Test func resizedFreehandReturnsSelfUnchanged() {
+        let a = ann(.freehand(points: [CGPoint(x: 0, y: 0), CGPoint(x: 5, y: 5)]))
+        let r = a.resized(handle: .topLeft, to: CGPoint(x: 99, y: 99))
+        #expect(r == a)
+    }
+
+    @Test func handleAtBreaksTiesByFirstNearest() {
+        let a = ann(.rectangle(rect: CGRect(x: 0, y: 0, width: 4, height: 4)))
+        // Center (2,2) sits an equal 2.0 from all four EDGE handles (and 2.83 from the
+        // corners); the strict-`<` tie-break keeps the first in-tolerance nearest, `.top`.
+        #expect(a.handle(at: CGPoint(x: 2, y: 2), tolerance: 6) == .top)
+    }
 }

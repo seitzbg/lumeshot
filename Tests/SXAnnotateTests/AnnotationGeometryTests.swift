@@ -98,4 +98,25 @@ import CoreGraphics
         #expect(a.hitTest(CGPoint(x: 36, y: 30), tolerance: 2))   // distance 6 <= 14 + 2
         #expect(!a.hitTest(CGPoint(x: 60, y: 30), tolerance: 2))  // distance 30 > 16
     }
+
+    @Test func zeroLengthLineBoundsAndHit() {
+        let p = CGPoint(x: 20, y: 20)
+        let a = ann(.line(start: p, end: p))
+        #expect(a.bounds == CGRect(x: 20, y: 20, width: 0, height: 0))
+        #expect(a.hitTest(CGPoint(x: 22, y: 20), tolerance: 4))     // within tolerance of the point
+        #expect(!a.hitTest(CGPoint(x: 30, y: 20), tolerance: 4))    // too far
+    }
+
+    @Test func singlePointFreehandBoundsAndHit() {
+        let a = ann(.freehand(points: [CGPoint(x: 8, y: 8)]))
+        #expect(a.bounds == CGRect(x: 8, y: 8, width: 0, height: 0))
+        #expect(a.hitTest(CGPoint(x: 9, y: 8), tolerance: 3))       // near the lone point
+        #expect(!a.hitTest(CGPoint(x: 20, y: 20), tolerance: 3))
+    }
+
+    @Test func emptyFreehandHasZeroBoundsAndNeverHits() {
+        let a = ann(.freehand(points: []))
+        #expect(a.bounds == .zero)
+        #expect(!a.hitTest(CGPoint(x: 0, y: 0), tolerance: 100))
+    }
 }

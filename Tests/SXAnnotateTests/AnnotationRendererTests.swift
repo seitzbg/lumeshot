@@ -13,6 +13,20 @@ import CoreGraphics
         return ctx.makeImage()!
     }
 
+    /// A base image divided top (red) and bottom (blue) so a Y-flip bug would be visible.
+    private func bicolorBase(_ w: Int, _ h: Int) -> CGImage {
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        // Top half: red
+        ctx.setFillColor(CGColor(srgbRed: 1, green: 0, blue: 0, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: 0, width: w, height: h / 2))
+        // Bottom half: blue
+        ctx.setFillColor(CGColor(srgbRed: 0, green: 0, blue: 1, alpha: 1))
+        ctx.fill(CGRect(x: 0, y: h / 2, width: w, height: h / 2))
+        return ctx.makeImage()!
+    }
+
     /// Reads back pixels using top-left (image) coordinates.
     private struct Sampler {
         let w: Int, h: Int
@@ -107,5 +121,33 @@ import CoreGraphics
         #expect(inked > 0)                       // glyphs marked some pixels
         let (r2, g2, b2, _) = s.rgba(58, 58)     // far corner, outside the box
         #expect(r2 > 240 && g2 > 240 && b2 > 240)
+    }
+
+    @Test func flattenCropSampsFromCorrectSpatialRegion() throws {
+        // Create a 60x60 base split vertically: top-half red, bottom-half blue.
+        // Crop to the left 40 pixels, which spans both red (top) and blue (bottom) regions.
+        // The output dimensions should be 40x60, and we verify the color at the top-left
+        // is red and bottom-left is blue — a Y-flip bug would swap these.
+        let base = bicolorBase(60, 60)
+        let cropAnnotation = Annotation(
+            id: .init(),
+            shape: .crop(rect: CGRect(x: 0, y: 0, width: 40, height: 60)),
+            style: AnnotationStyle()
+        )
+        let out = try #require(AnnotationRenderer.flatten(base: base, annotations: [cropAnnotation]))
+        let s = Sampler(out)
+
+        // After crop to (0,0,40,60), the output is 40x60 pixels.
+        #expect(out.width == 40)
+        #expect(out.height == 60)
+
+        // Top-left of the cropped output: should be red (from the top half of the base).
+        let (r_top, g_top, b_top, _) = s.rgba(5, 5)
+        #expect(r_top > 200 && g_top < 60 && b_top < 60)  // red
+
+        // Bottom-left of the cropped output: should be blue (from the bottom half of the base).
+        // y=55 in the 60px-tall output corresponds to near the bottom.
+        let (r_bot, g_bot, b_bot, _) = s.rgba(5, 55)
+        #expect(r_bot < 60 && g_bot < 60 && b_bot > 200)  // blue
     }
 }

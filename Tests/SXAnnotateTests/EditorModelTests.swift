@@ -310,4 +310,48 @@ import CoreGraphics
         #expect(m.editingTextID == nil)
         #expect(m.canUndo)
     }
+
+    @Test func drawingFreehandAccruesPointsIntoOneAnnotation() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.freehand)
+        m.pointerDown(at: CGPoint(x: 10, y: 10))
+        m.pointerDragged(to: CGPoint(x: 20, y: 15))
+        m.pointerDragged(to: CGPoint(x: 30, y: 25))
+        m.pointerUp(at: CGPoint(x: 30, y: 25))
+        #expect(m.annotations.count == 1)
+        if case .freehand(let points) = m.annotations[0].shape {
+            #expect(points.count == 4)                       // anchor + 2 drags + up
+            #expect(points.first == CGPoint(x: 10, y: 10))
+            #expect(points.last == CGPoint(x: 30, y: 25))
+        } else { Issue.record("expected freehand") }
+        #expect(m.selectedID == m.annotations[0].id)
+        #expect(m.canUndo)
+    }
+
+    @Test func drawingAnArrowAppendsOneAnnotation() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.arrow)
+        m.pointerDown(at: CGPoint(x: 5, y: 5))
+        m.pointerDragged(to: CGPoint(x: 40, y: 30))
+        m.pointerUp(at: CGPoint(x: 40, y: 30))
+        #expect(m.annotations.count == 1)
+        if case .arrow(let s, let e) = m.annotations[0].shape {
+            #expect(s == CGPoint(x: 5, y: 5))
+            #expect(e == CGPoint(x: 40, y: 30))
+        } else { Issue.record("expected arrow") }
+    }
+
+    @Test func displayAnnotationsIncludesInProgressDraft() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.rectangle)
+        m.pointerDown(at: CGPoint(x: 10, y: 10))
+        m.pointerDragged(to: CGPoint(x: 50, y: 40))
+        // Mid-gesture: the draft is not yet in `annotations`…
+        #expect(m.annotations.isEmpty)
+        // …but it appears in `displayAnnotations` for live rendering.
+        #expect(m.displayAnnotations.count == 1)
+        m.pointerUp(at: CGPoint(x: 50, y: 40))
+        #expect(m.annotations.count == 1)
+        #expect(m.displayAnnotations.count == 1)
+    }
 }

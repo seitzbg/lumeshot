@@ -57,4 +57,20 @@ import CoreGraphics
         while let prev = h.undo(current: current) { current = prev; count += 1 }
         #expect(count == 3)         // only the last 3 commits survive
     }
+
+    @Test func redoOnEmptyReturnsNil() {
+        var h = AnnotationHistory()
+        #expect(h.redo(current: doc(1)) == nil)
+        #expect(!h.canRedo)
+    }
+
+    @Test func limitBelowOneClampsToOne() {
+        var h = AnnotationHistory(limit: 0)     // clamped up to 1
+        h.commit(doc(1))
+        h.commit(doc(2))                        // only the most recent survives
+        var count = 0
+        var current = doc(3)
+        while let prev = h.undo(current: current) { current = prev; count += 1 }
+        #expect(count == 1)
+    }
 }
