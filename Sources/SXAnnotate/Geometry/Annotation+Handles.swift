@@ -19,7 +19,8 @@ public struct Handle: Sendable, Equatable {
 public extension Annotation {
     func handles() -> [Handle] {
         switch shape {
-        case .rectangle(let rect), .ellipse(let rect):
+        case .rectangle(let rect), .ellipse(let rect), .crop(let rect),
+             .text(let rect, _, _), .blur(let rect, _), .pixelate(let rect, _):
             let r = rect.standardized
             return [
                 Handle(kind: .topLeft, point: CGPoint(x: r.minX, y: r.minY)),
@@ -33,10 +34,8 @@ public extension Annotation {
             ]
         case .line(let start, let end), .arrow(let start, let end):
             return [Handle(kind: .start, point: start), Handle(kind: .end, point: end)]
-        case .freehand:
+        case .freehand, .highlighter, .step:
             return []
-        default:
-            return []           // M3b: real arms added in Task 3
         }
     }
 
@@ -50,7 +49,7 @@ public extension Annotation {
         return best?.kind
     }
 
-    /// Translates the whole shape by `delta`.
+    /// Translates the whole shape by `delta`, preserving non-geometry values.
     func moved(by delta: CGVector) -> Annotation {
         var copy = self
         switch shape {
@@ -64,14 +63,25 @@ public extension Annotation {
             copy.shape = .arrow(start: s.moved(by: delta), end: e.moved(by: delta))
         case .freehand(let points):
             copy.shape = .freehand(points: points.map { $0.moved(by: delta) })
-        default:
-            break               // M3b: real arms added in Task 3
+        case .crop(let rect):
+            copy.shape = .crop(rect: rect.offsetBy(dx: delta.dx, dy: delta.dy))
+        case .text(let rect, let string, let fontSize):
+            copy.shape = .text(rect: rect.offsetBy(dx: delta.dx, dy: delta.dy), string: string, fontSize: fontSize)
+        case .blur(let rect, let radius):
+            copy.shape = .blur(rect: rect.offsetBy(dx: delta.dx, dy: delta.dy), radius: radius)
+        case .pixelate(let rect, let scale):
+            copy.shape = .pixelate(rect: rect.offsetBy(dx: delta.dx, dy: delta.dy), scale: scale)
+        case .highlighter(let points):
+            copy.shape = .highlighter(points: points.map { $0.moved(by: delta) })
+        case .step(let center, let number):
+            copy.shape = .step(center: center.moved(by: delta), number: number)
         }
         return copy
     }
 
-    /// Returns a copy with `handle` dragged to `point`. Box handles reshape the
-    /// rect; `.start`/`.end` move the grabbed endpoint. Freehand is unchanged.
+    /// Returns a copy with `handle` dragged to `point`. Box shapes (incl. crop/
+    /// text/blur/pixelate) reshape the rect; line/arrow move the grabbed endpoint;
+    /// freehand/highlighter/step are unchanged (move-only).
     func resized(handle: HandleKind, to point: CGPoint) -> Annotation {
         var copy = self
         switch shape {
@@ -83,10 +93,16 @@ public extension Annotation {
             copy.shape = .line(start: handle == .start ? point : s, end: handle == .end ? point : e)
         case .arrow(let s, let e):
             copy.shape = .arrow(start: handle == .start ? point : s, end: handle == .end ? point : e)
-        case .freehand:
+        case .crop(let rect):
+            copy.shape = .crop(rect: rect.standardized.resized(handle: handle, to: point))
+        case .text(let rect, let string, let fontSize):
+            copy.shape = .text(rect: rect.standardized.resized(handle: handle, to: point), string: string, fontSize: fontSize)
+        case .blur(let rect, let radius):
+            copy.shape = .blur(rect: rect.standardized.resized(handle: handle, to: point), radius: radius)
+        case .pixelate(let rect, let scale):
+            copy.shape = .pixelate(rect: rect.standardized.resized(handle: handle, to: point), scale: scale)
+        case .freehand, .highlighter, .step:
             break
-        default:
-            break               // M3b: real arms added in Task 3
         }
         return copy
     }
