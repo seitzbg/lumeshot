@@ -2,6 +2,7 @@ import AppKit
 import ImageIO
 import SwiftUI
 import SXCore
+import SXRecord
 import SXUpload
 
 @MainActor
@@ -9,14 +10,22 @@ final class HistoryModel: ObservableObject {
     @Published var entries: [HistoryEntry] = []
     @Published var query: String = "" { didSet { reload() } }
     @Published var loadError: String?
+    @Published var exportingEntry: HistoryEntry?
+    @Published var exportError: String?
     private let store: HistoryStore
     private let http: HTTPClient
+    private let recordingSettings: RecordingSettings
 
-    init(store: HistoryStore, http: HTTPClient = URLSessionHTTPClient()) {
+    init(store: HistoryStore, http: HTTPClient = URLSessionHTTPClient(),
+        recordingSettings: RecordingSettings = .default) {
         self.store = store
         self.http = http
+        self.recordingSettings = recordingSettings
         reload()
     }
+
+    var defaultGifFPS: Int { recordingSettings.gifFPS }
+    var defaultGifMaxWidth: Int? { recordingSettings.gifMaxWidth }
 
     func reload() {
         do {
@@ -58,6 +67,36 @@ final class HistoryModel: ObservableObject {
         }
         reload()
     }
+
+    func beginGifExport(_ entry: HistoryEntry) {
+        guard entry.filePath != nil else { return }
+        exportingEntry = entry
+    }
+
+    /// Converts `entry`'s video to a sibling `.gif` (same name, `.gif`
+    /// extension; colliding names get a numeric suffix), inserts a new history
+    /// row for it, and reloads. Local-first: the GIF is fully written before
+    /// the row lands; the source mp4 row is never touched.
+    func exportGif(for entry: HistoryEntry, fps: Int, maxWidth: Int?) async {
+        guard let sourcePath = entry.filePath else { return }
+        let sourceURL = URL(fileURLWithPath: sourcePath)
+        let gifURL = RecordingDelivery.gifOutputURL(for: sourceURL)
+        do {
+            try await GifConverter.convert(videoURL: sourceURL, to: gifURL,
+                                           options: .init(fps: fps, maxWidth: maxWidth))
+            let row = HistoryEntry(id: UUID().uuidString, capturedAt: Date(),
+                                   filePath: gifURL.path, url: nil, deletionURL: nil,
+                                   destinationName: nil, uploadFailed: false)
+            try store.insert(row)
+            AppLog.log("GIF exported: \(gifURL.path)")
+            exportError = nil
+        } catch {
+            AppLog.log("GIF export failed: \(error)")
+            exportError = "GIF export failed: \(error.localizedDescription)"
+        }
+        exportingEntry = nil
+        reload()
+    }
 }
 
 struct HistoryView: View {
@@ -84,6 +123,14 @@ struct HistoryView: View {
             }
         }
         .frame(minWidth: 520, minHeight: 400)
+        .sheet(item: $model.exportingEntry) { entry in
+            GifExportSheet(entry: entry, model: model)
+        }
+        .alert("Export Failed", isPresented: .constant(model.exportError != nil), presenting: model.exportError) { _ in
+            Button("OK") { model.exportError = nil }
+        } message: { message in
+            Text(message)
+        }
     }
 }
 
@@ -113,6 +160,10 @@ private struct HistoryRow: View {
                     .buttonStyle(.borderless).help("Open URL")
             }
             if let path = entry.filePath {
+                if MIMEType.isVideo(path: path) {
+                    Button { model.beginGifExport(entry) } label: { Image(systemName: "film.stack") }
+                        .buttonStyle(.borderless).help("Export as GIF…")
+                }
                 Button { model.reveal(path) } label: { Image(systemName: "folder") }
                     .buttonStyle(.borderless).help("Reveal in Finder")
             }
@@ -120,6 +171,53 @@ private struct HistoryRow: View {
                 .buttonStyle(.borderless).help("Delete")
         }
         .padding(.vertical, 2)
+    }
+}
+
+/// fps/scale options for "Export as GIF…", pre-filled from RecordingSettings.
+private struct GifExportSheet: View {
+    let entry: HistoryEntry
+    @ObservedObject var model: HistoryModel
+    @State private var fps: Double
+    @State private var maxWidthText: String
+    @State private var isExporting = false
+
+    init(entry: HistoryEntry, model: HistoryModel) {
+        self.entry = entry
+        self.model = model
+        _fps = State(initialValue: Double(model.defaultGifFPS))
+        _maxWidthText = State(initialValue: model.defaultGifMaxWidth.map(String.init) ?? "")
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("Export as GIF").font(.headline)
+            HStack {
+                Text("Frame rate")
+                Slider(value: $fps, in: 1...30, step: 1)
+                Text("\(Int(fps)) fps").monospacedDigit()
+            }
+            HStack {
+                Text("Max width (px)")
+                TextField("Source width", text: $maxWidthText)
+                    .textFieldStyle(.roundedBorder)
+                    .frame(width: 100)
+            }
+            HStack {
+                Spacer()
+                Button("Cancel") { model.exportingEntry = nil }
+                    .disabled(isExporting)
+                Button("Export") {
+                    isExporting = true
+                    let width = Int(maxWidthText)
+                    Task { await model.exportGif(for: entry, fps: Int(fps), maxWidth: width) }
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(isExporting)
+            }
+        }
+        .padding(20)
+        .frame(width: 320)
     }
 }
 
@@ -131,6 +229,11 @@ private struct Thumbnail: View {
                 .resizable().aspectRatio(contentMode: .fill)
                 .frame(width: 48, height: 36).clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 4))
+        } else if let path, MIMEType.isVideo(path: path) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(.quaternary)
+                .frame(width: 48, height: 36)
+                .overlay(Image(systemName: "film").foregroundStyle(.secondary))
         } else {
             RoundedRectangle(cornerRadius: 4)
                 .fill(.quaternary)
@@ -141,7 +244,10 @@ private struct Thumbnail: View {
 
     /// Decode a downsampled thumbnail directly via ImageIO, so a 4K+ screenshot
     /// is never fully decoded just to render at 48×36 (maxPixel 96 covers Retina).
+    /// Videos return nil here (ImageIO can't decode a video frame) → the film
+    /// fallback above; `MIMEType.isVideo` (SXCore) is the single source of truth.
     static func downsampled(path: String, maxPixel: Int) -> NSImage? {
+        guard !MIMEType.isVideo(path: path) else { return nil }
         let url = URL(fileURLWithPath: path) as CFURL
         guard let src = CGImageSourceCreateWithURL(url, nil) else { return nil }
         let opts: [CFString: Any] = [

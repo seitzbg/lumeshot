@@ -94,4 +94,22 @@ extension RecordingDelivery {
         }
         return url
     }
+
+    /// The source video's sibling `.gif` path (`<name>.gif` next to it; `_1`,
+    /// `_2`, … on collision). Pure and injectable — `fileExists` defaults to the
+    /// real filesystem.
+    public static func gifOutputURL(
+        for sourceURL: URL,
+        fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }
+    ) -> URL {
+        let dir = sourceURL.deletingLastPathComponent()
+        let base = sourceURL.deletingPathExtension().lastPathComponent
+        var url = dir.appendingPathComponent(base + ".gif")
+        var n = 1
+        while fileExists(url) {
+            url = dir.appendingPathComponent("\(base)_\(n).gif")
+            n += 1
+        }
+        return url
+    }
 }

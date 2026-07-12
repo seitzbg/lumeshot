@@ -12,4 +12,11 @@ public enum MIMEType {
         default: return "application/octet-stream"
         }
     }
+
+    /// True for the recording file extensions History can show. ImageIO cannot
+    /// downsample a video frame, so History uses this to fall back to a film
+    /// icon rather than attempting (and silently failing at) a thumbnail decode.
+    public static func isVideo(path: String) -> Bool {
+        ["mp4", "mov"].contains((path as NSString).pathExtension.lowercased())
+    }
 }

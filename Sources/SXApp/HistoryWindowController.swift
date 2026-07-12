@@ -7,8 +7,12 @@ final class HistoryWindowController {
     private var window: NSWindow?
     private var model: HistoryModel?
     private let store: HistoryStore
+    private let settingsStore: SettingsStore
 
-    init(store: HistoryStore) { self.store = store }
+    init(store: HistoryStore, settingsStore: SettingsStore) {
+        self.store = store
+        self.settingsStore = settingsStore
+    }
 
     func show() {
         if let window {
@@ -17,7 +21,8 @@ final class HistoryWindowController {
             window.makeKeyAndOrderFront(nil)
             return
         }
-        let model = HistoryModel(store: store)
+        let recording = settingsStore.loadOrDefault().0.recording
+        let model = HistoryModel(store: store, recordingSettings: recording)
         self.model = model
         let hosting = NSHostingController(rootView: HistoryView(model: model))
         let w = NSWindow(contentViewController: hosting)

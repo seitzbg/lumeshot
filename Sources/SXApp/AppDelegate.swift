@@ -254,7 +254,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                            body: "The history database could not be opened.", fileURL: nil)
             return
         }
-        if historyWindow == nil { historyWindow = HistoryWindowController(store: store) }
+        if historyWindow == nil {
+            historyWindow = HistoryWindowController(
+                store: store, settingsStore: SettingsStore(fileURL: SettingsStore.defaultFileURL))
+        }
         historyWindow?.show()
     }
 
