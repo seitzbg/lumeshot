@@ -18,18 +18,33 @@ protocol EditorPresenting {
 
 @MainActor
 final class EditorWindowController: NSObject, EditorPresenting, NSWindowDelegate {
+    private struct PendingPresentation {
+        let image: CGImage
+        let completion: (@MainActor (EditorResult?) -> Void)
+    }
+
     private var window: NSWindow?
     private var completion: (@MainActor (EditorResult?) -> Void)?
     private var finished = false
 
+    // FIFO queue so concurrent captures (e.g. one per display in a multi-display
+    // fullscreen grab) each get their own editor turn instead of superseding.
+    private var queue: [PendingPresentation] = []
+    private var isPresenting = false
+
     func present(image: CGImage, completion: @escaping @MainActor (EditorResult?) -> Void) {
-        // One session at a time; a new capture supersedes any stale window (Task 12
-        // replaces this with a queue so concurrent multi-display captures each get a turn).
-        if window != nil { finish(nil) }
-        self.completion = completion
+        queue.append(PendingPresentation(image: image, completion: completion))
+        presentNextIfIdle()
+    }
+
+    private func presentNextIfIdle() {
+        guard !isPresenting, !queue.isEmpty else { return }
+        let next = queue.removeFirst()
+        isPresenting = true
+        self.completion = next.completion
         self.finished = false
 
-        let model = EditorModel(baseImage: image)
+        let model = EditorModel(baseImage: next.image)
         let view = EditorView(
             model: model,
             onAction: { [weak self] result in self?.finish(result) },
@@ -55,7 +70,9 @@ final class EditorWindowController: NSObject, EditorPresenting, NSWindowDelegate
         window?.delegate = nil
         window?.close()
         window = nil
+        isPresenting = false
         callback?(result)
+        presentNextIfIdle()   // show the next queued capture, if any
     }
 
     // Closing the window via the red button is a cancel (discard).
