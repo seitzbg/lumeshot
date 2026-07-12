@@ -35,6 +35,12 @@ struct EditorView: View {
         ToolItem(tool: .line, label: "Line", symbol: "line.diagonal"),
         ToolItem(tool: .arrow, label: "Arrow", symbol: "arrow.up.right"),
         ToolItem(tool: .freehand, label: "Freehand", symbol: "scribble"),
+        ToolItem(tool: .crop, label: "Crop", symbol: "crop"),
+        ToolItem(tool: .text, label: "Text", symbol: "textformat"),
+        ToolItem(tool: .highlighter, label: "Highlighter", symbol: "highlighter"),
+        ToolItem(tool: .blur, label: "Blur", symbol: "drop"),
+        ToolItem(tool: .pixelate, label: "Pixelate", symbol: "squareshape.split.3x3"),
+        ToolItem(tool: .step, label: "Step", symbol: "1.circle"),
     ]
 
     var body: some View {
@@ -75,6 +81,8 @@ struct EditorView: View {
                 .frame(width: 90)
                 .help("Stroke width")
 
+            inspector
+
             Divider().frame(height: 20)
 
             Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }
@@ -99,5 +107,37 @@ struct EditorView: View {
             .keyboardShortcut(.defaultAction)
         }
         .padding(8)
+    }
+
+    /// Tool-specific creation parameters. Editing a control changes the model's
+    /// published default; releasing it (`onEditingChanged == false`) applies the value
+    /// to a matching selected shape via `applyInspectorToSelection()`.
+    @ViewBuilder private var inspector: some View {
+        switch model.activeTool {
+        case .text:
+            Stepper("Text \(Int(model.textFontSize))pt",
+                    value: $model.textFontSize, in: 8...96, step: 1,
+                    onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                .fixedSize()
+                .help("Text size")
+        case .blur:
+            HStack(spacing: 4) {
+                Image(systemName: "drop")
+                Slider(value: $model.blurRadius, in: 1...40,
+                       onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                    .frame(width: 90)
+            }
+            .help("Blur radius")
+        case .pixelate:
+            HStack(spacing: 4) {
+                Image(systemName: "squareshape.split.3x3")
+                Slider(value: $model.pixelScale, in: 4...40,
+                       onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                    .frame(width: 90)
+            }
+            .help("Pixelate scale")
+        default:
+            EmptyView()
+        }
     }
 }
