@@ -1,4 +1,6 @@
+import Foundation
 import CoreGraphics
+import CoreText
 
 public enum AnnotationRenderer {
     /// Draws every annotation in image-pixel coordinates using the context's
@@ -52,8 +54,14 @@ public enum AnnotationRenderer {
                 $0.move(to: points[0])
                 for p in points.dropFirst() { $0.addLine(to: p) }
             }
-        default:
-            break               // M3b: real arms added in Task 4
+        case .text(let rect, let string, let fontSize):
+            drawText(rect, string: string, fontSize: fontSize, style: style, in: ctx)
+        case .highlighter(let points):
+            drawHighlighter(points, style: style, in: ctx)
+        case .step(let center, let number):
+            drawStep(center, number: number, style: style, in: ctx)
+        case .crop, .blur, .pixelate:
+            break   // crop = view-only chrome; blur/pixelate are baked by bakeEffects (Task 5)
         }
         ctx.restoreGState()
     }
@@ -112,5 +120,60 @@ public enum AnnotationRenderer {
         head.closeSubpath()
         ctx.addPath(head)
         ctx.fillPath()
+    }
+
+    // TEXT
+    private static func drawText(_ rect: CGRect, string: String, fontSize: Double,
+                                 style: AnnotationStyle, in ctx: CGContext) {
+        guard !string.isEmpty else { return }
+        let font = CTFontCreateWithName("HelveticaNeue" as CFString, CGFloat(fontSize), nil)
+        // CoreText attribute keys (AppKit-free — SXAnnotate must not import AppKit).
+        let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
+        let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
+        let attr = NSAttributedString(string: string,
+            attributes: [fontKey: font, colorKey: style.strokeColor.cgColor])
+        let framesetter = CTFramesetterCreateWithAttributedString(attr)
+        let path = CGPath(rect: CGRect(origin: .zero, size: rect.standardized.size), transform: nil)
+        let frame = CTFramesetterCreateFrame(framesetter, CFRange(location: 0, length: 0), path, nil)
+        ctx.saveGState()
+        ctx.translateBy(x: rect.standardized.minX, y: rect.standardized.minY + rect.standardized.height)
+        ctx.scaleBy(x: 1, y: -1)      // counter the y-down CTM so CoreText draws upright
+        CTFrameDraw(frame, ctx)
+        ctx.restoreGState()
+    }
+
+    // HIGHLIGHTER
+    private static func drawHighlighter(_ points: [CGPoint], style: AnnotationStyle, in ctx: CGContext) {
+        guard points.count > 1 else { return }
+        ctx.saveGState()
+        ctx.setBlendMode(.multiply)
+        ctx.setLineCap(.round); ctx.setLineJoin(.round)
+        ctx.setLineWidth(max(CGFloat(style.strokeWidth), AnnotationDefaults.highlighterMinWidth))
+        var c = style.strokeColor; c.a = AnnotationDefaults.highlighterAlpha
+        ctx.setStrokeColor(c.cgColor)
+        ctx.move(to: points[0]); for p in points.dropFirst() { ctx.addLine(to: p) }
+        ctx.strokePath()
+        ctx.restoreGState()
+    }
+
+    // STEP BADGE
+    private static func drawStep(_ center: CGPoint, number: Int, style: AnnotationStyle, in ctx: CGContext) {
+        let radius = AnnotationDefaults.stepRadius
+        let circle = CGRect(x: center.x - radius, y: center.y - radius, width: radius*2, height: radius*2)
+        ctx.saveGState()
+        ctx.setFillColor(style.strokeColor.cgColor)
+        ctx.fillEllipse(in: circle)
+        let font = CTFontCreateWithName("HelveticaNeue-Bold" as CFString, AnnotationDefaults.stepFontSize, nil)
+        // CoreText attribute keys (AppKit-free — SXAnnotate must not import AppKit).
+        let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
+        let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
+        let line = CTLineCreateWithAttributedString(NSAttributedString(string: "\(number)",
+            attributes: [fontKey: font, colorKey: CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)]))
+        let b = CTLineGetImageBounds(line, ctx)
+        ctx.translateBy(x: center.x - b.width/2 - b.minX, y: center.y + b.height/2 + b.minY)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.textPosition = .zero
+        CTLineDraw(line, ctx)
+        ctx.restoreGState()
     }
 }

@@ -66,4 +66,46 @@ import CoreGraphics
         let (_, g2, _, _) = s.rgba(30, 5)   // well above the line, still white
         #expect(g2 > 240)
     }
+
+    @Test func highlighterMultipliesOverTheBase() throws {
+        let yellow = RGBAColor(r: 1, g: 1, b: 0, a: 1)
+        let a = Annotation(id: .init(),
+                           shape: .highlighter(points: [CGPoint(x: 10, y: 30), CGPoint(x: 50, y: 30)]),
+                           style: AnnotationStyle(strokeColor: yellow, strokeWidth: 4))
+        let out = try #require(AnnotationRenderer.flatten(base: whiteBase(60, 60), annotations: [a]))
+        let s = Sampler(out)
+        let (r, g, b, _) = s.rgba(30, 30)   // on the stroke
+        #expect(b < 220)                    // multiply with yellow (b=0) darkens blue
+        #expect(r > 200 && g > 200)         // red/green preserved
+        let (_, _, b2, _) = s.rgba(30, 5)   // above the stroke, untouched white base
+        #expect(b2 > 240)
+    }
+
+    @Test func stepBadgePaintsAFilledDisc() throws {
+        let a = Annotation(id: .init(),
+                           shape: .step(center: CGPoint(x: 30, y: 30), number: 1),
+                           style: AnnotationStyle(strokeColor: .red, strokeWidth: 4))
+        let out = try #require(AnnotationRenderer.flatten(base: whiteBase(60, 60), annotations: [a]))
+        let s = Sampler(out)
+        let (r, g, b, _) = s.rgba(22, 30)   // ~8px left of center: inside disc, off the glyph
+        #expect(r > 180 && g < 120 && b < 120)   // red fill
+        let (r2, g2, b2, _) = s.rgba(30, 5) // far outside the disc, white base
+        #expect(r2 > 240 && g2 > 240 && b2 > 240)
+    }
+
+    @Test func textContributesInkWithinItsBox() throws {
+        let a = Annotation(id: .init(),
+                           shape: .text(rect: CGRect(x: 5, y: 5, width: 50, height: 40), string: "HI", fontSize: 28),
+                           style: AnnotationStyle(strokeColor: .red, strokeWidth: 4))
+        let out = try #require(AnnotationRenderer.flatten(base: whiteBase(60, 60), annotations: [a]))
+        let s = Sampler(out)
+        var inked = 0
+        for y in 5..<45 { for x in 5..<55 {
+            let (r, g, b, _) = s.rgba(x, y)
+            if r < 230 || g < 230 || b < 230 { inked += 1 }
+        } }
+        #expect(inked > 0)                       // glyphs marked some pixels
+        let (r2, g2, b2, _) = s.rgba(58, 58)     // far corner, outside the box
+        #expect(r2 > 240 && g2 > 240 && b2 > 240)
+    }
 }
