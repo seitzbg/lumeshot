@@ -43,6 +43,11 @@ struct UploadService {
             }
             let creds = try S3Credentials.load(id: destination.id, from: credentials)
             return S3Uploader(config: config, credentials: creds, http: http)
+
+        case .sftp, .ftp:
+            // TEMP placeholder (Task 4) — Task 7 splits this into a real `.ftp`
+            // arm (keeping `.sftp` here as a placeholder); Task 9 replaces `.sftp`.
+            throw UploadError.unsupported("SFTP/FTP not yet wired")
         }
     }
 

@@ -53,6 +53,10 @@ final class DestinationsModel: ObservableObject {
                 try S3Credentials.purge(id: destination.id, from: credentials)
             case .imgur:
                 break
+            case .sftp, .ftp:
+                // TEMP placeholder (Task 4) — Task 7 splits this into a real `.ftp`
+                // arm (keeping `.sftp` here as a placeholder); Task 9 replaces `.sftp`.
+                break
             }
         } catch {
             AppLog.log("Destinations: secret purge failed for \(destination.id): \(error)")
@@ -97,6 +101,8 @@ final class DestinationsModel: ObservableObject {
         case .customUploader: return "Custom (.sxcu)"
         case .imgur: return "Imgur"
         case .s3: return "S3"
+        case .sftp: return "SFTP"
+        case .ftp: return "FTP"
         }
     }
 }
