@@ -4,11 +4,19 @@ import PackageDescription
 let package = Package(
     name: "sharex-mac",
     platforms: [.macOS(.v15)],
+    dependencies: [
+        .package(url: "https://github.com/orlandos-nl/Citadel", from: "0.12.1"),
+    ],
     targets: [
         .executableTarget(name: "SXApp", dependencies: ["SXCore", "SXCapture", "SXUpload", "SXAnnotate", "SXRecord"]),
         .target(name: "SXCore"),
         .target(name: "SXCapture", dependencies: ["SXCore"]),
-        .target(name: "SXUpload", dependencies: ["SXCore"]),
+        .systemLibrary(name: "Clibcurl", providers: [.brew(["curl"])]),
+        .target(name: "SXUpload", dependencies: [
+            "SXCore",
+            "Clibcurl",
+            .product(name: "Citadel", package: "Citadel"),
+        ]),
         .target(name: "SXAnnotate"),
         .target(name: "SXRecord", dependencies: ["SXCore"]),
         .testTarget(name: "SXCoreTests", dependencies: ["SXCore"],

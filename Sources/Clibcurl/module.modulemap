@@ -1,0 +1,5 @@
+module Clibcurl [system] {
+    header "shim.h"
+    link "curl"
+    export *
+}
