@@ -284,27 +284,18 @@ public final class EditorModel: ObservableObject {
         guard var current = draft else {
             return Annotation(shape: shape(for: activeTool, anchor: anchor, to: point), style: currentStyle)
         }
-        switch activeTool {
-        case .rectangle: current.shape = .rectangle(rect: CGRect(spanning: anchor, point))
-        case .ellipse:   current.shape = .ellipse(rect: CGRect(spanning: anchor, point))
-        case .line:      current.shape = .line(start: anchor, end: point)
-        case .arrow:     current.shape = .arrow(start: anchor, end: point)
-        case .freehand:
-            if case .freehand(var points) = current.shape {
-                points.append(point)
-                current.shape = .freehand(points: points)
-            }
-        // M3b drag tools:
-        case .crop:      current.shape = .crop(rect: CGRect(spanning: anchor, point))
-        case .blur:      current.shape = .blur(rect: CGRect(spanning: anchor, point), radius: blurRadius)
-        case .pixelate:  current.shape = .pixelate(rect: CGRect(spanning: anchor, point), scale: pixelScale)
-        case .highlighter:
-            if case .highlighter(var points) = current.shape {
-                points.append(point)
-                current.shape = .highlighter(points: points)
-            }
-        case .text, .step, .select:
-            break
+        // Point-accruing tools append the new point to the existing draft; every
+        // span-based tool re-derives its shape from the anchor→point span via the
+        // single source of truth, `shape(for:)`.
+        switch current.shape {
+        case .freehand(var points):
+            points.append(point)
+            current.shape = .freehand(points: points)
+        case .highlighter(var points):
+            points.append(point)
+            current.shape = .highlighter(points: points)
+        default:
+            current.shape = shape(for: activeTool, anchor: anchor, to: point)
         }
         return current
     }

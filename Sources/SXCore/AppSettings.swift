@@ -54,8 +54,9 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.editor = editor
     }
 
-    // Tolerate a v1 file with no `upload` or `editor` key by defaulting them (migration in
-    // SettingsStore bumps the version); every other field is required as before.
+    // Tolerate older settings files: a v1 file lacks `upload` (SettingsStore migrates it
+    // to schemaVersion 2), and a pre-editor v2 file lacks `editor` (no version bump — it is
+    // already v2). The decoder defaults each missing key; every other field is required.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)

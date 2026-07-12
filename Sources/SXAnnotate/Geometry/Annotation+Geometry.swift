@@ -43,7 +43,7 @@ public extension Annotation {
             return distanceFromPoint(point, toSegmentA: start, b: end) <= tolerance
         case .freehand(let points):
             guard points.count > 1 else {
-                return points.first.map { hypot(point.x - $0.x, point.y - $0.y) <= tolerance } ?? false
+                return points.first.map { distanceFromPoint(point, toSegmentA: $0, b: $0) <= tolerance } ?? false
             }
             for i in 0..<(points.count - 1) {
                 if distanceFromPoint(point, toSegmentA: points[i], b: points[i + 1]) <= tolerance {
