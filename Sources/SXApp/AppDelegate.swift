@@ -115,7 +115,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let combo = config.window {
             manager.register(combo) { [weak self] in self?.coordinator?.captureWindow() }
         }
-        AppLog.log("Hotkeys registered (fullscreen=\(config.fullscreen != nil), region=\(config.region != nil), window=\(config.window != nil))")
+        if let combo = config.record {
+            manager.register(combo) { [weak self] in
+                AppLog.log("Record hotkey fired")
+                self?.recordingCoordinator?.toggle(mode: .region)
+            }
+        }
+        AppLog.log("Hotkeys registered (fullscreen=\(config.fullscreen != nil), region=\(config.region != nil), window=\(config.window != nil), record=\(config.record != nil))")
     }
 
     func buildMenu() -> NSMenu {
