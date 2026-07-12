@@ -48,13 +48,19 @@ final class CaptureCoordinator {
             do {
                 let displays = try await DisplayCapture.captureAllDisplays(showCursor: false)
                 AppLog.log("captureAllDisplays returned \(displays.count) display(s)")
+                guard !displays.isEmpty else { completion?(0); return }
+                // Count only persisted images. deliver reports its outcome asynchronously
+                // when annotate-before-share routes through the editor, so aggregate via a
+                // main-actor pending counter (no data race — all on @MainActor).
                 var count = 0
+                var pending = displays.count
                 for display in displays {
-                    if self.deliver(image: display.image, appName: appName) {
-                        count += 1
+                    self.deliver(image: display.image, appName: appName) { persisted in
+                        if persisted { count += 1 }
+                        pending -= 1
+                        if pending == 0 { completion?(count) }
                     }
                 }
-                completion?(count)
             } catch {
                 self.reportFailure(error)
                 completion?(0)
@@ -139,30 +145,45 @@ final class CaptureCoordinator {
         }
     }
 
-    @discardableResult
-    func deliver(image: CGImage, appName: String?) -> Bool {
+    /// Routes a captured image to the editor (when annotate-before-share is on) or
+    /// straight to persistence. `onOutcome(true)` means the image was persisted to disk
+    /// (Save/Upload); `onOutcome(false)` means it was not (Copy/Cancel/discard), so
+    /// callers can count only persisted files.
+    func deliver(image: CGImage, appName: String?, onOutcome: (@MainActor (Bool) -> Void)? = nil) {
         let (settings, _) = settingsStore.loadOrDefault()
         if settings.editor.annotateBeforeShare, let presenter = editorPresenter {
             presenter.present(image: image) { [weak self] result in
-                guard let self else { return }
-                guard let result else {
+                guard let self else { onOutcome?(false); return }
+                switch result {
+                case nil:
                     AppLog.log("Editor cancelled; capture discarded before save")
-                    return
+                    onOutcome?(false)
+                case .some(let r):
+                    switch r.action {
+                    case .save:
+                        onOutcome?(self.finishPersist(image: r.image, appName: appName, upload: false))
+                    case .upload:
+                        onOutcome?(self.finishPersist(image: r.image, appName: appName, upload: true))
+                    case .copy:
+                        self.copyImageToClipboard(r.image)
+                        AppLog.log("Editor copy: image on clipboard, not persisted")
+                        onOutcome?(false)
+                    }
                 }
-                // Task 11 refines this into per-action save/upload/copy handling and
-                // fullscreen-count threading; for now every finished action runs the
-                // existing persist chain so the build stays green.
-                self.finish(image: result.image, appName: appName)
             }
-            return true
+            return
         }
-        return finish(image: image, appName: appName)
+        // Passthrough (annotate off): preserve M3a behavior — upload iff configured.
+        onOutcome?(finishPersist(image: image, appName: appName,
+                                 upload: settings.upload.uploadAfterCapture))
     }
 
-    /// Encodes the (possibly edited) image and runs the after-capture chain.
-    /// Preserves the local-first invariant: disk save precedes any upload.
+    /// Persists the (possibly edited) image: encodes PNG, saves to disk, records a
+    /// history row, and — only when `upload` is true — uploads and puts the URL on the
+    /// clipboard. Local-first invariant: the disk save precedes any upload. Returns
+    /// true when the image was persisted (disk save succeeded).
     @discardableResult
-    private func finish(image: CGImage, appName: String?) -> Bool {
+    private func finishPersist(image: CGImage, appName: String?, upload: Bool) -> Bool {
         guard let png = ImageEncoder.png(from: image) else {
             reportFailure(DeliveryError.pngEncodingFailed)
             return false
@@ -178,7 +199,7 @@ final class CaptureCoordinator {
                 .process(artifact)
             AppLog.log("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
             recordAndMaybeUpload(settings: settings, savedURL: result.savedURL,
-                                 pngData: png, capturedAt: artifact.capturedAt)
+                                 pngData: png, capturedAt: artifact.capturedAt, upload: upload)
             return true
         } catch {
             reportFailure(error)
@@ -186,14 +207,26 @@ final class CaptureCoordinator {
         }
     }
 
+    /// Puts the annotated image on the clipboard without touching disk or history.
+    /// Copy is deliberately ephemeral (ratified action design): no file is written.
+    private func copyImageToClipboard(_ image: CGImage) {
+        guard let png = ImageEncoder.png(from: image) else {
+            reportFailure(DeliveryError.pngEncodingFailed)
+            return
+        }
+        effects.copyImageToClipboard(png)
+    }
+
     /// Records a history row for the capture, then (if configured) uploads
     /// asynchronously and updates the row with the URL or a failure marker.
     /// Runs after the synchronous disk save, preserving the local-first invariant.
     private func recordAndMaybeUpload(settings: AppSettings, savedURL: URL?,
-                                      pngData: Data, capturedAt: Date) {
+                                      pngData: Data, capturedAt: Date, upload: Bool) {
         let entryID = UUID().uuidString
         let destination = settings.upload.activeDestination
-        let willUpload = settings.upload.uploadAfterCapture && destination != nil
+        // The action (Save vs Upload) now decides whether to upload; the passthrough
+        // path passes `settings.upload.uploadAfterCapture` so its behavior is unchanged.
+        let willUpload = upload && destination != nil
 
         if let store = historyStore {
             let entry = HistoryEntry(id: entryID, capturedAt: capturedAt,
