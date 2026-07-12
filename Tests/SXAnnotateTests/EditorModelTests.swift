@@ -172,4 +172,84 @@ import CoreGraphics
         } else { Issue.record("expected blur") }
         #expect(m.canUndo)
     }
+
+    private func stepNumbers(_ m: EditorModel) -> [Int] {
+        m.annotations.compactMap { if case .step(_, let n) = $0.shape { return n }; return nil }
+    }
+
+    @Test func textToolClickCreatesOneEmptyTextInEditMode() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.pointerDown(at: CGPoint(x: 20, y: 20))
+        m.pointerUp(at: CGPoint(x: 20, y: 20))
+        #expect(m.annotations.count == 1)
+        #expect(m.editingTextID == m.annotations[0].id)
+        #expect(m.selectedID == m.annotations[0].id)
+        if case .text(_, let string, _) = m.annotations[0].shape {
+            #expect(string.isEmpty)
+        } else { Issue.record("expected text") }
+    }
+
+    @Test func emptyTextIsRemovedWhenEditingEnds() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.pointerDown(at: CGPoint(x: 20, y: 20)); m.pointerUp(at: CGPoint(x: 20, y: 20))
+        m.endTextEditing()
+        #expect(m.annotations.isEmpty)
+        #expect(m.editingTextID == nil)
+        #expect(!m.canUndo)          // placing-then-abandoning an empty box leaves no history
+    }
+
+    @Test func typedTextIsCommittedAsOneUndoStep() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.pointerDown(at: CGPoint(x: 20, y: 20)); m.pointerUp(at: CGPoint(x: 20, y: 20))
+        m.updateEditingText("Hi")
+        m.endTextEditing()
+        #expect(m.annotations.count == 1)
+        if case .text(_, let string, _) = m.annotations[0].shape { #expect(string == "Hi") }
+        else { Issue.record("expected text") }
+        #expect(m.editingTextID == nil)
+        #expect(m.canUndo)
+        m.undo()
+        #expect(m.annotations.isEmpty)   // one undo removes the whole text placement
+    }
+
+    @Test func stepsAutoNumberInPlacementOrder() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.step)
+        for p in [CGPoint(x: 10, y: 10), CGPoint(x: 30, y: 30), CGPoint(x: 50, y: 50)] {
+            m.pointerDown(at: p); m.pointerUp(at: p)
+        }
+        #expect(m.annotations.count == 3)
+        #expect(stepNumbers(m) == [1, 2, 3])
+    }
+
+    @Test func deletingAMiddleStepRenumbersTheRestInOneUndo() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.step)
+        for p in [CGPoint(x: 10, y: 10), CGPoint(x: 30, y: 30), CGPoint(x: 50, y: 50)] {
+            m.pointerDown(at: p); m.pointerUp(at: p)
+        }
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 30, y: 30)); m.pointerUp(at: CGPoint(x: 30, y: 30))   // select middle step
+        m.deleteSelected()
+        #expect(m.annotations.count == 2)
+        #expect(stepNumbers(m) == [1, 2])   // 1,3 resequenced to 1,2
+        m.undo()
+        #expect(m.annotations.count == 3)   // delete + renumber undo together
+        #expect(stepNumbers(m) == [1, 2, 3])
+    }
+
+    @Test func changingFontSizeUpdatesTheSelectedText() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.pointerDown(at: CGPoint(x: 20, y: 20)); m.pointerUp(at: CGPoint(x: 20, y: 20))
+        m.updateEditingText("Hi")
+        m.endTextEditing()               // text stays selected after editing
+        m.textFontSize = 40
+        m.applyInspectorToSelection()
+        if case .text(_, _, let fontSize) = m.annotations[0].shape { #expect(fontSize == 40) }
+        else { Issue.record("expected text") }
+    }
 }

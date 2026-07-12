@@ -15,6 +15,8 @@ public final class EditorModel: ObservableObject {
     @Published public var strokeWidth: Double = 4
     @Published public var blurRadius: Double = AnnotationDefaults.blurRadius
     @Published public var pixelScale: Double = AnnotationDefaults.pixelScale
+    @Published public var textFontSize: Double = AnnotationDefaults.textFontSize
+    @Published public private(set) var editingTextID: Annotation.ID?
     @Published public private(set) var selectedID: Annotation.ID?
     @Published public private(set) var canUndo = false
     @Published public private(set) var canRedo = false
@@ -30,6 +32,7 @@ public final class EditorModel: ObservableObject {
     private var activeHandle: HandleKind?    // resize in progress
     private var lastDragPoint: CGPoint?      // move in progress
     private var gestureStartState: [Annotation]?  // document before the gesture
+    private var textEditStartState: [Annotation]?   // document before a text placement
 
     public init(baseImage: CGImage) {
         self.baseImage = baseImage
@@ -58,6 +61,16 @@ public final class EditorModel: ObservableObject {
     // MARK: Pointer handling
 
     public func pointerDown(at point: CGPoint) {
+        switch activeTool {
+        case .text:
+            beginTextEditing(at: point)   // click-placed; no draft, no drag commit
+            return
+        case .step:
+            placeStep(at: point)          // click-placed; commits immediately
+            return
+        default:
+            break
+        }
         gestureStartState = annotations
         if activeTool == .select {
             beginSelectGesture(at: point)
@@ -101,11 +114,26 @@ public final class EditorModel: ObservableObject {
     // MARK: Commands
 
     public func deleteSelected() {
-        guard let id = selectedID, annotations.contains(where: { $0.id == id }) else { return }
+        guard let id = selectedID, let target = annotations.first(where: { $0.id == id }) else { return }
         history.commit(annotations)
+        let deletedAStep: Bool
+        if case .step = target.shape { deletedAStep = true } else { deletedAStep = false }
         annotations.removeAll { $0.id == id }
+        if deletedAStep { renumberSteps() }
         selectedID = nil
         refreshHistoryFlags()
+    }
+
+    /// Re-sequences remaining step badges to 1…n in z-order (== their numeric order,
+    /// since steps are only appended in increasing number and never reordered in M3b).
+    private func renumberSteps() {
+        var n = 1
+        for i in annotations.indices {
+            if case .step(let center, _) = annotations[i].shape {
+                annotations[i].shape = .step(center: center, number: n)
+                n += 1
+            }
+        }
     }
 
     public func undo() {
@@ -133,14 +161,54 @@ public final class EditorModel: ObservableObject {
               let index = annotations.firstIndex(where: { $0.id == id }) else { return }
         let updated: AnnotationShape?
         switch annotations[index].shape {
-        case .blur(let rect, _):     updated = .blur(rect: rect, radius: blurRadius)
-        case .pixelate(let rect, _): updated = .pixelate(rect: rect, scale: pixelScale)
-        default:                     updated = nil
+        case .blur(let rect, _):        updated = .blur(rect: rect, radius: blurRadius)
+        case .pixelate(let rect, _):    updated = .pixelate(rect: rect, scale: pixelScale)
+        case .text(let rect, let str, _): updated = .text(rect: rect, string: str, fontSize: textFontSize)
+        default:                        updated = nil
         }
         guard let newShape = updated else { return }
         history.commit(annotations)
         annotations[index].shape = newShape
         refreshHistoryFlags()
+    }
+
+    /// Places an empty text box at `point`, enters edit mode and selects it. The
+    /// placement is committed to history only when non-empty text is finalized
+    /// (see `endTextEditing`), so abandoning an empty box leaves no undo step.
+    public func beginTextEditing(at point: CGPoint) {
+        textEditStartState = annotations
+        let box = CGRect(x: point.x, y: point.y, width: 200, height: textFontSize * 1.5)
+        let text = Annotation(shape: .text(rect: box, string: "", fontSize: textFontSize), style: currentStyle)
+        annotations.append(text)
+        selectedID = text.id
+        editingTextID = text.id
+    }
+
+    /// Live-updates the editing text's string without a per-keystroke commit.
+    public func updateEditingText(_ string: String) {
+        guard let id = editingTextID,
+              let index = annotations.firstIndex(where: { $0.id == id }),
+              case .text(let rect, _, let fontSize) = annotations[index].shape else { return }
+        annotations[index].shape = .text(rect: rect, string: string, fontSize: fontSize)
+    }
+
+    /// Ends text editing. Empty boxes are discarded with no history entry; a
+    /// non-empty box commits the placement as a single undo step.
+    public func endTextEditing() {
+        defer { editingTextID = nil }
+        guard let id = editingTextID,
+              let index = annotations.firstIndex(where: { $0.id == id }) else { return }
+        if case .text(_, let string, _) = annotations[index].shape, string.isEmpty {
+            annotations.remove(at: index)
+            if selectedID == id { selectedID = nil }
+            textEditStartState = nil
+            return
+        }
+        if let before = textEditStartState {
+            history.commit(before)
+            textEditStartState = nil
+            refreshHistoryFlags()
+        }
     }
 
     // MARK: Gesture internals
@@ -165,6 +233,24 @@ public final class EditorModel: ObservableObject {
         drawAnchor = point
         draft = Annotation(shape: shape(for: activeTool, anchor: point, to: point),
                            style: currentStyle)
+    }
+
+    /// The next unused step badge number (max existing + 1).
+    private var nextStepNumber: Int {
+        let maxNumber = annotations.reduce(0) { acc, ann in
+            if case .step(_, let number) = ann.shape { return Swift.max(acc, number) }
+            return acc
+        }
+        return maxNumber + 1
+    }
+
+    /// Places an auto-numbered step badge at `point` and selects it (one commit).
+    private func placeStep(at point: CGPoint) {
+        history.commit(annotations)
+        let step = Annotation(shape: .step(center: point, number: nextStepNumber), style: currentStyle)
+        annotations.append(step)
+        selectedID = step.id
+        refreshHistoryFlags()
     }
 
     private func shape(for tool: EditorTool, anchor: CGPoint, to point: CGPoint) -> AnnotationShape {
