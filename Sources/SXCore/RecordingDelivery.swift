@@ -75,8 +75,10 @@ extension RecordingDelivery {
     /// the same `NameParser` template used for stills, with a `.mp4` extension
     /// and numeric-suffix collision handling. Pure and static — unit-testable
     /// without SCK or real disk I/O (`fileExists` is injectable; production
-    /// calls default to the real filesystem). Mirrors
-    /// `AfterCapturePipeline.resolveCollisions`.
+    /// calls default to the real filesystem). Unlike
+    /// `AfterCapturePipeline.resolveCollisions`, this always appends a plain
+    /// `_n` suffix on collision — it does not re-render `%i` tokens in the
+    /// filename template.
     public static func outputURL(
         settings: AppSettings, capturedAt: Date, appName: String?,
         fileExists: (URL) -> Bool = { FileManager.default.fileExists(atPath: $0.path) }

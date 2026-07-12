@@ -192,29 +192,27 @@ final class RecordingCoordinator {
                                 appName: String?) async throws {
         let settings = settingsStore.loadOrDefault().0
         let dir = URL(fileURLWithPath: (settings.captureSavePath as NSString).expandingTildeInPath)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         let url = RecordingDelivery.outputURL(settings: settings, capturedAt: Date(), appName: appName)
         let codec: AVVideoCodecType = settings.recording.videoCodec == .hevc ? .hevc : .h264
-        do {
-            try await recorder.start(filter: filter, dimensions: dimensions,
-                                     capturesAudio: settings.recording.systemAudio,
-                                     codec: codec, outputURL: url) { [weak self] result in
-                self?.onStateChange(false)
-                switch result {
-                case .success(let finishedURL):
-                    AppLog.log("Recording saved: \(finishedURL.path)")
-                    self?.deliver(finishedURL, appName)
-                case .failure(let error):
-                    AppLog.log("Recording failed: \(error)")
-                    self?.effects.notify(title: "Recording failed",
-                                         body: String(describing: error), fileURL: nil)
-                }
+        // Errors here (mkdir, recorder.start) are intentionally left uncaught:
+        // all three callers already log + notify exactly once in their own
+        // do/catch around `try await beginRecording(...)`. A local catch here
+        // would double the user-facing "Recording failed" notification.
+        try await recorder.start(filter: filter, dimensions: dimensions,
+                                 capturesAudio: settings.recording.systemAudio,
+                                 codec: codec, outputURL: url) { [weak self] result in
+            self?.onStateChange(false)
+            switch result {
+            case .success(let finishedURL):
+                AppLog.log("Recording saved: \(finishedURL.path)")
+                self?.deliver(finishedURL, appName)
+            case .failure(let error):
+                AppLog.log("Recording failed: \(error)")
+                self?.effects.notify(title: "Recording failed",
+                                     body: String(describing: error), fileURL: nil)
             }
-            onStateChange(true)
-        } catch {
-            AppLog.log("Recording start failed: \(error)")
-            effects.notify(title: "Recording failed", body: "\(error)", fileURL: nil)
-            throw error
         }
+        onStateChange(true)
     }
 }
