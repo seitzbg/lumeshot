@@ -209,7 +209,10 @@ private struct GifExportSheet: View {
                     .disabled(isExporting)
                 Button("Export") {
                     isExporting = true
-                    let width = Int(maxWidthText)
+                    // Non-numeric, zero, or negative input means "no max
+                    // width" — never pass a <= 0 width down to the GIF
+                    // converter's `maximumSize`.
+                    let width = Int(maxWidthText).flatMap { $0 > 0 ? $0 : nil }
                     Task { await model.exportGif(for: entry, fps: Int(fps), maxWidth: width) }
                 }
                 .keyboardShortcut(.defaultAction)

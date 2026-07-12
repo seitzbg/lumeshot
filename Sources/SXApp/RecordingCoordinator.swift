@@ -205,7 +205,8 @@ final class RecordingCoordinator {
             self?.onStateChange(false)
             switch result {
             case .success(let finishedURL):
-                AppLog.log("Recording saved: \(finishedURL.path)")
+                // `deliver` (CaptureCoordinator.deliverRecording) logs the
+                // saved file path — don't duplicate that line here.
                 self?.deliver(finishedURL, appName)
             case .failure(let error):
                 AppLog.log("Recording failed: \(error)")

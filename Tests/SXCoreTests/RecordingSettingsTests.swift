@@ -28,6 +28,9 @@ import Foundation
     @Test func legacyFileWithoutRecordingKeyDefaultsIt() throws {
         // A settings JSON that predates the recording field (and the record
         // hotkey) must still decode — same v2-no-bump treatment as `editor`.
+        // The record hotkey specifically must default to the shipped combo
+        // (not nil), otherwise upgraded users silently lose the record
+        // shortcut — see HotkeySettingsTests for dedicated coverage.
         let json = """
         {"schemaVersion":2,"captureSavePath":"~/Pictures/ShareX","filenameTemplate":"x",
          "saveToDisk":true,"copyToClipboard":true,"showNotification":true,
@@ -35,7 +38,7 @@ import Foundation
         """
         let decoded = try JSONDecoder().decode(AppSettings.self, from: Data(json.utf8))
         #expect(decoded.recording == RecordingSettings.default)
-        #expect(decoded.hotkeys.record == nil)
+        #expect(decoded.hotkeys.record == HotkeyCombo(keyCode: 22, modifiers: 2560))
     }
 
     @Test func defaultHotkeysIncludeRecord() {

@@ -21,6 +21,23 @@ public struct HotkeySettings: Codable, Equatable, Sendable {
         self.window = window
         self.record = record
     }
+
+    // A pre-M4 `hotkeys` object has no `record` key at all. Synthesized
+    // Codable would decode that absence as `nil`, which silently disables
+    // the flagship record hotkey for every upgrading user (registration
+    // skips it via `if let combo = config.record`). Default an absent
+    // `record` to the shipped combo; `fullscreen`/`region`/`window` keep
+    // today's "absent → nil" semantics.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fullscreen = try c.decodeIfPresent(HotkeyCombo.self, forKey: .fullscreen)
+        region = try c.decodeIfPresent(HotkeyCombo.self, forKey: .region)
+        window = try c.decodeIfPresent(HotkeyCombo.self, forKey: .window)
+        record = try c.decodeIfPresent(HotkeyCombo.self, forKey: .record)
+            ?? HotkeyCombo(keyCode: 22, modifiers: 2560)
+    }
+
+    private enum CodingKeys: String, CodingKey { case fullscreen, region, window, record }
 }
 
 public struct EditorSettings: Codable, Equatable, Sendable {
