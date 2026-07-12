@@ -86,9 +86,11 @@ struct EditorView: View {
             Divider().frame(height: 20)
 
             Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                .disabled(!model.canUndo).help("Undo")
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(!model.canUndo || model.editingTextID != nil).help("Undo")
             Button { model.redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                .disabled(!model.canRedo).help("Redo")
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!model.canRedo || model.editingTextID != nil).help("Redo")
             Button { model.deleteSelected() } label: { Image(systemName: "trash") }
                 .disabled(model.selectedAnnotation == nil).help("Delete selected")
 

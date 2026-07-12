@@ -2,11 +2,18 @@ import AppKit
 import SwiftUI
 import SXAnnotate
 
-/// Custom AppKit canvas: renders the document with `AnnotationRenderer` and
-/// forwards pointer events (converted to image coordinates) to `EditorModel`.
+/// Custom AppKit canvas: renders the document (base + baked blur/pixelate effects +
+/// vector/text/highlighter/step annotations + crop chrome), hosts an in-canvas
+/// `NSTextField` for text editing, and forwards pointer events (converted to image
+/// coordinates) to `EditorModel`.
+///
+/// EXPLICIT `@MainActor`: every AppKit view type in this project is annotated
+/// `@MainActor` so the CI toolchain (macos-15 / Xcode-16.4 / Swift-6.0) type-checks the
+/// same isolation the dev SDK infers implicitly (the M1/M3a lesson).
 @MainActor
 final class EditorCanvasNSView: NSView {
     let model: EditorModel
+    private var textField: NSTextField?
 
     init(model: EditorModel) {
         self.model = model
@@ -29,23 +36,54 @@ final class EditorCanvasNSView: NSView {
         guard let ctx = NSGraphicsContext.current?.cgContext else { return }
         let geo = geometry
 
+        // Effect preview: composite blur/pixelate regions into the base via Core Image
+        // so they show live. PERF CAVEAT: bakeEffects runs on every repaint (a drag =
+        // many repaints); caching the baked image by annotation-signature is deferred.
+        let baked = AnnotationRenderer.bakeEffects(base: model.baseImage,
+                                                   annotations: model.displayAnnotations)
         ctx.saveGState()
         ctx.interpolationQuality = .high
-        ctx.draw(model.baseImage, in: geo.imageRectInView)
+        ctx.draw(baked, in: geo.imageRectInView)
         ctx.restoreGState()
 
+        // Vector + text + highlighter + step on top (drawAnnotations skips crop/blur/
+        // pixelate). The text being edited is shown by the live NSTextField instead.
+        let vectors = model.displayAnnotations.filter { $0.id != model.editingTextID }
         ctx.saveGState()
         ctx.concatenate(geo.imageToViewTransform)
-        AnnotationRenderer.drawAnnotations(model.displayAnnotations, in: ctx)
+        AnnotationRenderer.drawAnnotations(vectors, in: ctx)
         ctx.restoreGState()
+
+        // Crop chrome: dim everything outside the crop rect. View-only — never exported.
+        drawCropChrome(geo: geo, in: ctx)
 
         if let selected = model.selectedAnnotation {
             drawSelection(selected, geo: geo, in: ctx)
         }
     }
 
+    private func drawCropChrome(geo: CanvasGeometry, in ctx: CGContext) {
+        guard let crop = model.displayAnnotations.last(where: {
+            if case .crop = $0.shape { return true }; return false
+        }), case .crop(let r) = crop.shape else { return }
+        let s = r.standardized
+        let inner = CGRect(spanning: geo.imageToView(CGPoint(x: s.minX, y: s.minY)),
+                           geo.imageToView(CGPoint(x: s.maxX, y: s.maxY)))
+            .intersection(geo.imageRectInView)
+        ctx.saveGState()
+        ctx.setFillColor(NSColor.black.withAlphaComponent(0.5).cgColor)
+        let ring = CGMutablePath()
+        ring.addRect(geo.imageRectInView)
+        ring.addRect(inner)
+        ctx.addPath(ring)
+        ctx.fillPath(using: .evenOdd)          // fills the region OUTSIDE the crop rect
+        ctx.setStrokeColor(NSColor.white.cgColor)
+        ctx.setLineWidth(1)
+        ctx.stroke(inner)
+        ctx.restoreGState()
+    }
+
     private func drawSelection(_ annotation: Annotation, geo: CanvasGeometry, in ctx: CGContext) {
-        // Dashed bounding outline.
         let b = annotation.bounds
         let corners = [CGPoint(x: b.minX, y: b.minY), CGPoint(x: b.maxX, y: b.minY),
                        CGPoint(x: b.maxX, y: b.maxY), CGPoint(x: b.minX, y: b.maxY)]
@@ -58,7 +96,6 @@ final class EditorCanvasNSView: NSView {
         ctx.strokePath()
         ctx.restoreGState()
 
-        // Solid grips.
         ctx.saveGState()
         ctx.setFillColor(NSColor.white.cgColor)
         ctx.setStrokeColor(NSColor.controlAccentColor.cgColor)
@@ -72,6 +109,75 @@ final class EditorCanvasNSView: NSView {
         ctx.restoreGState()
     }
 
+    // MARK: In-canvas text editing
+
+    /// Adds/positions/removes the overlay `NSTextField` to match `model.editingTextID`.
+    /// Called from the representable's `updateNSView`, so any published change re-syncs it.
+    func syncTextEditing() {
+        guard let id = model.editingTextID else {
+            teardownTextField()
+            return
+        }
+        let field: NSTextField
+        if let existing = textField {
+            field = existing
+        } else {
+            field = makeTextField()
+            textField = field
+            addSubview(field)
+            NotificationCenter.default.addObserver(
+                self, selector: #selector(textDidChange(_:)),
+                name: NSControl.textDidChangeNotification, object: field)
+        }
+        positionTextField(field, forAnnotationID: id)
+        if field.currentEditor() == nil {
+            window?.makeFirstResponder(field)   // focus once; don't steal the caret on every sync
+        }
+    }
+
+    private func makeTextField() -> NSTextField {
+        let field = NSTextField(frame: .zero)
+        field.isBordered = false
+        field.drawsBackground = false
+        field.focusRingType = .none
+        field.target = self
+        field.action = #selector(commitTextEditing)   // Return commits
+        return field
+    }
+
+    private func positionTextField(_ field: NSTextField, forAnnotationID id: Annotation.ID) {
+        guard let ann = model.displayAnnotations.first(where: { $0.id == id }),
+              case .text(let rect, let string, let fontSize) = ann.shape else { return }
+        let geo = geometry
+        let s = rect.standardized
+        let frame = CGRect(spanning: geo.imageToView(CGPoint(x: s.minX, y: s.minY)),
+                           geo.imageToView(CGPoint(x: s.maxX, y: s.maxY)))
+        field.frame = frame.insetBy(dx: -2, dy: -2)
+        field.font = .systemFont(ofSize: CGFloat(fontSize) * geo.scale)
+        field.textColor = NSColor(srgbRed: model.strokeColor.r, green: model.strokeColor.g,
+                                  blue: model.strokeColor.b, alpha: model.strokeColor.a)
+        if field.stringValue != string { field.stringValue = string }
+    }
+
+    private func teardownTextField() {
+        guard let field = textField else { return }
+        NotificationCenter.default.removeObserver(self, name: NSControl.textDidChangeNotification,
+                                                  object: field)
+        field.removeFromSuperview()
+        textField = nil
+    }
+
+    @objc private func textDidChange(_ note: Notification) {
+        guard let field = note.object as? NSTextField, field === textField else { return }
+        model.updateEditingText(field.stringValue)
+        needsDisplay = true
+    }
+
+    @objc private func commitTextEditing() {
+        model.endTextEditing()
+        needsDisplay = true
+    }
+
     // MARK: Mouse
 
     private func imagePoint(_ event: NSEvent) -> CGPoint {
@@ -79,6 +185,9 @@ final class EditorCanvasNSView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
+        // Clicking the canvas commits any in-progress text before the next gesture; the
+        // model then routes the click (text → beginTextEditing, step → place badge, etc.).
+        if model.editingTextID != nil { model.endTextEditing() }
         model.pointerDown(at: imagePoint(event)); needsDisplay = true
     }
 
@@ -100,6 +209,7 @@ struct EditorCanvasView: NSViewRepresentable {
     }
 
     func updateNSView(_ nsView: EditorCanvasNSView, context: Context) {
+        nsView.syncTextEditing()
         nsView.needsDisplay = true
     }
 }
