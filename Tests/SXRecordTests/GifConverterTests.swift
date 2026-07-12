@@ -74,7 +74,12 @@ import CoreVideo
         return url
     }
 
-    @Test func convertsAShortClipToANonEmptyAnimatedGIF() async throws {
+    // Round-trips a synthesized mp4 through GifConverter. Skipped on CI: GitHub Actions macOS
+    // runners are headless/paravirtualized and lack hardware H.264 decode, so
+    // AVAssetImageGenerator fails with "Cannot Decode" (AppleM2ScalerParavirtDriver). Runs on
+    // real Macs (dev loop + the manual smoke pass); the pure frameTimes math stays CI-covered above.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["CI"] == nil))
+    func convertsAShortClipToANonEmptyAnimatedGIF() async throws {
         let mp4 = try await makeTinyMP4()
         defer { try? FileManager.default.removeItem(at: mp4) }
         let gifURL = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".gif")
