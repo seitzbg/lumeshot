@@ -11,7 +11,7 @@ import SXAnnotate
 /// `@MainActor` so the CI toolchain (macos-15 / Xcode-16.4 / Swift-6.0) type-checks the
 /// same isolation the dev SDK infers implicitly (the M1/M3a lesson).
 @MainActor
-final class EditorCanvasNSView: NSView {
+final class EditorCanvasNSView: NSView, NSTextFieldDelegate {
     let model: EditorModel
     private var textField: NSTextField?
 
@@ -142,6 +142,7 @@ final class EditorCanvasNSView: NSView {
         field.focusRingType = .none
         field.target = self
         field.action = #selector(commitTextEditing)   // Return commits
+        field.delegate = self                         // catches Tab / click-away blur too
         return field
     }
 
@@ -174,6 +175,19 @@ final class EditorCanvasNSView: NSView {
     }
 
     @objc private func commitTextEditing() {
+        model.endTextEditing()
+        needsDisplay = true
+    }
+
+    /// Fires on ANY end-of-editing — Return, Tab/Backtab, and click-away blur (losing
+    /// first responder) — unlike `field.action`, which (per `NSTextField(frame:)`
+    /// defaulting `sendsActionOnEndEditing` to false) only fires on Return. Without this,
+    /// clicking a SwiftUI toolbar control never calls `endTextEditing()`, leaving the
+    /// overlay parked and Undo/Redo permanently disabled. Guarded against the redundant
+    /// call `commitTextEditing()` already made for the Return case in the same runloop
+    /// tick; `model.endTextEditing()` is itself idempotent either way.
+    func controlTextDidEndEditing(_ obj: Notification) {
+        guard model.editingTextID != nil else { return }
         model.endTextEditing()
         needsDisplay = true
     }
