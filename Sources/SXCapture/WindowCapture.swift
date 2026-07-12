@@ -75,6 +75,13 @@ public enum WindowCapture {
         return WindowFilter.selectable(from: mapped, excludingBundleID: excludingBundleID)
     }
 
+    /// Resolves the `SCWindow` matching `windowID` from a `shareableContent()` snapshot.
+    /// `candidates` deliberately hides the raw SCK object behind `WindowCandidate`;
+    /// recording (M4) needs the live `SCWindow` to build an `SCContentFilter`.
+    public static func scWindow(for windowID: UInt32, in content: SCShareableContent) -> SCWindow? {
+        content.windows.first { $0.windowID == windowID }
+    }
+
     public static func capture(windowID: UInt32) async throws -> CGImage {
         let content = try await SCShareableContent.excludingDesktopWindows(
             false, onScreenWindowsOnly: true)

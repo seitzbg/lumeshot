@@ -13,4 +13,20 @@ import Testing
             #expect(d.scale >= 1)
         }
     }
+
+    @Test(.enabled(if: CGPreflightScreenCaptureAccess()))
+    func shareableContentResolvesEveryConnectedDisplay() async throws {
+        let content = try await DisplayCapture.shareableContent()
+        #expect(!content.displays.isEmpty)
+        for display in content.displays {
+            let resolved = DisplayCapture.scDisplay(for: display.displayID, in: content)
+            #expect(resolved?.displayID == display.displayID)
+        }
+    }
+
+    @Test(.enabled(if: CGPreflightScreenCaptureAccess()))
+    func scDisplayReturnsNilForAnUnknownDisplayID() async throws {
+        let content = try await DisplayCapture.shareableContent()
+        #expect(DisplayCapture.scDisplay(for: 999_999, in: content) == nil)
+    }
 }
