@@ -252,4 +252,62 @@ import CoreGraphics
         if case .text(_, _, let fontSize) = m.annotations[0].shape { #expect(fontSize == 40) }
         else { Issue.record("expected text") }
     }
+
+    // MARK: Re-entrancy guard (review fix)
+
+    @Test func reEnteringTextEditingDiscardsAnEmptyPreviousBox() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.beginTextEditing(at: CGPoint(x: 20, y: 20))
+        let firstID = m.editingTextID
+        m.beginTextEditing(at: CGPoint(x: 60, y: 60))
+        #expect(m.annotations.count == 1)   // the empty first box was cleaned up, not orphaned
+        #expect(!m.annotations.contains { $0.id == firstID })
+        #expect(m.editingTextID == m.annotations[0].id)
+        #expect(m.editingTextID != firstID)
+        #expect(!m.canUndo)   // first was empty (no history entry); second is still in progress
+    }
+
+    @Test func reEnteringTextEditingCommitsANonEmptyPreviousBox() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.beginTextEditing(at: CGPoint(x: 20, y: 20))
+        let firstID = m.editingTextID
+        m.updateEditingText("Hello")
+        m.beginTextEditing(at: CGPoint(x: 60, y: 60))
+        #expect(m.annotations.count == 2)   // the non-empty first box is kept, not orphaned
+        if let first = m.annotations.first(where: { $0.id == firstID }),
+           case .text(_, let string, _) = first.shape {
+            #expect(string == "Hello")
+        } else { Issue.record("expected first text kept") }
+        #expect(m.editingTextID != firstID)
+        #expect(m.editingTextID == m.annotations.first { $0.id != firstID }?.id)
+        #expect(m.canUndo)   // the first box's placement committed as its own history step
+    }
+
+    // MARK: Whitespace-only discard (review fix)
+
+    @Test func whitespaceOnlyTextIsRemovedWhenEditingEnds() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.beginTextEditing(at: CGPoint(x: 20, y: 20))
+        m.updateEditingText("   \n  ")
+        m.endTextEditing()
+        #expect(m.annotations.isEmpty)
+        #expect(m.editingTextID == nil)
+        #expect(!m.canUndo)
+    }
+
+    @Test func nonEmptyTextIsKeptWhenEditingEnds() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.text)
+        m.beginTextEditing(at: CGPoint(x: 20, y: 20))
+        m.updateEditingText("hi")
+        m.endTextEditing()
+        #expect(m.annotations.count == 1)
+        if case .text(_, let string, _) = m.annotations[0].shape { #expect(string == "hi") }
+        else { Issue.record("expected text") }
+        #expect(m.editingTextID == nil)
+        #expect(m.canUndo)
+    }
 }

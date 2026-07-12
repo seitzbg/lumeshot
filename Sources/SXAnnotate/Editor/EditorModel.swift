@@ -1,5 +1,6 @@
 import CoreGraphics
 import Combine
+import Foundation
 
 /// The interaction state machine and document owner for one editing session.
 /// UI-agnostic: the AppKit canvas forwards pointer events (in image coordinates)
@@ -176,6 +177,12 @@ public final class EditorModel: ObservableObject {
     /// placement is committed to history only when non-empty text is finalized
     /// (see `endTextEditing`), so abandoning an empty box leaves no undo step.
     public func beginTextEditing(at point: CGPoint) {
+        // Re-entrancy guard: a text placement that's still active when a new one
+        // begins (e.g. clicking the .text tool down again before finalizing) would
+        // otherwise be orphaned — silently abandoned with no undo entry, and if it
+        // was left empty it would never be cleaned up. Finalize it first so the
+        // usual empty-discard / non-empty-commit rules apply before we start fresh.
+        if editingTextID != nil { endTextEditing() }
         textEditStartState = annotations
         let box = CGRect(x: point.x, y: point.y, width: 200, height: textFontSize * 1.5)
         let text = Annotation(shape: .text(rect: box, string: "", fontSize: textFontSize), style: currentStyle)
@@ -198,7 +205,8 @@ public final class EditorModel: ObservableObject {
         defer { editingTextID = nil }
         guard let id = editingTextID,
               let index = annotations.firstIndex(where: { $0.id == id }) else { return }
-        if case .text(_, let string, _) = annotations[index].shape, string.isEmpty {
+        if case .text(_, let string, _) = annotations[index].shape,
+           string.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             annotations.remove(at: index)
             if selectedID == id { selectedID = nil }
             textEditStartState = nil
