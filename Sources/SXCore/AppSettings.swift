@@ -13,11 +13,31 @@ public struct HotkeySettings: Codable, Equatable, Sendable {
     public var fullscreen: HotkeyCombo?
     public var region: HotkeyCombo?
     public var window: HotkeyCombo?
-    public init(fullscreen: HotkeyCombo?, region: HotkeyCombo?, window: HotkeyCombo?) {
+    public var record: HotkeyCombo?
+    public init(fullscreen: HotkeyCombo?, region: HotkeyCombo?, window: HotkeyCombo?,
+                record: HotkeyCombo? = nil) {
         self.fullscreen = fullscreen
         self.region = region
         self.window = window
+        self.record = record
     }
+
+    // A pre-M4 `hotkeys` object has no `record` key at all. Synthesized
+    // Codable would decode that absence as `nil`, which silently disables
+    // the flagship record hotkey for every upgrading user (registration
+    // skips it via `if let combo = config.record`). Default an absent
+    // `record` to the shipped combo; `fullscreen`/`region`/`window` keep
+    // today's "absent → nil" semantics.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        fullscreen = try c.decodeIfPresent(HotkeyCombo.self, forKey: .fullscreen)
+        region = try c.decodeIfPresent(HotkeyCombo.self, forKey: .region)
+        window = try c.decodeIfPresent(HotkeyCombo.self, forKey: .window)
+        record = try c.decodeIfPresent(HotkeyCombo.self, forKey: .record)
+            ?? HotkeyCombo(keyCode: 22, modifiers: 2560)
+    }
+
+    private enum CodingKeys: String, CodingKey { case fullscreen, region, window, record }
 }
 
 public struct EditorSettings: Codable, Equatable, Sendable {
@@ -38,11 +58,12 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var hotkeys: HotkeySettings
     public var upload: UploadSettings
     public var editor: EditorSettings
+    public var recording: RecordingSettings
 
     public init(schemaVersion: Int, captureSavePath: String, filenameTemplate: String,
                 saveToDisk: Bool, copyToClipboard: Bool, showNotification: Bool,
                 hotkeys: HotkeySettings, upload: UploadSettings,
-                editor: EditorSettings = .default) {
+                editor: EditorSettings = .default, recording: RecordingSettings = .default) {
         self.schemaVersion = schemaVersion
         self.captureSavePath = captureSavePath
         self.filenameTemplate = filenameTemplate
@@ -52,11 +73,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
         self.hotkeys = hotkeys
         self.upload = upload
         self.editor = editor
+        self.recording = recording
     }
 
     // Tolerate older settings files: a v1 file lacks `upload` (SettingsStore migrates it
-    // to schemaVersion 2), and a pre-editor v2 file lacks `editor` (no version bump — it is
-    // already v2). The decoder defaults each missing key; every other field is required.
+    // to schemaVersion 2); a pre-editor v2 file lacks `editor`; a pre-recording v2 file
+    // lacks `recording` — none of these bump the version. The decoder defaults each
+    // missing key; every other field is required.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try c.decode(Int.self, forKey: .schemaVersion)
@@ -68,14 +91,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
         hotkeys = try c.decode(HotkeySettings.self, forKey: .hotkeys)
         upload = try c.decodeIfPresent(UploadSettings.self, forKey: .upload) ?? .disabled
         editor = try c.decodeIfPresent(EditorSettings.self, forKey: .editor) ?? .default
+        recording = try c.decodeIfPresent(RecordingSettings.self, forKey: .recording) ?? .default
     }
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, captureSavePath, filenameTemplate, saveToDisk,
-             copyToClipboard, showNotification, hotkeys, upload, editor
+             copyToClipboard, showNotification, hotkeys, upload, editor, recording
     }
 
-    // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23
+    // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23, _6=22
     public static let `default` = AppSettings(
         schemaVersion: 2,
         captureSavePath: "~/Pictures/ShareX",
@@ -86,9 +110,11 @@ public struct AppSettings: Codable, Equatable, Sendable {
         hotkeys: HotkeySettings(
             fullscreen: HotkeyCombo(keyCode: 20, modifiers: 2560),
             region: HotkeyCombo(keyCode: 21, modifiers: 2560),
-            window: HotkeyCombo(keyCode: 23, modifiers: 2560)
+            window: HotkeyCombo(keyCode: 23, modifiers: 2560),
+            record: HotkeyCombo(keyCode: 22, modifiers: 2560)
         ),
         upload: .disabled,
-        editor: .default
+        editor: .default,
+        recording: .default
     )
 }

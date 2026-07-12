@@ -26,9 +26,11 @@ public struct WindowCandidate: Sendable, Equatable {
 }
 
 /// Backing scale of the screen most overlapping the given CG-global rect
-/// (top-left origin), converting to AppKit coords for the comparison.
+/// (top-left origin), converting to AppKit coords for the comparison. Public
+/// so window recording (SXApp) can compute the same dimension scale as
+/// window stills without duplicating this algorithm.
 @MainActor
-private func backingScale(forCGGlobalFrame frame: CGRect) -> CGFloat {
+public func backingScale(forCGGlobalFrame frame: CGRect) -> CGFloat {
     guard let primaryHeight = NSScreen.screens.first?.frame.height else { return 2 }
     let appKit = CaptureGeometry.appKitRect(fromCGGlobal: frame, primaryHeight: primaryHeight)
     let best = NSScreen.screens.max { a, b in
@@ -73,6 +75,13 @@ public enum WindowCapture {
                             isOnScreen: w.isOnScreen)
         }
         return WindowFilter.selectable(from: mapped, excludingBundleID: excludingBundleID)
+    }
+
+    /// Resolves the `SCWindow` matching `windowID` from a `shareableContent()` snapshot.
+    /// `candidates` deliberately hides the raw SCK object behind `WindowCandidate`;
+    /// recording (M4) needs the live `SCWindow` to build an `SCContentFilter`.
+    public static func scWindow(for windowID: UInt32, in content: SCShareableContent) -> SCWindow? {
+        content.windows.first { $0.windowID == windowID }
     }
 
     public static func capture(windowID: UInt32) async throws -> CGImage {

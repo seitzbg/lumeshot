@@ -2,7 +2,7 @@ import AppKit
 import SXCapture
 
 // Borderless windows refuse key status by default; we need it for Esc.
-private final class KeyableWindow: NSWindow {
+final class KeyableWindow: NSWindow {
     override var canBecomeKey: Bool { true }
 }
 
@@ -65,7 +65,7 @@ final class RegionOverlaySession {
 }
 
 @MainActor
-private final class RegionSelectionView: NSView {
+final class RegionSelectionView: NSView {
     private let display: FrozenDisplay
     private let onDone: (CGRect?) -> Void
     private var frozenImage: NSImage

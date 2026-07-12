@@ -57,4 +57,17 @@ public enum DisplayCapture {
         }
         return result
     }
+
+    /// Fresh shareable-content snapshot, exposing the raw SCK objects that
+    /// `captureAllDisplays` deliberately hides behind `FrozenDisplay`. Recording
+    /// (M4) needs the live `SCDisplay` to build an `SCContentFilter`.
+    public static func shareableContent() async throws -> SCShareableContent {
+        try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
+    }
+
+    /// Resolves the `SCDisplay` matching `displayID` from a `shareableContent()` snapshot.
+    public static func scDisplay(for displayID: CGDirectDisplayID,
+                                 in content: SCShareableContent) -> SCDisplay? {
+        content.displays.first { $0.displayID == displayID }
+    }
 }
