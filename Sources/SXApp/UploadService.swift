@@ -15,6 +15,10 @@ struct UploadService {
         FilePart(fieldName: "file", filename: filename, mimeType: "image/png", data: pngData)
     }
 
+    static func filePart(data: Data, filename: String, mime: String) -> FilePart {
+        FilePart(fieldName: "file", filename: filename, mimeType: mime, data: data)
+    }
+
     func uploader(for destination: UploadDestination) throws -> Uploader {
         switch destination.kind {
         case .imgur:
@@ -40,5 +44,15 @@ struct UploadService {
             let creds = try S3Credentials.load(id: destination.id, from: credentials)
             return S3Uploader(config: config, credentials: creds, http: http)
         }
+    }
+
+    /// Resolves the uploader for `destination` and uploads `data`. Generalizes
+    /// the PNG-only `filePart(pngData:filename:)` path so recordings (mp4) and
+    /// derived GIFs can reuse the same upload plumbing as stills.
+    func upload(data: Data, filename: String, mime: String,
+               destination: UploadDestination) async throws -> UploadResult {
+        let uploader = try uploader(for: destination)
+        let file = Self.filePart(data: data, filename: filename, mime: mime)
+        return try await uploader.upload(file)
     }
 }
