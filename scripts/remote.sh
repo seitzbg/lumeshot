@@ -15,7 +15,7 @@ case "$cmd" in
   build)  ssh "$MAC_HOST" "cd $MAC_DIR && swift build 2>&1" ;;
   test)   ssh "$MAC_HOST" "cd $MAC_DIR && swift test 2>&1" ;;
   bundle) ssh "$MAC_HOST" "cd $MAC_DIR && swift build -c release 2>&1 && scripts/bundle.sh" ;;
-  run)    ssh "$MAC_HOST" "cd $MAC_DIR && swift build -c release 2>&1 && scripts/bundle.sh && open -n \"dist/ShareX for Mac.app\" --args $*" ;;
+  run)    ssh "$MAC_HOST" "cd $MAC_DIR && swift build -c release 2>&1 && scripts/bundle.sh && { pkill -f 'ShareX for Mac.app/Contents/MacOS/SXApp' 2>/dev/null; sleep 1; pkill -9 -f 'ShareX for Mac.app/Contents/MacOS/SXApp' 2>/dev/null; sleep 1; open \"dist/ShareX for Mac.app\" --args $*; }" ;;
   ssh)    ssh "$MAC_HOST" "cd $MAC_DIR && $*" ;;
   *) echo "usage: remote.sh {build|test|bundle|run|ssh <cmd>}" >&2; exit 2 ;;
 esac

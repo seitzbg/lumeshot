@@ -14,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let effects = AppPipelineEffects()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard !terminateIfDuplicateInstance() else { return }
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
         let (settings, issue) = store.loadOrDefault()
         handleLoadIssue(issue)
@@ -49,6 +50,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         hotkeys?.unregisterAll()
+    }
+
+    /// Enforces a single running instance. If another copy of this app (same
+    /// bundle id) is already running, bring it forward and exit this one — so an
+    /// accidental double-launch, or the dev loop's `open -n`, can't stack
+    /// duplicate menu-bar icons and duplicate global hotkey registrations.
+    /// First-wins (this new instance bows out) deliberately never terminates the
+    /// existing instance, which may have an unsaved editor session open.
+    /// Returns true if this instance is exiting (the caller must abort launch).
+    private func terminateIfDuplicateInstance() -> Bool {
+        let current = NSRunningApplication.current
+        guard let bundleID = Bundle.main.bundleIdentifier else { return false }
+        let others = NSRunningApplication
+            .runningApplications(withBundleIdentifier: bundleID)
+            .filter { $0.processIdentifier != current.processIdentifier }
+        guard let existing = others.first else { return false }
+        AppLog.log("Another instance (pid \(existing.processIdentifier)) is already running; activating it and exiting this one.")
+        existing.activate()
+        NSApp.terminate(nil)
+        return true
     }
 
     /// Surfaces every settings-load problem so a bad config never fails silently.
