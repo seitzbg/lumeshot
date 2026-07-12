@@ -143,13 +143,16 @@ final class CaptureCoordinator {
     func deliver(image: CGImage, appName: String?) -> Bool {
         let (settings, _) = settingsStore.loadOrDefault()
         if settings.editor.annotateBeforeShare, let presenter = editorPresenter {
-            presenter.present(image: image) { [weak self] edited in
+            presenter.present(image: image) { [weak self] result in
                 guard let self else { return }
-                guard let edited else {
+                guard let result else {
                     AppLog.log("Editor cancelled; capture discarded before save")
                     return
                 }
-                self.finish(image: edited, appName: appName)
+                // Task 11 refines this into per-action save/upload/copy handling and
+                // fullscreen-count threading; for now every finished action runs the
+                // existing persist chain so the build stays green.
+                self.finish(image: result.image, appName: appName)
             }
             return true
         }

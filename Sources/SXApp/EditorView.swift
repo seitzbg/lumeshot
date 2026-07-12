@@ -18,7 +18,7 @@ private extension RGBAColor {
 
 struct EditorView: View {
     @ObservedObject var model: EditorModel
-    let onDone: (CGImage) -> Void
+    let onAction: (EditorResult) -> Void
     let onCancel: () -> Void
 
     private struct ToolItem: Identifiable {
@@ -98,17 +98,25 @@ struct EditorView: View {
 
             Button("Cancel", role: .cancel) { onCancel() }
                 .keyboardShortcut(.cancelAction)
-            Button("Done") {
-                if let image = model.flatten() {
-                    onDone(image)
-                } else {
-                    AppLog.log("Editor: flatten failed; discarding capture")
-                    onCancel()
-                }
-            }
-            .keyboardShortcut(.defaultAction)
+            Button("Copy") { commit(.copy) }
+                .help("Copy the annotated image to the clipboard")
+            Button("Save") { commit(.save) }
+                .help("Save to disk")
+                .keyboardShortcut(.defaultAction)
+            Button("Upload") { commit(.upload) }
+                .help("Save and upload")
         }
         .padding(8)
+    }
+
+    /// Flattens the document and reports the chosen action, or fails loud + cancels.
+    private func commit(_ action: EditorAction) {
+        if let image = model.flatten() {
+            onAction(EditorResult(action: action, image: image))
+        } else {
+            AppLog.log("Editor: flatten failed; discarding capture")
+            onCancel()
+        }
     }
 
     /// Tool-specific creation parameters. Editing a control changes the model's
