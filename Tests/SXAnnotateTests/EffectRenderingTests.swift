@@ -33,6 +33,30 @@ import CoreGraphics
         abs(a.0 - b.0) + abs(a.1 - b.1) + abs(a.2 - b.2)
     }
 
+    /// 40×40, deliberately NOT symmetric under a vertical flip: the top band
+    /// (annotation-space y∈[0,20)) has a black-left/white-right vertical edge at
+    /// x=20; the bottom band (y∈[20,40)) has the INVERTED edge (white-left/
+    /// black-right). Lets a test pin down *which* band an effect landed in.
+    private func topBottomEdgeBase(_ n: Int = 40) -> CGImage {
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = CGContext(data: nil, width: n, height: n, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let half = n / 2
+        let black = CGColor(srgbRed: 0, green: 0, blue: 0, alpha: 1)
+        let white = CGColor(srgbRed: 1, green: 1, blue: 1, alpha: 1)
+        // Device-space upper half == annotation-space TOP band: black-left / white-right.
+        ctx.setFillColor(black)
+        ctx.fill(CGRect(x: 0, y: half, width: half, height: half))
+        ctx.setFillColor(white)
+        ctx.fill(CGRect(x: half, y: half, width: half, height: half))
+        // Device-space lower half == annotation-space BOTTOM band: inverted.
+        ctx.setFillColor(white)
+        ctx.fill(CGRect(x: 0, y: 0, width: half, height: half))
+        ctx.setFillColor(black)
+        ctx.fill(CGRect(x: half, y: 0, width: half, height: half))
+        return ctx.makeImage()!
+    }
+
     @Test func bakeEffectsReturnsBaseWhenNoEffects() {
         let b = edgeBase()
         let vector = Annotation(id: .init(),
@@ -65,6 +89,29 @@ import CoreGraphics
         // (still base-black), so x=20..23 (base-white) flips to black while x=13 does not.
         #expect(channelDelta(sample(b, 22, 20), sample(out, 22, 20)) > 20)  // block's nearest sample flips this pixel
         #expect(sample(out, 2, 20) == sample(b, 2, 20))               // outside rect: base unchanged
+    }
+
+    /// Locks `bakeEffects`' top-left→CI bottom-left orientation. The existing
+    /// blur/pixelate tests above use a vertically-centered rect, which is
+    /// symmetric under the `h - rect.maxY` conversion, so a y-flip regression
+    /// wouldn't be caught. Here the rect sits near the TOP (annotation
+    /// y∈[2,12) of a 40px-tall base) over a base whose top/bottom bands are
+    /// mirror-inverted: a mislanded (mirrored) effect would visibly alter the
+    /// bottom band too.
+    @Test func blurNearTopChangesTopBandAndLeavesBottomBandUnchanged() {
+        let b = topBottomEdgeBase()
+        let blur = Annotation(id: .init(),
+                              shape: .blur(rect: CGRect(x: 10, y: 2, width: 20, height: 10), radius: 8),
+                              style: AnnotationStyle())
+        let out = AnnotationRenderer.bakeEffects(base: b, annotations: [blur])
+        // bakeEffects converts the rect's y via `h - rect.maxY`: annotation y∈[2,12)
+        // (top-left, y-down) becomes CI y∈[28,38) — near y=h, confirmed empirically
+        // by `sample` (whose own y reads back in that same CI-native, bottom-left/
+        // y-up space). So the top band's edge (inside the rect) is blurred…
+        #expect(channelDelta(sample(b, 20, 33), sample(out, 20, 33)) > 20)
+        // …while the mirrored position down in the bottom band is untouched. A
+        // y-flip regression would move the effect down here instead, changing it.
+        #expect(sample(out, 20, 7) == sample(b, 20, 7))
     }
 
     @Test func bakeEffectsDoesNotMutateTheBase() {

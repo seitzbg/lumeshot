@@ -167,7 +167,9 @@ public final class EditorModel: ObservableObject {
         case .text(let rect, let str, _): updated = .text(rect: rect, string: str, fontSize: textFontSize)
         default:                        updated = nil
         }
-        guard let newShape = updated else { return }
+        // Wired to slider/stepper release, so a press-release with no actual value
+        // change must not push a no-op entry onto the undo stack.
+        guard let newShape = updated, newShape != annotations[index].shape else { return }
         history.commit(annotations)
         annotations[index].shape = newShape
         refreshHistoryFlags()

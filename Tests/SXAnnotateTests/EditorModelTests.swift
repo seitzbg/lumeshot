@@ -173,6 +173,39 @@ import CoreGraphics
         #expect(m.canUndo)
     }
 
+    // MARK: No-op inspector apply (post-review fix)
+
+    @Test func noOpInspectorApplySkipsHistoryButARealChangeStillCommitsOnce() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.blur)
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 60, y: 60)); m.pointerUp(at: CGPoint(x: 60, y: 60))
+        guard case .blur(_, let originalRadius) = m.annotations[0].shape else {
+            Issue.record("expected blur"); return
+        }
+        let canUndoAfterDraw = m.canUndo
+
+        // Same value as the drawn blur — a press-release with no change must not
+        // push a no-op entry onto the undo stack.
+        m.blurRadius = originalRadius
+        m.applyInspectorToSelection()
+        #expect(m.canUndo == canUndoAfterDraw)
+
+        // A real value change must still commit exactly once.
+        m.blurRadius = originalRadius + 10
+        m.applyInspectorToSelection()
+        if case .blur(_, let radius) = m.annotations[0].shape {
+            #expect(radius == originalRadius + 10)
+        } else { Issue.record("expected blur") }
+
+        m.undo()   // undoes the real apply
+        if case .blur(_, let radius) = m.annotations[0].shape {
+            #expect(radius == originalRadius)
+        } else { Issue.record("expected blur") }
+
+        m.undo()   // undoes the draw itself — a spurious no-op entry would need one more undo here
+        #expect(m.annotations.isEmpty)
+    }
+
     private func stepNumbers(_ m: EditorModel) -> [Int] {
         m.annotations.compactMap { if case .step(_, let n) = $0.shape { return n }; return nil }
     }
