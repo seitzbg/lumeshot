@@ -13,6 +13,8 @@ public final class EditorModel: ObservableObject {
     @Published public private(set) var activeTool: EditorTool = .select
     @Published public var strokeColor: RGBAColor = .red
     @Published public var strokeWidth: Double = 4
+    @Published public var blurRadius: Double = AnnotationDefaults.blurRadius
+    @Published public var pixelScale: Double = AnnotationDefaults.pixelScale
     @Published public private(set) var selectedID: Annotation.ID?
     @Published public private(set) var canUndo = false
     @Published public private(set) var canRedo = false
@@ -82,6 +84,9 @@ public final class EditorModel: ObservableObject {
         if draft != nil, let anchor = drawAnchor {
             let finished = updatedDraft(anchor: anchor, to: point)
             if isNonDegenerate(finished) {
+                if case .crop = finished.shape {
+                    annotations.removeAll { if case .crop = $0.shape { return true }; return false }
+                }
                 annotations.append(finished)
                 selectedID = finished.id
             }
@@ -121,6 +126,23 @@ public final class EditorModel: ObservableObject {
         AnnotationRenderer.flatten(base: baseImage, annotations: annotations)
     }
 
+    /// Applies the current inspector params (`blurRadius`/`pixelScale`) to the
+    /// selected effect annotation, if it matches. One history commit per apply.
+    public func applyInspectorToSelection() {
+        guard let id = selectedID,
+              let index = annotations.firstIndex(where: { $0.id == id }) else { return }
+        let updated: AnnotationShape?
+        switch annotations[index].shape {
+        case .blur(let rect, _):     updated = .blur(rect: rect, radius: blurRadius)
+        case .pixelate(let rect, _): updated = .pixelate(rect: rect, scale: pixelScale)
+        default:                     updated = nil
+        }
+        guard let newShape = updated else { return }
+        history.commit(annotations)
+        annotations[index].shape = newShape
+        refreshHistoryFlags()
+    }
+
     // MARK: Gesture internals
 
     private func beginSelectGesture(at point: CGPoint) {
@@ -152,9 +174,15 @@ public final class EditorModel: ObservableObject {
         case .line:      return .line(start: anchor, end: point)
         case .arrow:     return .arrow(start: anchor, end: point)
         case .freehand:  return .freehand(points: [anchor])
-        case .select:    return .rectangle(rect: CGRect(spanning: anchor, point))  // unreachable
-        default:
-            return .rectangle(rect: CGRect(spanning: anchor, point))   // M3b: real arms in Task 6
+        // M3b drag tools:
+        case .crop:      return .crop(rect: CGRect(spanning: anchor, point))
+        case .blur:      return .blur(rect: CGRect(spanning: anchor, point), radius: blurRadius)
+        case .pixelate:  return .pixelate(rect: CGRect(spanning: anchor, point), scale: pixelScale)
+        case .highlighter: return .highlighter(points: [anchor])
+        // Click-placed in Task 7; unreachable via beginDraw.
+        case .text:      return .text(rect: CGRect(spanning: anchor, point), string: "", fontSize: AnnotationDefaults.textFontSize)
+        case .step:      return .step(center: point, number: 0)
+        case .select:    return .rectangle(rect: CGRect(spanning: anchor, point))   // unreachable
         }
     }
 
@@ -172,24 +200,32 @@ public final class EditorModel: ObservableObject {
                 points.append(point)
                 current.shape = .freehand(points: points)
             }
-        case .select:
+        // M3b drag tools:
+        case .crop:      current.shape = .crop(rect: CGRect(spanning: anchor, point))
+        case .blur:      current.shape = .blur(rect: CGRect(spanning: anchor, point), radius: blurRadius)
+        case .pixelate:  current.shape = .pixelate(rect: CGRect(spanning: anchor, point), scale: pixelScale)
+        case .highlighter:
+            if case .highlighter(var points) = current.shape {
+                points.append(point)
+                current.shape = .highlighter(points: points)
+            }
+        case .text, .step, .select:
             break
-        default:
-            break               // M3b: real arms added in Task 6
         }
         return current
     }
 
     private func isNonDegenerate(_ annotation: Annotation) -> Bool {
         switch annotation.shape {
-        case .rectangle(let rect), .ellipse(let rect):
+        case .rectangle(let rect), .ellipse(let rect), .crop(let rect),
+             .blur(let rect, _), .pixelate(let rect, _):
             return rect.width > 3 && rect.height > 3
         case .line(let s, let e), .arrow(let s, let e):
             return hypot(e.x - s.x, e.y - s.y) > 3
-        case .freehand(let points):
+        case .freehand(let points), .highlighter(let points):
             return points.count > 1
-        default:
-            return true         // M3b: real arms added in Task 6
+        case .text, .step:
+            return true   // click-placed (Task 7), never validated through drafting
         }
     }
 

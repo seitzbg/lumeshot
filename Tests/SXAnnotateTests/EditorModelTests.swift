@@ -107,4 +107,69 @@ import CoreGraphics
         #expect(out?.width == 80)
         #expect(out?.height == 60)
     }
+
+    @Test func draggingBlurCreatesABlurWithTheDefaultRadius() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.blur)
+        m.pointerDown(at: CGPoint(x: 10, y: 10))
+        m.pointerDragged(to: CGPoint(x: 60, y: 40))
+        m.pointerUp(at: CGPoint(x: 60, y: 40))
+        #expect(m.annotations.count == 1)
+        if case .blur(let rect, let radius) = m.annotations[0].shape {
+            #expect(rect == CGRect(x: 10, y: 10, width: 50, height: 30))
+            #expect(radius == AnnotationDefaults.blurRadius)
+        } else { Issue.record("expected blur") }
+    }
+
+    @Test func draggingPixelateUsesTheModelScale() {
+        let m = EditorModel(baseImage: base())
+        m.pixelScale = 20
+        m.setTool(.pixelate)
+        m.pointerDown(at: CGPoint(x: 5, y: 5))
+        m.pointerDragged(to: CGPoint(x: 40, y: 40))
+        m.pointerUp(at: CGPoint(x: 40, y: 40))
+        if case .pixelate(_, let scale) = m.annotations[0].shape {
+            #expect(scale == 20)
+        } else { Issue.record("expected pixelate") }
+    }
+
+    @Test func highlighterAccruesDraggedPoints() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.highlighter)
+        m.pointerDown(at: CGPoint(x: 5, y: 5))
+        m.pointerDragged(to: CGPoint(x: 20, y: 8))
+        m.pointerDragged(to: CGPoint(x: 35, y: 20))
+        m.pointerUp(at: CGPoint(x: 40, y: 25))
+        #expect(m.annotations.count == 1)
+        if case .highlighter(let points) = m.annotations[0].shape {
+            #expect(points.count >= 3)
+            #expect(points.first == CGPoint(x: 5, y: 5))
+        } else { Issue.record("expected highlighter") }
+    }
+
+    @Test func placingASecondCropReplacesTheFirst() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.crop)
+        m.pointerDown(at: CGPoint(x: 0, y: 0)); m.pointerDragged(to: CGPoint(x: 50, y: 50)); m.pointerUp(at: CGPoint(x: 50, y: 50))
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 70, y: 70)); m.pointerUp(at: CGPoint(x: 70, y: 70))
+        let crops = m.annotations.filter { if case .crop = $0.shape { return true }; return false }
+        #expect(crops.count == 1)
+        #expect(m.annotations.count == 1)
+        if case .crop(let rect) = crops[0].shape {
+            #expect(rect == CGRect(x: 10, y: 10, width: 60, height: 60))
+        } else { Issue.record("expected crop") }
+    }
+
+    @Test func inspectorChangeUpdatesTheSelectedBlur() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.blur)
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 60, y: 60)); m.pointerUp(at: CGPoint(x: 60, y: 60))
+        // The freshly drawn blur is selected; change the inspector radius and apply.
+        m.blurRadius = 25
+        m.applyInspectorToSelection()
+        if case .blur(_, let radius) = m.annotations[0].shape {
+            #expect(radius == 25)
+        } else { Issue.record("expected blur") }
+        #expect(m.canUndo)
+    }
 }
