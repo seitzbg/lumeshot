@@ -18,7 +18,7 @@ private extension RGBAColor {
 
 struct EditorView: View {
     @ObservedObject var model: EditorModel
-    let onDone: (CGImage) -> Void
+    let onAction: (EditorResult) -> Void
     let onCancel: () -> Void
 
     private struct ToolItem: Identifiable {
@@ -35,6 +35,12 @@ struct EditorView: View {
         ToolItem(tool: .line, label: "Line", symbol: "line.diagonal"),
         ToolItem(tool: .arrow, label: "Arrow", symbol: "arrow.up.right"),
         ToolItem(tool: .freehand, label: "Freehand", symbol: "scribble"),
+        ToolItem(tool: .crop, label: "Crop", symbol: "crop"),
+        ToolItem(tool: .text, label: "Text", symbol: "textformat"),
+        ToolItem(tool: .highlighter, label: "Highlighter", symbol: "highlighter"),
+        ToolItem(tool: .blur, label: "Blur", symbol: "drop"),
+        ToolItem(tool: .pixelate, label: "Pixelate", symbol: "squareshape.split.3x3"),
+        ToolItem(tool: .step, label: "Step", symbol: "1.circle"),
     ]
 
     var body: some View {
@@ -75,12 +81,16 @@ struct EditorView: View {
                 .frame(width: 90)
                 .help("Stroke width")
 
+            inspector
+
             Divider().frame(height: 20)
 
             Button { model.undo() } label: { Image(systemName: "arrow.uturn.backward") }
-                .disabled(!model.canUndo).help("Undo")
+                .keyboardShortcut("z", modifiers: .command)
+                .disabled(!model.canUndo || model.editingTextID != nil).help("Undo")
             Button { model.redo() } label: { Image(systemName: "arrow.uturn.forward") }
-                .disabled(!model.canRedo).help("Redo")
+                .keyboardShortcut("z", modifiers: [.command, .shift])
+                .disabled(!model.canRedo || model.editingTextID != nil).help("Redo")
             Button { model.deleteSelected() } label: { Image(systemName: "trash") }
                 .disabled(model.selectedAnnotation == nil).help("Delete selected")
 
@@ -88,16 +98,56 @@ struct EditorView: View {
 
             Button("Cancel", role: .cancel) { onCancel() }
                 .keyboardShortcut(.cancelAction)
-            Button("Done") {
-                if let image = model.flatten() {
-                    onDone(image)
-                } else {
-                    AppLog.log("Editor: flatten failed; discarding capture")
-                    onCancel()
-                }
-            }
-            .keyboardShortcut(.defaultAction)
+            Button("Copy") { commit(.copy) }
+                .help("Copy the annotated image to the clipboard")
+            Button("Save") { commit(.save) }
+                .help("Save to disk")
+                .keyboardShortcut(.defaultAction)
+            Button("Upload") { commit(.upload) }
+                .help("Save and upload")
         }
         .padding(8)
+    }
+
+    /// Flattens the document and reports the chosen action, or fails loud + cancels.
+    private func commit(_ action: EditorAction) {
+        if let image = model.flatten() {
+            onAction(EditorResult(action: action, image: image))
+        } else {
+            AppLog.log("Editor: flatten failed; discarding capture")
+            onCancel()
+        }
+    }
+
+    /// Tool-specific creation parameters. Editing a control changes the model's
+    /// published default; releasing it (`onEditingChanged == false`) applies the value
+    /// to a matching selected shape via `applyInspectorToSelection()`.
+    @ViewBuilder private var inspector: some View {
+        switch model.activeTool {
+        case .text:
+            Stepper("Text \(Int(model.textFontSize))pt",
+                    value: $model.textFontSize, in: 8...96, step: 1,
+                    onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                .fixedSize()
+                .help("Text size")
+        case .blur:
+            HStack(spacing: 4) {
+                Image(systemName: "drop")
+                Slider(value: $model.blurRadius, in: 1...40,
+                       onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                    .frame(width: 90)
+            }
+            .help("Blur radius")
+        case .pixelate:
+            HStack(spacing: 4) {
+                Image(systemName: "squareshape.split.3x3")
+                Slider(value: $model.pixelScale, in: 4...40,
+                       onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                    .frame(width: 90)
+            }
+            .help("Pixelate scale")
+        default:
+            EmptyView()
+        }
     }
 }

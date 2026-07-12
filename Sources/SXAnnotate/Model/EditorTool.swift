@@ -1,5 +1,5 @@
-/// The active editor tool. `.select` edits existing annotations; the rest draw.
-/// M3b extends this enum (crop, text, highlight, blur, pixelate, step).
+/// The active editor tool. `.select` edits existing annotations; the rest draw
+/// or place. M3b adds crop, text, highlighter, blur, pixelate and step.
 public enum EditorTool: String, Codable, Sendable, CaseIterable {
     case select
     case rectangle
@@ -7,4 +7,11 @@ public enum EditorTool: String, Codable, Sendable, CaseIterable {
     case line
     case arrow
     case freehand
+    // M3b:
+    case crop
+    case text
+    case highlighter
+    case blur
+    case pixelate
+    case step
 }

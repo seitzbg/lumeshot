@@ -43,4 +43,19 @@ import CoreGraphics
         #expect(abs(viaTransform.x - viaFunc.x) < 0.001)
         #expect(abs(viaTransform.y - viaFunc.y) < 0.001)
     }
+
+    @Test func zeroImageSizeUsesUnitScale() {
+        let g = CanvasGeometry(imageSize: .zero, viewSize: CGSize(width: 200, height: 100))
+        #expect(g.scale == 1)
+        // The displayed rect collapses to a centered zero-size rect.
+        #expect(g.imageRectInView == CGRect(x: 100, y: 50, width: 0, height: 0))
+    }
+
+    @Test func viewToImageWithZeroScaleReturnsZero() {
+        // A non-empty image in a zero-size view forces scale 0; the guard returns .zero
+        // instead of dividing by zero.
+        let g = CanvasGeometry(imageSize: CGSize(width: 10, height: 10), viewSize: .zero)
+        #expect(g.scale == 0)
+        #expect(g.viewToImage(CGPoint(x: 5, y: 5)) == .zero)
+    }
 }
