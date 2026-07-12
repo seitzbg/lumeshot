@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var historyWindow: HistoryWindowController?
     private let editorWindow = EditorWindowController()
     private let effects = AppPipelineEffects()
+    private var recordingCoordinator: RecordingCoordinator?
+    private var elapsedMenuItem: NSMenuItem?
+    private var elapsedTimer: Timer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !terminateIfDuplicateInstance() else { return }
@@ -121,6 +124,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(menuItem("Capture Window", #selector(menuCaptureWindow)))
         menu.addItem(menuItem("Capture Full Screen", #selector(menuCaptureFullscreen)))
         menu.addItem(.separator())
+        buildRecordingItems(into: menu)
+        menu.addItem(.separator())
         menu.addItem(menuItem("Open Captures Folder", #selector(openCapturesFolder)))
         menu.addItem(.separator())
         menu.addItem(menuItem("Import .sxcu…", #selector(importSxcu)))
@@ -140,6 +145,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         return menu
     }
 
+    /// Adds the Record section: a "Start Recording" submenu (Region/Window/
+    /// Display) while idle, or a "Stop Recording" item + a disabled elapsed-time
+    /// item while recording, plus a "System Audio" toggle either way. Retains
+    /// the elapsed item in `elapsedMenuItem` so the 1s Timer (`tickElapsed`) can
+    /// mutate its title in place instead of tearing down the whole menu.
+    private func buildRecordingItems(into menu: NSMenu) {
+        let (settings, _) = SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault()
+        if recordingCoordinator?.isRecording == true {
+            menu.addItem(menuItem("Stop Recording", #selector(menuStopRecording)))
+            let elapsed = NSMenuItem(title: "● 0:00", action: nil, keyEquivalent: "")
+            elapsed.isEnabled = false
+            elapsedMenuItem = elapsed
+            menu.addItem(elapsed)
+        } else {
+            let start = NSMenuItem(title: "Start Recording", action: nil, keyEquivalent: "")
+            let submenu = NSMenu()
+            submenu.addItem(menuItem("Region", #selector(menuRecordRegion)))
+            submenu.addItem(menuItem("Window", #selector(menuRecordWindow)))
+            submenu.addItem(menuItem("Display", #selector(menuRecordDisplay)))
+            start.submenu = submenu
+            menu.addItem(start)
+            elapsedMenuItem = nil
+        }
+        let audioToggle = menuItem("System Audio", #selector(toggleSystemAudio))
+        audioToggle.state = settings.recording.systemAudio ? .on : .off
+        menu.addItem(audioToggle)
+    }
+
     private func menuItem(_ title: String, _ action: Selector) -> NSMenuItem {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
         item.target = self
@@ -151,6 +184,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func menuCaptureFullscreen() {
         AppLog.log("Menu: Capture Full Screen clicked")
         coordinator?.captureFullscreen()
+    }
+
+    @objc private func menuRecordRegion() { recordingCoordinator?.toggle(mode: .region) }
+    @objc private func menuRecordWindow() { recordingCoordinator?.toggle(mode: .window) }
+    @objc private func menuRecordDisplay() { recordingCoordinator?.toggle(mode: .display) }
+    @objc private func menuStopRecording() { recordingCoordinator?.stop() }
+
+    @objc private func toggleSystemAudio() {
+        let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
+        var (settings, _) = store.loadOrDefault()
+        settings.recording.systemAudio.toggle()
+        do {
+            try store.save(settings)
+            AppLog.log("System audio recording: \(settings.recording.systemAudio)")
+        } catch {
+            AppLog.log("Failed to save system-audio toggle: \(error)")
+        }
+        rebuildMenu()
+    }
+
+    /// The single `onStateChange` handler for `RecordingCoordinator` (wired in
+    /// Task 14): rebuilds the menu once, on the idle<->recording transition
+    /// (to swap Start/Stop), and starts/stops the 1s elapsed ticker.
+    private func updateRecordingUI(_ recording: Bool) {
+        elapsedTimer?.invalidate()
+        elapsedTimer = nil
+        rebuildMenu()
+        guard recording else {
+            statusItem?.setRecording(false)
+            return
+        }
+        statusItem?.setRecording(true)
+        let start = Date()
+        elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            Task { @MainActor in self?.tickElapsed(since: start) }
+        }
+    }
+
+    /// Mutates the retained elapsed-time views directly — never calls
+    /// `rebuildMenu()` here, so a live recording doesn't tear down/rebuild the
+    /// whole NSMenu once a second.
+    private func tickElapsed(since start: Date) {
+        let seconds = Int(Date().timeIntervalSince(start))
+        let label = String(format: "%d:%02d", seconds / 60, seconds % 60)
+        elapsedMenuItem?.title = "● \(label)"
+        statusItem?.setTitle(label)
     }
 
     private func currentUploadAfterCapture() -> Bool {
