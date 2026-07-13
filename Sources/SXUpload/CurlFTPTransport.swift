@@ -34,6 +34,10 @@ public struct CurlFTPTransport: FTPTransport {
                     // An unreachable/stalled server would otherwise block curl_easy_perform
                     // forever, leaving the continuation unresumed — fail loud instead.
                     _ = clibcurl_set_long(curl, CURLOPT_CONNECTTIMEOUT, 30)
+                    // A stalled mid-transfer (server stops reading, dead connection after connect) would otherwise
+                    // hang curl_easy_perform forever — abort if throughput < 1 byte/sec for 60 consecutive seconds.
+                    _ = clibcurl_set_long(curl, CURLOPT_LOW_SPEED_LIMIT, 1)
+                    _ = clibcurl_set_long(curl, CURLOPT_LOW_SPEED_TIME, 60)
                     _ = clibcurl_set_infilesize(curl, curl_off_t(data.count))
                     // VERIFY on Mac: confirm `CURLUSESSL_ALL.rawValue` is how Swift
                     // imports this C enum on the actual SDK — some libcurl headers

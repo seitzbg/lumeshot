@@ -119,11 +119,28 @@ struct EditorView: View {
         }
     }
 
+    /// The tool the inspector should key on: the SELECTED annotation's own kind when
+    /// the Select tool is active and something matching an inspector-backed shape is
+    /// selected, else the active drawing tool. Otherwise selecting an existing text/
+    /// blur/pixelate annotation would show an empty inspector (`.select` → EmptyView),
+    /// making it un-editable via the toolbar.
+    private var effectiveInspectorTool: EditorTool {
+        guard model.activeTool == .select, let selected = model.selectedAnnotation else {
+            return model.activeTool
+        }
+        switch selected.shape {
+        case .text: return .text
+        case .blur: return .blur
+        case .pixelate: return .pixelate
+        default: return model.activeTool
+        }
+    }
+
     /// Tool-specific creation parameters. Editing a control changes the model's
     /// published default; releasing it (`onEditingChanged == false`) applies the value
     /// to a matching selected shape via `applyInspectorToSelection()`.
     @ViewBuilder private var inspector: some View {
-        switch model.activeTool {
+        switch effectiveInspectorTool {
         case .text:
             Stepper("Text \(Int(model.textFontSize))pt",
                     value: $model.textFontSize, in: 8...96, step: 1,

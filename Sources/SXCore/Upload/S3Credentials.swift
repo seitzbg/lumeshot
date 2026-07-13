@@ -7,8 +7,13 @@ public enum S3Credentials {
 
     public static func store(accessKeyID: String, secretAccessKey: String,
                              id: String, into credentials: CredentialStore) throws {
-        try credentials.setSecret(accessKeyID, for: account(id, "accessKeyID"))
-        try credentials.setSecret(secretAccessKey, for: account(id, "secretAccessKey"))
+        do {
+            try credentials.setSecret(accessKeyID, for: account(id, "accessKeyID"))
+            try credentials.setSecret(secretAccessKey, for: account(id, "secretAccessKey"))
+        } catch {
+            try? purge(id: id, from: credentials)   // purge is idempotent (deleteSecret ignores not-found)
+            throw error
+        }
     }
 
     public static func load(id: String, from credentials: CredentialStore) throws -> SigV4Credentials {

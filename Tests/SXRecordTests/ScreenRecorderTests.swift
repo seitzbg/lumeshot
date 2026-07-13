@@ -51,6 +51,12 @@ import Testing
         #expect(deliveries == 1)
         #expect(r.state == .idle)
     }
+
+    @Test func secondStartWhileRecordingThrowsAlreadyRecording() {
+        let r = ScreenRecorder()
+        r._beginForTesting(outputURL: URL(fileURLWithPath: "/tmp/rec.mp4")) { _ in }
+        #expect(throws: RecordingError.alreadyRecording) { try r._assertIdleForTesting() }
+    }
 }
 
 import CoreGraphics

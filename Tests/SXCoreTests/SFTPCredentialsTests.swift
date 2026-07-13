@@ -9,6 +9,20 @@ private final class DictCredentialStore: CredentialStore, @unchecked Sendable {
     func deleteSecret(for account: String) throws { store[account] = nil }
 }
 
+private final class FailingAfterNStore: CredentialStore, @unchecked Sendable {
+    var store: [String: String] = [:]
+    private var callCount = 0
+    private let failAt: Int
+    init(failAt: Int) { self.failAt = failAt }
+    func secret(for account: String) throws -> String? { store[account] }
+    func setSecret(_ value: String, for account: String) throws {
+        callCount += 1
+        if callCount == failAt { throw UploadError.transport("simulated failure") }
+        store[account] = value
+    }
+    func deleteSecret(for account: String) throws { store[account] = nil }
+}
+
 @Suite struct SFTPCredentialsTests {
     @Test func storeThenLoadRoundTripsAllThreeFields() throws {
         let creds = DictCredentialStore()
@@ -69,5 +83,17 @@ private final class DictCredentialStore: CredentialStore, @unchecked Sendable {
     @Test func purgeOnNeverStoredIDDoesNotThrow() throws {
         let creds = DictCredentialStore()
         try SFTPCredentials.purge(id: "never-stored", from: creds)   // ignore not-found
+    }
+
+    @Test func storeRollsBackAllWritesWhenALaterOneFails() throws {
+        let creds = FailingAfterNStore(failAt: 2)   // fails writing privateKeyPEM (the 2nd setSecret)
+        #expect(throws: (any Error).self) {
+            try SFTPCredentials.store(password: "pw", privateKeyPEM: "key", passphrase: "phrase",
+                                      id: "d1", into: creds)
+        }
+        // The first write (password) must be purged too — no orphan left behind.
+        #expect(creds.store["d1/sftp/password"] == nil)
+        #expect(creds.store["d1/sftp/privateKey"] == nil)
+        #expect(creds.store["d1/sftp/passphrase"] == nil)
     }
 }

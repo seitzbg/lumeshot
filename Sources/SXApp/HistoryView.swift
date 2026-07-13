@@ -205,6 +205,10 @@ private struct GifExportSheet: View {
             }
             HStack {
                 Spacer()
+                if isExporting {
+                    ProgressView().controlSize(.small)
+                    Text("Exporting…").foregroundStyle(.secondary)
+                }
                 Button("Cancel") { model.exportingEntry = nil }
                     .disabled(isExporting)
                 Button("Export") {
