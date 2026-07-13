@@ -105,6 +105,12 @@ public final class ScreenRecorder {
         state = .recording
     }
 
+    /// Test-only: mirrors start()'s re-entrancy guard without constructing an SCContentFilter
+    /// (which needs the Screen Recording TCC grant). Lets CI verify the guard fires.
+    func _assertIdleForTesting() throws {
+        guard state == .idle else { throw RecordingError.alreadyRecording }
+    }
+
     func handle(_ event: RecordingEvent) {
         switch event {
         case .started: break
