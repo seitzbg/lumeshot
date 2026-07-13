@@ -23,6 +23,23 @@ final class PreferencesModel: ObservableObject {
         self.destinations = DestinationsModel(store: store, credentials: credentials, onChange: onChange)
     }
 
+    /// Load-mutate-save-notify: mirrors DestinationsModel.persist but for the
+    /// non-upload slice of AppSettings, so General/Capture/Recording/Hotkeys
+    /// edits here and Uploads-tab edits (routed through `destinations`) never
+    /// clobber each other — each reloads the full file immediately before
+    /// mutating and saving its own slice.
+    func update(_ mutate: (inout AppSettings) -> Void) {
+        var (s, _) = store.loadOrDefault()
+        mutate(&s)
+        do {
+            try store.save(s)
+            settings = s
+            onChange()
+        } catch {
+            AppLog.log("Preferences: save failed: \(error)")
+        }
+    }
+
     /// Re-read settings from disk — mirrors DestinationsModel.reloadFromDisk /
     /// HistoryModel.reload. Called by PreferencesWindowController.show() on
     /// reuse so an out-of-band edit (hand-edited settings.json, or a change

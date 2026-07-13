@@ -27,8 +27,27 @@ struct PreferencesView: View {
 
 private struct GeneralTab: View {
     @ObservedObject var model: PreferencesModel
+
     var body: some View {
-        Text("General").padding()
+        Form {
+            Toggle("Save screenshots to disk", isOn: Binding(
+                get: { model.settings.saveToDisk },
+                set: { newValue in model.update { $0.saveToDisk = newValue } }
+            ))
+            Toggle("Copy to clipboard", isOn: Binding(
+                get: { model.settings.copyToClipboard },
+                set: { newValue in model.update { $0.copyToClipboard = newValue } }
+            ))
+            Toggle("Show notification", isOn: Binding(
+                get: { model.settings.showNotification },
+                set: { newValue in model.update { $0.showNotification = newValue } }
+            ))
+            Toggle("Annotate before sharing", isOn: Binding(
+                get: { model.settings.editor.annotateBeforeShare },
+                set: { newValue in model.update { $0.editor.annotateBeforeShare = newValue } }
+            ))
+        }
+        .padding()
     }
 }
 
