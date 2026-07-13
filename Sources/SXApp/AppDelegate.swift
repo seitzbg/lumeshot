@@ -9,6 +9,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
     private var destinationsWindow: DestinationsWindowController?
+    private var preferencesWindow: PreferencesWindowController?
     private var historyStore: HistoryStore?
     private var historyWindow: HistoryWindowController?
     private let editorWindow = EditorWindowController()
@@ -54,6 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         destinationsWindow = DestinationsWindowController(
             store: store, credentials: KeychainCredentialStore(),
             onChange: { [weak self] in self?.rebuildMenu() })
+        preferencesWindow = PreferencesWindowController(
+            store: store, credentials: KeychainCredentialStore(),
+            onChange: { [weak self] in self?.rebuildMenu() },
+            applyHotkeys: { [weak self] hotkeys in self?.reapplyHotkeys(hotkeys) })
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
         AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")
@@ -134,6 +139,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppLog.log("Hotkeys registered (fullscreen=\(config.fullscreen != nil), region=\(config.region != nil), window=\(config.window != nil), record=\(config.record != nil))")
     }
 
+    /// Re-registers all global hotkeys after a Preferences edit. HotkeyManager
+    /// has no per-hotkey unregister, and its Carbon registrations persist at
+    /// the OS level independent of Swift object lifetime — skipping
+    /// unregisterAll() here would leak the old registrations. Mirrors the
+    /// app's own launch sequence (see exploration §3).
+    private func reapplyHotkeys(_ config: HotkeySettings) {
+        hotkeys?.unregisterAll()
+        hotkeys = nil
+        registerHotkeys(config)
+    }
+
     func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(menuItem("Capture Region", #selector(menuCaptureRegion)))
@@ -155,6 +171,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(menuItem("History…", #selector(showHistory)))
         menu.addItem(.separator())
+        let settingsItem = NSMenuItem(title: "Settings…", action: #selector(showPreferences),
+                                      keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
         menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
@@ -262,6 +282,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func manageDestinations() { destinationsWindow?.show() }
+
+    @objc private func showPreferences() { preferencesWindow?.show() }
 
     @objc private func showHistory() {
         guard let store = historyStore else {
