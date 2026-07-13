@@ -43,6 +43,20 @@ struct UploadService {
             }
             let creds = try S3Credentials.load(id: destination.id, from: credentials)
             return S3Uploader(config: config, credentials: creds, http: http)
+
+        case .ftp:
+            guard let cfg = destination.ftpConfig else {
+                throw UploadError.unsupported("Destination has no FTP config")
+            }
+            let secret = try FTPCredentials.load(id: destination.id, from: credentials)
+            return FTPUploader(config: cfg, secret: secret)
+
+        case .sftp:
+            guard let cfg = destination.sftpConfig else {
+                throw UploadError.unsupported("Destination has no SFTP config")
+            }
+            let secret = try SFTPCredentials.load(id: destination.id, from: credentials)
+            return SFTPUploader(config: cfg, secret: secret)
         }
     }
 

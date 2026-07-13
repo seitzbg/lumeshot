@@ -51,4 +51,17 @@ private func tempFile() -> URL {
         #expect(loaded.upload.activeDestinationID == "d1")
         #expect(loaded.upload.destinations.first?.customUploader?.requestURL == "https://up")
     }
+
+    @Test func legacyDestinationJSONWithoutSFTPFTPFieldsDecodes() throws {
+        // A destination JSON written before M5a (no sftpConfig/ftpConfig keys).
+        let json = """
+        {"id":"d1","name":"My S3","kind":"s3",
+         "s3Config":{"region":"us-east-1","endpoint":"s3.amazonaws.com","bucket":"b",
+                     "objectPrefix":"","addressingStyle":"VirtualHost"}}
+        """
+        let decoded = try JSONDecoder().decode(UploadDestination.self, from: Data(json.utf8))
+        #expect(decoded.sftpConfig == nil)
+        #expect(decoded.ftpConfig == nil)
+        #expect(decoded.s3Config?.bucket == "b")   // pre-existing fields unaffected
+    }
 }
