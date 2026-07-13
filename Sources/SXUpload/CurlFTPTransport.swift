@@ -31,6 +31,9 @@ public struct CurlFTPTransport: FTPTransport {
                     _ = password.withCString { clibcurl_set_string(curl, CURLOPT_PASSWORD, $0) }
                     _ = clibcurl_set_upload(curl, 1)
                     _ = clibcurl_set_long(curl, CURLOPT_FTP_CREATE_MISSING_DIRS, 1)
+                    // An unreachable/stalled server would otherwise block curl_easy_perform
+                    // forever, leaving the continuation unresumed — fail loud instead.
+                    _ = clibcurl_set_long(curl, CURLOPT_CONNECTTIMEOUT, 30)
                     _ = clibcurl_set_infilesize(curl, curl_off_t(data.count))
                     // VERIFY on Mac: confirm `CURLUSESSL_ALL.rawValue` is how Swift
                     // imports this C enum on the actual SDK — some libcurl headers

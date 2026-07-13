@@ -15,19 +15,30 @@ public struct CitadelSFTPTransport: SFTPTransport {
         let auth: SSHAuthenticationMethod
         if let pem = secret.privateKeyPEM {
             let dk = secret.passphrase.map { Data($0.utf8) }
-            // VERIFY on Mac: exact Citadel 0.12.1 key-init signature —
-            // Curve25519.Signing.PrivateKey(sshEd25519:decryptionKey:) — confirm it
-            // exists with this name/label set on the resolved SDK before relying on it.
-            if let ed = try? Curve25519.Signing.PrivateKey(sshEd25519: pem, decryptionKey: dk) {
-                auth = .ed25519(username: username, privateKey: ed)
-            } else {
-                // VERIFY on Mac: exact Citadel 0.12.1 RSA key-init signature —
-                // Insecure.RSA.PrivateKey(sshRsa:decryptionKey:) — confirm the type
-                // name and initializer on the resolved SDK; adjust if it differs.
-                // The key-then-password-else-throw LOGIC above/below is the
-                // contract; this one call is what may need adjusting on the Mac.
-                let rsa = try Insecure.RSA.PrivateKey(sshRsa: pem, decryptionKey: dk)   // throws if neither parses
-                auth = .rsa(username: username, privateKey: rsa)
+            do {
+                // VERIFY on Mac: exact Citadel 0.12.1 key-init signature —
+                // Curve25519.Signing.PrivateKey(sshEd25519:decryptionKey:) — confirm it
+                // exists with this name/label set on the resolved SDK before relying on it.
+                if let ed = try? Curve25519.Signing.PrivateKey(sshEd25519: pem, decryptionKey: dk) {
+                    auth = .ed25519(username: username, privateKey: ed)
+                } else {
+                    // The `try?` above only means "not ed25519" (or an ed25519 key
+                    // with the wrong passphrase) — it does not mean the key is
+                    // valid RSA. Fall through to RSA and let ITS failure (or
+                    // success) decide; either way the outer `catch` below turns
+                    // any real parse failure into a typed UploadError instead of
+                    // leaking the raw Citadel/Crypto error.
+                    // VERIFY on Mac: exact Citadel 0.12.1 RSA key-init signature —
+                    // Insecure.RSA.PrivateKey(sshRsa:decryptionKey:) — confirm the type
+                    // name and initializer on the resolved SDK; adjust if it differs.
+                    // The key-then-password-else-throw LOGIC above/below is the
+                    // contract; this one call is what may need adjusting on the Mac.
+                    let rsa = try Insecure.RSA.PrivateKey(sshRsa: pem, decryptionKey: dk)   // throws if neither parses
+                    auth = .rsa(username: username, privateKey: rsa)
+                }
+            } catch {
+                throw UploadError.missingCredential(
+                    "SFTP private key could not be parsed (bad key or wrong passphrase): \(error)")
             }
         } else if let pw = secret.password {
             auth = .passwordBased(username: username, password: pw)
