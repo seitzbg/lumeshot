@@ -19,12 +19,19 @@ public enum SFTPCredentials {
     private static func account(_ id: String, _ key: String) -> String { "\(id)/sftp/\(key)" }
 
     /// Stores only the non-nil fields — a key-only destination never writes a
-    /// "password" account, and vice versa.
+    /// "password" account, and vice versa. All-or-nothing: any internal write
+    /// failure purges everything written for `id` so far, so a partial Keychain
+    /// write never lingers as an orphan.
     public static func store(password: String?, privateKeyPEM: String?, passphrase: String?,
                              id: String, into c: CredentialStore) throws {
-        if let password { try c.setSecret(password, for: account(id, "password")) }
-        if let privateKeyPEM { try c.setSecret(privateKeyPEM, for: account(id, "privateKey")) }
-        if let passphrase { try c.setSecret(passphrase, for: account(id, "passphrase")) }
+        do {
+            if let password { try c.setSecret(password, for: account(id, "password")) }
+            if let privateKeyPEM { try c.setSecret(privateKeyPEM, for: account(id, "privateKey")) }
+            if let passphrase { try c.setSecret(passphrase, for: account(id, "passphrase")) }
+        } catch {
+            try? purge(id: id, from: c)   // purge is idempotent (deleteSecret ignores not-found)
+            throw error
+        }
     }
 
     /// Loads whatever is present; does NOT throw when everything is absent — the
