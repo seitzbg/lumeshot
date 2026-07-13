@@ -34,6 +34,9 @@ struct HotkeyRecorderField: View {
             }
         }
         .onDisappear { stopRecording() }
+        .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in
+            if isRecording { stopRecording() }
+        }
     }
 
     private func toggleRecording() {
