@@ -16,6 +16,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var recordingCoordinator: RecordingCoordinator?
     private var elapsedMenuItem: NSMenuItem?
     private var elapsedTimer: Timer?
+    private var recordingStartedAt: Date?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !terminateIfDuplicateInstance() else { return }
@@ -169,7 +170,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let (settings, _) = SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault()
         if recordingCoordinator?.isRecording == true {
             menu.addItem(menuItem("Stop Recording", #selector(menuStopRecording)))
-            let elapsed = NSMenuItem(title: "● 0:00", action: nil, keyEquivalent: "")
+            let elapsed = NSMenuItem(title: "● \(recordingStartedAt.map(elapsedLabel(since:)) ?? "0:00")",
+                                     action: nil, keyEquivalent: "")
             elapsed.isEnabled = false
             elapsedMenuItem = elapsed
             menu.addItem(elapsed)
@@ -225,24 +227,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func updateRecordingUI(_ recording: Bool) {
         elapsedTimer?.invalidate()
         elapsedTimer = nil
+        recordingStartedAt = recording ? Date() : nil
         rebuildMenu()
-        guard recording else {
+        guard recording, let start = recordingStartedAt else {
             statusItem?.setRecording(false)
             return
         }
         statusItem?.setRecording(true)
-        let start = Date()
         elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tickElapsed(since: start) }
         }
+    }
+
+    private func elapsedLabel(since start: Date) -> String {
+        let s = Int(Date().timeIntervalSince(start))
+        return String(format: "%d:%02d", s/60, s%60)
     }
 
     /// Mutates the retained elapsed-time views directly — never calls
     /// `rebuildMenu()` here, so a live recording doesn't tear down/rebuild the
     /// whole NSMenu once a second.
     private func tickElapsed(since start: Date) {
-        let seconds = Int(Date().timeIntervalSince(start))
-        let label = String(format: "%d:%02d", seconds / 60, seconds % 60)
+        let label = elapsedLabel(since: start)
         elapsedMenuItem?.title = "● \(label)"
         statusItem?.setTitle(label)
     }
