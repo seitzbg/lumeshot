@@ -29,10 +29,10 @@ final class PermissionOnboardingController: NSObject {
             return
         }
         let text = NSTextField(wrappingLabelWithString: """
-        ShareX for Mac needs the Screen Recording permission to capture your screen.
+        Lumeshot needs the Screen Recording permission to capture your screen.
 
         1. Click "Open System Settings" below.
-        2. Enable "ShareX for Mac" under Screen & System Audio Recording.
+        2. Enable "Lumeshot" under Screen & System Audio Recording.
         3. Click "Relaunch" — macOS applies this permission at app launch.
         """)
         text.frame = NSRect(x: 20, y: 70, width: 380, height: 130)

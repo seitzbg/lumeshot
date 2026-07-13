@@ -155,7 +155,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(menuItem("History…", #selector(showHistory)))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit ShareX for Mac",
+        menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
         return menu
@@ -359,7 +359,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(URL(fileURLWithPath: path, isDirectory: true))
     }
 
-    /// Debug/e2e hook: `open -n "ShareX for Mac.app" --args --capture fullscreen`
+    /// Debug/e2e hook: `open -n "Lumeshot.app" --args --capture fullscreen`
     /// captures and exits, so the flow is verifiable over ssh.
     private func handleCLIArguments() {
         let args = CommandLine.arguments

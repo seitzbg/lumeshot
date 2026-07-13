@@ -8,7 +8,7 @@ final class StatusItemController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "camera.viewfinder",
-                                   accessibilityDescription: "ShareX for Mac")
+                                   accessibilityDescription: "Lumeshot")
         }
         statusItem.menu = menu
     }
@@ -28,7 +28,7 @@ final class StatusItemController {
                 .withSymbolConfiguration(config)
         } else {
             button.image = NSImage(systemSymbolName: "camera.viewfinder",
-                                   accessibilityDescription: "ShareX for Mac")
+                                   accessibilityDescription: "Lumeshot")
             button.title = ""
         }
     }
