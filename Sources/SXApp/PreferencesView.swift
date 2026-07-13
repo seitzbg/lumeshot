@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct PreferencesView: View {
@@ -53,8 +54,36 @@ private struct GeneralTab: View {
 
 private struct CaptureTab: View {
     @ObservedObject var model: PreferencesModel
+
+    private var displayPath: String {
+        (model.settings.captureSavePath as NSString).abbreviatingWithTildeInPath
+    }
+
     var body: some View {
-        Text("Capture").padding()
+        Form {
+            HStack {
+                TextField("Save Folder", text: .constant(displayPath))
+                    .disabled(true)
+                Button("Choose…") { chooseFolder() }
+            }
+            TextField("Filename Template", text: Binding(
+                get: { model.settings.filenameTemplate },
+                set: { newValue in model.update { $0.filenameTemplate = newValue } }
+            ))
+            Text("Tokens: %y year  %mo month  %d day  %h hour  %mi minute  %s second")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding()
+    }
+
+    private func chooseFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseDirectories = true
+        panel.canChooseFiles = false
+        panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        model.update { $0.captureSavePath = url.path }
     }
 }
 
