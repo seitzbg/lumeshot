@@ -234,8 +234,23 @@ public final class EditorModel: ObservableObject {
         if let hit = annotations.last(where: { $0.hitTest(point, tolerance: hitTolerance) }) {
             selectedID = hit.id
             lastDragPoint = point
+            syncInspector(to: hit)
         } else {
             selectedID = nil
+        }
+    }
+
+    /// Mirrors the selected annotation's real values into the published inspector
+    /// vars, so the toolbar reflects the selection instead of stale values left
+    /// over from whatever tool was last drawn with.
+    private func syncInspector(to annotation: Annotation) {
+        strokeColor = annotation.style.strokeColor
+        strokeWidth = annotation.style.strokeWidth
+        switch annotation.shape {
+        case .blur(_, let radius):      blurRadius = radius
+        case .pixelate(_, let scale):   pixelScale = scale
+        case .text(_, _, let fontSize): textFontSize = fontSize
+        default: break
         }
     }
 

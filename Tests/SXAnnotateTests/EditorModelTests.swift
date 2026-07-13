@@ -387,4 +387,44 @@ import CoreGraphics
         #expect(m.annotations.count == 1)
         #expect(m.displayAnnotations.count == 1)
     }
+
+    @Test func selectingABlurAnnotationSyncsBlurRadiusFromItsShape() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.blur)
+        m.blurRadius = 12
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 40, y: 40)); m.pointerUp(at: CGPoint(x: 40, y: 40))
+        m.blurRadius = 30   // simulate the inspector default drifting after drawing
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 25, y: 25))   // inside the blur rect
+        #expect(m.blurRadius == 12)
+    }
+
+    @Test func selectingAnAnnotationSyncsStrokeColorAndWidth() {
+        let m = EditorModel(baseImage: base())
+        m.strokeWidth = 9
+        m.strokeColor = RGBAColor(r: 0, g: 1, b: 0, a: 1)
+        m.setTool(.rectangle)
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 60, y: 60)); m.pointerUp(at: CGPoint(x: 60, y: 60))
+        m.strokeWidth = 2
+        m.strokeColor = .red
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 35, y: 35))   // inside the rect
+        #expect(m.strokeWidth == 9)
+        #expect(m.strokeColor == RGBAColor(r: 0, g: 1, b: 0, a: 1))
+    }
+
+    @Test func applyInspectorToSelectionUpdatesTheJustSyncedBlurAnnotation() {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.blur)
+        m.blurRadius = 12
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 40, y: 40)); m.pointerUp(at: CGPoint(x: 40, y: 40))
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 25, y: 25))   // selects + syncs blurRadius to 12
+        m.blurRadius = 20                          // simulated inspector edit
+        m.applyInspectorToSelection()
+        guard case .blur(_, let radius) = m.annotations[0].shape else {
+            Issue.record("expected .blur shape"); return
+        }
+        #expect(radius == 20)
+    }
 }
