@@ -8,7 +8,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
-    private var destinationsWindow: DestinationsWindowController?
     private var preferencesWindow: PreferencesWindowController?
     private var historyStore: HistoryStore?
     private var historyWindow: HistoryWindowController?
@@ -52,13 +51,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             },
             onStateChange: { [weak self] on in self?.updateRecordingUI(on) })
         self.recordingCoordinator = recordingCoordinator
-        destinationsWindow = DestinationsWindowController(
-            store: store, credentials: KeychainCredentialStore(),
-            onChange: { [weak self] in self?.rebuildMenu() })
         preferencesWindow = PreferencesWindowController(
             store: store, credentials: KeychainCredentialStore(),
             onChange: { [weak self] in self?.rebuildMenu() },
-            applyHotkeys: { [weak self] hotkeys in self?.reapplyHotkeys(hotkeys) })
+            applyHotkeys: { [weak self] config in self?.reapplyHotkeys(config) })
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
         AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")

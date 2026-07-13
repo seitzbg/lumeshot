@@ -23,7 +23,7 @@ struct PreferencesView: View {
                 .tabItem { Label("Recording", systemImage: "video") }
                 .tag(PreferencesTab.recording)
         }
-        .frame(width: 560, height: 420)
+        .frame(minWidth: 560, minHeight: 420)
     }
 }
 
