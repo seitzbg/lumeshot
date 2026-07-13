@@ -37,6 +37,12 @@ final class DestinationsModel: ObservableObject {
         settings = store.loadOrDefault().0.upload
     }
 
+    /// Persisted binding for the Uploads tab's "Upload after capture" toggle
+    /// — goes through the same persist() as every other Destinations edit.
+    func setUploadAfterCapture(_ newValue: Bool) {
+        persist { $0.upload.uploadAfterCapture = newValue }
+    }
+
     func setActive(_ id: String) {
         persist { $0.upload = $0.upload.settingActive(id: id) }
     }

@@ -281,7 +281,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault().0.editor.annotateBeforeShare
     }
 
-    @objc private func manageDestinations() { destinationsWindow?.show() }
+    @objc private func manageDestinations() { preferencesWindow?.show(selecting: .uploads) }
 
     @objc private func showPreferences() { preferencesWindow?.show() }
 

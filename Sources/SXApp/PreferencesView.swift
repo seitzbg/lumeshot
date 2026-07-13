@@ -97,8 +97,17 @@ private struct HotkeysTab: View {
 
 private struct UploadsTab: View {
     @ObservedObject var model: PreferencesModel
+
     var body: some View {
-        Text("Uploads").padding()
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle("Upload after capture", isOn: Binding(
+                get: { model.destinations.settings.uploadAfterCapture },
+                set: { newValue in model.destinations.setUploadAfterCapture(newValue) }
+            ))
+            .padding([.horizontal, .top])
+            Divider()
+            DestinationsView(model: model.destinations)
+        }
     }
 }
 
