@@ -90,8 +90,37 @@ private struct CaptureTab: View {
 
 private struct HotkeysTab: View {
     @ObservedObject var model: PreferencesModel
+
     var body: some View {
-        Text("Hotkeys").padding()
+        Form {
+            HotkeyRow(label: "Capture Fullscreen", combo: model.settings.hotkeys.fullscreen) { newCombo in
+                model.updateHotkeys { $0.fullscreen = newCombo }
+            }
+            HotkeyRow(label: "Capture Region", combo: model.settings.hotkeys.region) { newCombo in
+                model.updateHotkeys { $0.region = newCombo }
+            }
+            HotkeyRow(label: "Capture Window", combo: model.settings.hotkeys.window) { newCombo in
+                model.updateHotkeys { $0.window = newCombo }
+            }
+            HotkeyRow(label: "Toggle Recording", combo: model.settings.hotkeys.record) { newCombo in
+                model.updateHotkeys { $0.record = newCombo }
+            }
+        }
+        .padding()
+    }
+}
+
+private struct HotkeyRow: View {
+    let label: String
+    let combo: HotkeyCombo?
+    let onChange: (HotkeyCombo?) -> Void
+
+    var body: some View {
+        HStack {
+            Text(label)
+            Spacer()
+            HotkeyRecorderField(combo: combo, onChange: onChange)
+        }
     }
 }
 

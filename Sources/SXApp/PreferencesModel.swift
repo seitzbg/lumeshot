@@ -40,6 +40,15 @@ final class PreferencesModel: ObservableObject {
         }
     }
 
+    /// Persists a hotkeys-only edit, then re-registers the global hotkeys
+    /// immediately so the change takes effect without an app relaunch —
+    /// hotkeys are the one setting AppDelegate caches at launch instead of
+    /// re-reading fresh per use (exploration §3).
+    func updateHotkeys(_ mutate: (inout HotkeySettings) -> Void) {
+        update { mutate(&$0.hotkeys) }
+        applyHotkeys(settings.hotkeys)
+    }
+
     /// Re-read settings from disk — mirrors DestinationsModel.reloadFromDisk /
     /// HistoryModel.reload. Called by PreferencesWindowController.show() on
     /// reuse so an out-of-band edit (hand-edited settings.json, or a change
