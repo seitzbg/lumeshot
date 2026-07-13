@@ -44,9 +44,15 @@ struct UploadService {
             let creds = try S3Credentials.load(id: destination.id, from: credentials)
             return S3Uploader(config: config, credentials: creds, http: http)
 
-        case .sftp, .ftp:
-            // TEMP placeholder (Task 4) — Task 7 splits this into a real `.ftp`
-            // arm (keeping `.sftp` here as a placeholder); Task 9 replaces `.sftp`.
+        case .ftp:
+            guard let cfg = destination.ftpConfig else {
+                throw UploadError.unsupported("Destination has no FTP config")
+            }
+            let secret = try FTPCredentials.load(id: destination.id, from: credentials)
+            return FTPUploader(config: cfg, secret: secret)
+
+        case .sftp:
+            // TEMP placeholder (Task 4) — Task 9 replaces this with the real arm.
             throw UploadError.unsupported("SFTP/FTP not yet wired")
         }
     }

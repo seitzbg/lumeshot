@@ -53,9 +53,10 @@ final class DestinationsModel: ObservableObject {
                 try S3Credentials.purge(id: destination.id, from: credentials)
             case .imgur:
                 break
-            case .sftp, .ftp:
-                // TEMP placeholder (Task 4) — Task 7 splits this into a real `.ftp`
-                // arm (keeping `.sftp` here as a placeholder); Task 9 replaces `.sftp`.
+            case .ftp:
+                try FTPCredentials.purge(id: destination.id, from: credentials)
+            case .sftp:
+                // TEMP placeholder (Task 4) — Task 9 replaces this with the real arm.
                 break
             }
         } catch {
