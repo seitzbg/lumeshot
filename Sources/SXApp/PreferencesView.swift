@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import SXCore
 
 struct PreferencesView: View {
     @ObservedObject var model: PreferencesModel
@@ -103,7 +104,46 @@ private struct UploadsTab: View {
 
 private struct RecordingTab: View {
     @ObservedObject var model: PreferencesModel
+    @State private var gifMaxWidthText = ""
+
     var body: some View {
-        Text("Recording").padding()
+        Form {
+            Toggle("Capture system audio", isOn: Binding(
+                get: { model.settings.recording.systemAudio },
+                set: { newValue in model.update { $0.recording.systemAudio = newValue } }
+            ))
+            // VideoCodec isn't Hashable, so Picker binds through its String
+            // rawValue rather than the enum itself (see Task 4's Interfaces).
+            Picker("Video Codec", selection: Binding(
+                get: { model.settings.recording.videoCodec.rawValue },
+                set: { newValue in
+                    guard let codec = RecordingSettings.VideoCodec(rawValue: newValue) else { return }
+                    model.update { $0.recording.videoCodec = codec }
+                }
+            )) {
+                Text("H.264").tag("h264")
+                Text("HEVC").tag("hevc")
+            }
+            Stepper(value: Binding(
+                get: { model.settings.recording.gifFPS },
+                set: { newValue in model.update { $0.recording.gifFPS = newValue } }
+            ), in: 1...60) {
+                Text("GIF Frame Rate: \(model.settings.recording.gifFPS) fps")
+            }
+            TextField("GIF Max Width (blank = source width)", text: $gifMaxWidthText)
+                .onAppear {
+                    gifMaxWidthText = model.settings.recording.gifMaxWidth.map(String.init) ?? ""
+                }
+                .onChange(of: model.settings.recording.gifMaxWidth) { _, newValue in
+                    gifMaxWidthText = newValue.map(String.init) ?? ""
+                }
+                .onSubmit {
+                    // Non-numeric, zero, or negative input means "no max width" —
+                    // same convention as HistoryView's GifExportSheet.
+                    let width = Int(gifMaxWidthText).flatMap { $0 > 0 ? $0 : nil }
+                    model.update { $0.recording.gifMaxWidth = width }
+                }
+        }
+        .padding()
     }
 }
