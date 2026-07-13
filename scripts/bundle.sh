@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP="dist/ShareX for Mac.app"
+APP="dist/Lumeshot.app"
 VERSION="${VERSION:-0.1.0}"
 
 # Ad-hoc signatures change every build, resetting the TCC Screen Recording

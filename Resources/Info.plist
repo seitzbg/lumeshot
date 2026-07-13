@@ -6,8 +6,8 @@
     <key>CFBundleExecutable</key><string>SXApp</string>
     <key>CFBundleIdentifier</key><string>org.sharexmac.app</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-    <key>CFBundleName</key><string>ShareX for Mac</string>
-    <key>CFBundleDisplayName</key><string>ShareX for Mac</string>
+    <key>CFBundleName</key><string>Lumeshot</string>
+    <key>CFBundleDisplayName</key><string>Lumeshot</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>@VERSION@</string>
     <key>CFBundleVersion</key><string>@VERSION@</string>
@@ -25,13 +25,13 @@
             <key>LSHandlerRank</key><string>Alternate</string>
         </dict>
         <dict>
-            <key>CFBundleTypeName</key><string>ShareX Recording</string>
+            <key>CFBundleTypeName</key><string>Lumeshot Recording</string>
             <key>CFBundleTypeExtensions</key><array><string>mp4</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>
         </dict>
         <dict>
-            <key>CFBundleTypeName</key><string>ShareX Animated GIF</string>
+            <key>CFBundleTypeName</key><string>Lumeshot Animated GIF</string>
             <key>CFBundleTypeExtensions</key><array><string>gif</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>

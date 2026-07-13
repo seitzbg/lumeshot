@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "sharex-mac",
+    name: "Lumeshot",
     platforms: [.macOS(.v15)],
     dependencies: [
         .package(url: "https://github.com/orlandos-nl/Citadel", from: "0.12.1"),

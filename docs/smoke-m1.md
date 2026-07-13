@@ -7,7 +7,7 @@ unified log via `NSLog`) specifically because a menu-bar app launched from
 Finder has no visible stderr; `tail -f` it on the Mac while exercising this
 checklist.
 
-- [ ] Menu-bar camera icon (`camera.viewfinder`) appears; menu lists Capture Region / Capture Window / Capture Full Screen / Open Captures Folder / Quit ShareX for Mac
+- [ ] Menu-bar camera icon (`camera.viewfinder`) appears; menu lists Capture Region / Capture Window / Capture Full Screen / Open Captures Folder / Quit Lumeshot
 - [ ] First capture attempt without permission shows the onboarding window (Screen Recording explanation, "Open System Settings", "Relaunch"); System Settings deep-link opens Privacy & Security → Screen Recording; Relaunch quits and relaunches the app
 - [ ] ⌥⇧3 (fullscreen) captures all displays → one PNG per display in `~/Pictures/ShareX`, image on clipboard (⌘V into Preview — on multi-display, the last display captured wins the clipboard), notification appears per display
 - [ ] Notification click reveals the corresponding file in Finder

@@ -8,8 +8,8 @@ SXCoreTests/SXRecordTests unit tests plus the existing SFTP/FTP live-upload smok
 
 - [ ] **dmg builds, mounts, and drag-installs (R1):** `scripts/remote.sh ssh 'swift build -c
       release && scripts/bundle.sh && VERSION=0.1.0 scripts/dmg.sh'`; confirm
-      `dist/ShareX-for-Mac-0.1.0.dmg` is created. Double-click it in Finder (or `hdiutil attach`);
-      confirm a Finder window opens showing "ShareX for Mac.app" and an "Applications" symlink;
+      `dist/Lumeshot-0.1.0.dmg` is created. Double-click it in Finder (or `hdiutil attach`);
+      confirm a Finder window opens showing "Lumeshot.app" and an "Applications" symlink;
       drag the app onto Applications and launch it from there.
 - [ ] **Elapsed timer no longer flashes 0:00 (P1):** Start a recording, wait a few seconds, then
       trigger any menu rebuild mid-recording (e.g. toggle **System Audio**, which calls
