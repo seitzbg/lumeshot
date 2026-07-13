@@ -52,8 +52,11 @@ struct UploadService {
             return FTPUploader(config: cfg, secret: secret)
 
         case .sftp:
-            // TEMP placeholder (Task 4) — Task 9 replaces this with the real arm.
-            throw UploadError.unsupported("SFTP/FTP not yet wired")
+            guard let cfg = destination.sftpConfig else {
+                throw UploadError.unsupported("Destination has no SFTP config")
+            }
+            let secret = try SFTPCredentials.load(id: destination.id, from: credentials)
+            return SFTPUploader(config: cfg, secret: secret)
         }
     }
 

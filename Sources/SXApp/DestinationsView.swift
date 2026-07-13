@@ -56,8 +56,7 @@ final class DestinationsModel: ObservableObject {
             case .ftp:
                 try FTPCredentials.purge(id: destination.id, from: credentials)
             case .sftp:
-                // TEMP placeholder (Task 4) — Task 9 replaces this with the real arm.
-                break
+                try SFTPCredentials.purge(id: destination.id, from: credentials)
             }
         } catch {
             AppLog.log("Destinations: secret purge failed for \(destination.id): \(error)")
