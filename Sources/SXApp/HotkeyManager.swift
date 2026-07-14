@@ -12,7 +12,13 @@ import SXCore
 @MainActor
 final class HotkeyManager {
     private var hotKeys: [UInt32: (ref: EventHotKeyRef, handler: @MainActor () -> Void)] = [:]
-    private var handlerRef: EventHandlerRef?
+    // nonisolated(unsafe): only ever written once in init (on the MainActor,
+    // before any other access is possible) and read once in deinit (when no
+    // other references to self remain, so there is no concurrent access) —
+    // deinit itself is nonisolated for a @MainActor class, and EventHandlerRef
+    // (an OpaquePointer) isn't Sendable, so plain actor isolation can't cover
+    // that read.
+    private nonisolated(unsafe) var handlerRef: EventHandlerRef?
     private static var nextID: UInt32 = 1
     private static let signature: OSType = 0x5358_484B   // 'SXHK'
     private static weak var current: HotkeyManager?
@@ -57,5 +63,17 @@ final class HotkeyManager {
 
     private func fire(id: UInt32) {
         hotKeys[id]?.handler()
+    }
+
+    // Nonisolated: by the time deinit runs there are no other references to
+    // this instance, so reading the stored handlerRef here is safe without
+    // actor isolation. Tears down the Carbon event handler installed in
+    // init — without this, a fresh HotkeyManager per hotkey edit (see
+    // AppDelegate.reapplyHotkeys) would accumulate OS-level handlers for the
+    // life of the session.
+    deinit {
+        if let handlerRef {
+            RemoveEventHandler(handlerRef)
+        }
     }
 }
