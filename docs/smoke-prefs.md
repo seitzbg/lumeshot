@@ -2,7 +2,7 @@
 
 Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/ShareX-Mac.log`.
 Covers the tabbed Preferences window (Tasks 1–5, 7) end to end; Task 6's hotkey
-formatting/mapping is covered by `Tests/SXCoreTests/HotkeyFormattingTests.swift`, not
+formatting/mapping is covered by `Tests/LumeshotCoreTests/HotkeyFormattingTests.swift`, not
 re-verified here.
 
 - [ ] **Window opens and reuses (Task 1):** Status-bar menu → **Settings…** (confirm the ⌘,
