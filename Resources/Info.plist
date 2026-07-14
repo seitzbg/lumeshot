@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
-    <key>CFBundleExecutable</key><string>SXApp</string>
+    <key>CFBundleExecutable</key><string>LumeshotApp</string>
     <key>CFBundleIdentifier</key><string>org.sharexmac.app</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>Lumeshot</string>

@@ -11,7 +11,7 @@ Releases are ad-hoc signed (no Apple Developer account, no notarization) and bui
 Pushing a `v*` tag triggers the `Release` workflow on `macos-15`, which:
 
 1. `swift build -c release`
-2. `scripts/bundle.sh` — bundles `.build/release/SXApp` into `dist/Lumeshot.app`, ad-hoc
+2. `scripts/bundle.sh` — bundles `.build/release/LumeshotApp` into `dist/Lumeshot.app`, ad-hoc
    signed (`codesign --sign -`; no dev signing keychain exists on CI runners).
 3. `scripts/dmg.sh` — packages the `.app` into `dist/Lumeshot-<version>.dmg` via `hdiutil`.
 4. `gh release create` — publishes the tag as a GitHub Release with the `.dmg` attached and

@@ -30,7 +30,7 @@ fi
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp .build/release/SXApp "$APP/Contents/MacOS/SXApp"
+cp .build/release/LumeshotApp "$APP/Contents/MacOS/LumeshotApp"
 sed "s/@VERSION@/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 codesign --force --sign "$CODESIGN_ID" --identifier org.sharexmac.app ${SIGN_KC_ARGS[@]+"${SIGN_KC_ARGS[@]}"} "$APP"
 echo "Built $APP (version $VERSION, sign: $CODESIGN_ID)"
