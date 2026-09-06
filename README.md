@@ -6,15 +6,15 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 ## Screenshots
 
-Settings follows your Mac’s light or dark appearance.
+Shown in dark appearance. Settings follows your Mac’s light or dark theme.
 
-<img src="docs/images/settings-general.png" alt="Lumeshot General settings in light appearance, with sidebar navigation and grouped capture controls" width="820">
+<img src="docs/images/settings-general.png" alt="Lumeshot General settings in dark appearance, with sidebar navigation and grouped capture controls" width="820">
 
 <img src="docs/images/settings-uploads-dark.png" alt="Lumeshot Uploads settings in dark appearance, with multiple uploaders and an active uploader selection" width="820">
 
 Uploader configuration uses grouped fields and a dedicated action bar.
 
-<img src="docs/images/settings-uploader.png" alt="Picsur uploader dialog with connection settings and sharing options" width="540">
+<img src="docs/images/settings-uploader.png" alt="Picsur uploader dialog in dark appearance with connection settings and sharing options" width="540">
 
 ## Features
 
