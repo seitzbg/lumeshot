@@ -90,3 +90,34 @@ private let png = FilePart(fieldName: "IGNORED", filename: "shot.png",
         }
     }
 }
+
+@Suite struct ResponseOnlyUploaderTests {
+    private func parse(url: String?, body: String) throws -> UploadResult {
+        var config = CustomUploaderConfig(requestURL: "https://up/api")
+        config.url = url
+        return try CustomUploaderEngine.parseResult(config: config, status: 200,
+                                                    body: Data(body.utf8), headers: [:])
+    }
+
+    @Test func absentURLTemplateUsesTheResponseBody() throws {
+        // ShareX permits an empty URL: the body is already the link.
+        #expect(try parse(url: nil, body: "https://i.example.net/a.png").url
+                == "https://i.example.net/a.png")
+    }
+
+    @Test func emptyURLTemplateUsesTheResponseBody() throws {
+        #expect(try parse(url: "", body: "  https://i.example.net/b.png\n ").url
+                == "https://i.example.net/b.png")
+    }
+
+    @Test func anExplicitTemplateStillWins() throws {
+        #expect(try parse(url: "{json:data.link}",
+                          body: #"{"data":{"link":"https://x/y.png"}}"#).url == "https://x/y.png")
+    }
+
+    @Test(arguments: ["", "   ", "not a url", "<html>error</html>", "ftp://h/a.png", "/relative"])
+    func aBodyThatIsNotAnHTTPURLIsRejected(body: String) {
+        // Better to fail loudly than copy an HTML error page to the clipboard.
+        #expect(throws: UploadError.emptyURL) { try parse(url: nil, body: body) }
+    }
+}

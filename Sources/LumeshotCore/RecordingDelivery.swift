@@ -60,7 +60,11 @@ public enum RecordingDelivery {
             let data = try Data(contentsOf: fileURL)
             let result = try await upload(data, fileURL.lastPathComponent, mime)
             effects.copyTextToClipboard(result.url)
-            effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+            // Matches the still-image path: success honors the preference,
+            // failure below always surfaces (fail-loud).
+            if showNotification {
+                effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+            }
             try? history?.setURL(id: entryID, url: result.url, deletionURL: result.deletionURL, failed: false)
         } catch {
             // Fail-loud: surface the failure; the row + file remain (local-first).

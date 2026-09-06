@@ -51,10 +51,32 @@ public enum CustomUploaderEngine {
             let value = ResponseURLParser.resolve(template, context: context)
             return value.isEmpty ? nil : value
         }
-        guard let url = resolve(config.url) else { throw UploadError.emptyURL }
+        // ShareX documents an absent/empty URL template as "the response body is
+        // already the URL", so a response-only uploader is a valid .sxcu. Fall
+        // back to the trimmed body, but only when it really parses as an http(s)
+        // URL -- otherwise an HTML error page would be copied to the clipboard.
+        let url: String
+        if let resolved = resolve(config.url) {
+            url = resolved
+        } else if let fromBody = Self.responseBodyAsURL(context.body) {
+            url = fromBody
+        } else {
+            throw UploadError.emptyURL
+        }
         return UploadResult(url: url,
                             thumbnailURL: resolve(config.thumbnailURL),
                             deletionURL: resolve(config.deletionURL))
+    }
+
+    /// The trimmed response body when it is a usable http(s) URL, else nil.
+    static func responseBodyAsURL(_ body: String) -> String? {
+        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty,
+              let c = URLComponents(string: trimmed),
+              let scheme = c.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = c.host, !host.isEmpty
+        else { return nil }
+        return trimmed
     }
 
     private static func escape(_ s: String) -> String {
