@@ -28,14 +28,23 @@ final class PermissionOnboardingController: NSObject {
             NSApp.activate()
             return
         }
+        // The last paragraph exists because of a real failure mode: macOS keys
+        // this grant to the app's code-signing identity, so a differently-signed
+        // copy of Lumeshot (a dev build next to a release) leaves the toggle
+        // showing ON while the running copy is denied. Without the hint, the
+        // user grants, relaunches, and is asked again — indefinitely.
         let text = NSTextField(wrappingLabelWithString: """
         Lumeshot needs the Screen Recording permission to capture your screen.
 
         1. Click "Open System Settings" below.
         2. Enable "Lumeshot" under Screen & System Audio Recording.
         3. Click "Relaunch" — macOS applies this permission at app launch.
+
+        Already enabled but still seeing this? Toggle Lumeshot off and on again. \
+        macOS ties the grant to the exact app binary, so a reinstalled or \
+        differently-signed copy needs it re-granted.
         """)
-        text.frame = NSRect(x: 20, y: 70, width: 380, height: 130)
+        text.frame = NSRect(x: 20, y: 70, width: 380, height: 190)
 
         let openButton = NSButton(title: "Open System Settings",
                                   target: self, action: #selector(openSettings))
@@ -44,7 +53,7 @@ final class PermissionOnboardingController: NSObject {
                                       target: self, action: #selector(relaunch))
         relaunchButton.frame = NSRect(x: 210, y: 20, width: 100, height: 32)
 
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 220),
+        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "Screen Recording Permission"
         w.contentView?.addSubview(text)

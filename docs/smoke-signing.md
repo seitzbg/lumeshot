@@ -62,6 +62,15 @@ unsigned nested binary.
 > `~/Library/Logs/DiagnosticReports/LumeshotApp-*.ips` before anything else — `LSUIElement`
 > means a startup crash is completely silent.
 
+> **Never test a differently-signed copy next to an installed release.** TCC keeps one
+> Screen Recording entry per bundle ID and records the code-signing identity of whichever
+> copy last asked. A self-signed dev build in `/tmp` beside the notarized app in
+> `/Applications` re-points that entry on every launch: System Settings shows the toggle
+> ON, the running copy is denied, and the onboarding window loops forever. Recovery is
+> `tccutil reset ScreenCapture org.sharexmac.app` with only one copy present, then one
+> clean grant. For UI-only testing that needs no capture, this is survivable; for anything
+> else, cut a real release.
+
 ## Runtime under the hardened runtime
 
 7. Exercise the paths most likely to break under library validation:
