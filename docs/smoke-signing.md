@@ -54,6 +54,14 @@ unsigned nested binary.
    - [ ] With an upload destination configured, the "Uploaded" notification fires and
          clicking it opens the URL.
 
+> **Regression watch.** v0.1.0 crashed on launch on macOS 26 with `EXC_BREAKPOINT`: a
+> `@MainActor`-inherited closure passed to `UNUserNotificationCenter` was invoked on the
+> framework's own queue, and the Swift runtime trapped on the executor check before the body
+> ran. It did not reproduce on the macOS 15 dev Mac, whose runtime tolerates the mismatch.
+> If the app ever vanishes instead of appearing in the menu bar, check
+> `~/Library/Logs/DiagnosticReports/LumeshotApp-*.ips` before anything else — `LSUIElement`
+> means a startup crash is completely silent.
+
 ## Runtime under the hardened runtime
 
 7. Exercise the paths most likely to break under library validation:

@@ -49,7 +49,8 @@ Run these when convenient (each is a checklist):
 - [ ] **M5a SFTP/FTP** — `docs/smoke-m5a.md` (real password + key SFTP, plain FTP, FTPS; result URL reachable; secrets purged on remove).
 - [ ] **M5b dmg + polish** — `docs/smoke-m5b.md` (dmg mounts + drag-installs; elapsed timer; GIF spinner; inspector-on-select).
 - [ ] **Picsur** — `docs/smoke-picsur.md` (real upload to a live instance; direct-image link resolves; deletion URL works; bad key surfaces an error).
-- [ ] **Signing + notarization** — `docs/smoke-signing.md` (cut a signed release; verify Gatekeeper accepts the dmg on a clean Mac, the ticket validates offline, and **notifications finally fire**).
+- [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
+- [ ] **Signing + notarization — runtime half** — still open: the app crashed on launch on macOS 26 (`EXC_BREAKPOINT`, main-actor isolation trap in `AppPipelineEffects`), fixed but unverified there. **Notifications firing remains unproven.**
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
@@ -73,6 +74,9 @@ Run these when convenient (each is a checklist):
 **Recording**
 - Live SCK paths are build + smoke-only (the test binary can't inherit the app's TCC grant). Smoke must confirm the start path and the GIF-export error alert (see `docs/smoke-m4.md`).
 - `ffmpeg` palettegen GIF path skipped (native AVFoundation path shipped).
+
+**Concurrency**
+- `@MainActor` types handing bare closures to ObjC completion-handler APIs is a live hazard: the closure inherits main-actor isolation, the framework calls it off-main, and the Swift runtime traps on entry (`EXC_BREAKPOINT`). macOS 15's runtime tolerated it, macOS 26's does not, and the compiler does not flag it because the SDK is `@preconcurrency`-imported. Three instances existed in `AppPipelineEffects`; all now take `@Sendable` closures. Worth grepping for on any new completion-handler call site.
 
 **Testing**
 - `CaptureCoordinator` has no tests: `LumeshotApp` is an executable target, so there is no test target for it. The save/upload policy split is covered at the `AfterCapturePipeline` layer only. Extracting the coordinator into a library target would close this.
