@@ -239,6 +239,19 @@ open_url() {
   } >/dev/null 2>&1 || warn "couldn't open a browser, so visit it manually: $url"
 }
 
+# ask_until VAR "Prompt" REGEX "what it should look like" — re-prompts on a
+# malformed value, with an explicit escape hatch so an unexpected-but-valid
+# format from Apple can still be accepted.
+ask_until() {
+  local var="$1" prompt="$2" pattern="$3" shape="$4"
+  while :; do
+    ask "$var" "$prompt"
+    if printf '%s' "${!var}" | grep -qE "$pattern"; then return 0; fi
+    warn "That does not look right — $shape."
+    confirm "Use \"${!var}\" anyway?" && return 0
+  done
+}
+
 # obtain_file VAR "description" DEST — get a browser-downloaded file onto this
 # machine. Downloads land wherever the browser is, which is usually not here.
 obtain_file() {
@@ -311,10 +324,11 @@ stage "Apple Team ID"
 say "Your 10-character Team ID identifies which team signs the app."
 open_url "https://developer.apple.com/account#MembershipDetailsCard"
 step "Sign in, then find 'Team ID' under Membership Details."
-ask TEAM_ID "Paste your Team ID (e.g. A1B2C3D4E5):"
-if ! printf '%s' "$TEAM_ID" | grep -qE '^[A-Z0-9]{10}$'; then
-  warn "That does not look like a 10-character Team ID; continuing anyway."
-fi
+# Validate here rather than let a typo reach GitHub: the release workflow
+# compares TEAM_ID against the certificate's team and fails the whole release,
+# which is a slow and confusing way to find out you fat-fingered it.
+ask_until TEAM_ID "Paste your Team ID (e.g. A1B2C3D4E5):" \
+  '^[A-Z0-9]{10}$' "a Team ID is exactly 10 letters/digits"
 ask APPLE_EMAIL "Paste the Apple ID email for this account:"
 write_env TEAM_ID "$TEAM_ID"
 write_env APPLE_EMAIL "$APPLE_EMAIL"
@@ -415,8 +429,11 @@ printf '\n'
 warn "Apple lets you download the .p8 exactly once. Keep it somewhere safe."
 printf '\n'
 step "The Issuer ID is above the key list; the Key ID is on the key's row."
-ask ASC_KEY_ID "Paste the Key ID (10 chars):"
-ask ASC_ISSUER_ID "Paste the Issuer ID (a UUID):"
+ask_until ASC_KEY_ID "Paste the Key ID (10 chars):" \
+  '^[A-Z0-9]{10}$' "a Key ID is exactly 10 letters/digits"
+ask_until ASC_ISSUER_ID "Paste the Issuer ID (a UUID):" \
+  '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' \
+  "an Issuer ID is a UUID like 41bd6756-bd80-42a7-bb25-45e2c8a07269"
 obtain_file P8_PATH "AuthKey_$ASC_KEY_ID.p8" "$WORK/asc-key.p8" || exit 1
 grep -q "PRIVATE KEY" "$P8_PATH" || { warn "$P8_PATH does not look like a .p8 private key"; exit 1; }
 write_env ASC_KEY_ID "$ASC_KEY_ID"

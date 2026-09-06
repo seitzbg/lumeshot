@@ -14,7 +14,18 @@ jobs:
       # them still produces a working (ad-hoc, unnotarized) dmg rather than a
       # failed release. `secrets` is not allowed in a job-level `if`, so the
       # decision is materialized here once and reused.
-      SIGNING_ENABLED: ${{ secrets.DEVELOPER_ID_P12 != '' && secrets.ASC_KEY_P8 != '' }}
+      #
+      # All six are required, not just the two big ones: a partial setup (say a
+      # .p12 with no password) would otherwise switch signing on and then fail
+      # the release outright, instead of falling back to the unsigned path this
+      # gate exists to provide.
+      SIGNING_ENABLED: >-
+        ${{ secrets.DEVELOPER_ID_P12 != ''
+            && secrets.DEVELOPER_ID_P12_PASSWORD != ''
+            && secrets.ASC_KEY_P8 != ''
+            && secrets.ASC_KEY_ID != ''
+            && secrets.ASC_ISSUER_ID != ''
+            && secrets.TEAM_ID != '' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:

@@ -14,8 +14,9 @@ published dmg and, for the Gatekeeper checks, a Mac that has never run Lumeshot.
 2. Tag and push (`git tag v0.2.0 && git push origin v0.2.0`), then watch the run.
    - [ ] "Import Developer ID certificate" logs an identity hash, not an error.
    - [ ] "Verify the signing identity" prints `Signed by team <your team id>`.
-   - [ ] "Notarize and staple" ends with `status: Accepted`, then `The staple and validate
-         action worked!`.
+   - [ ] "Notarize and staple" reports `"status": "Accepted"` (the step requests JSON
+         output, so it is quoted), then `The staple and validate action worked!`, then
+         `Notarized and stapled: dist/Lumeshot-<version>.dmg`.
    - [ ] The Gatekeeper assessment in that step prints `source=Notarized Developer ID`.
    - [ ] The release has both the dmg and `SHA256SUMS.txt` attached.
 
