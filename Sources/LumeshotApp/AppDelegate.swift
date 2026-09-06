@@ -20,6 +20,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !terminateIfDuplicateInstance() else { return }
+        installMainMenu()
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
         let (settings, issue) = store.loadOrDefault()
         handleLoadIssue(issue)
@@ -61,6 +62,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")
 
         handleCLIArguments()
+    }
+
+    /// A menu-bar-only app hides the menu bar, but AppKit still routes ⌘X/⌘C/⌘V/
+    /// ⌘A/⌘Z through `NSApp.mainMenu`'s Edit items. Without one, every text
+    /// field in Preferences is paste-dead — which made entering an API key a
+    /// character-at-a-time exercise. The menu is never drawn (LSUIElement); it
+    /// exists purely so the key equivalents resolve to the first responder.
+    ///
+    /// No Quit item on purpose: ⌘Q from a focused Preferences window would kill
+    /// the whole app, and the status-bar menu already offers Quit deliberately.
+    private func installMainMenu() {
+        let main = NSMenu()
+
+        let appItem = NSMenuItem()
+        appItem.submenu = NSMenu(title: "Lumeshot")
+        main.addItem(appItem)
+
+        let fileItem = NSMenuItem()
+        let file = NSMenu(title: "File")
+        file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)),
+                     keyEquivalent: "w")
+        fileItem.submenu = file
+        main.addItem(fileItem)
+
+        let editItem = NSMenuItem()
+        let edit = NSMenu(title: "Edit")
+        // undo:/redo: are dynamic responder selectors, not declared on NSResponder.
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)),
+                     keyEquivalent: "a")
+        editItem.submenu = edit
+        main.addItem(editItem)
+
+        NSApp.mainMenu = main
     }
 
     func applicationWillTerminate(_ notification: Notification) {
