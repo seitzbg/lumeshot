@@ -134,6 +134,17 @@ private struct UploadsTab: View {
                 set: { newValue in model.destinations.setUploadAfterCapture(newValue) }
             ))
             .padding([.horizontal, .top])
+            Picker("After upload, clipboard holds", selection: Binding(
+                get: { model.destinations.settings.afterUploadClipboard },
+                set: { newValue in model.destinations.setAfterUploadClipboard(newValue) }
+            )) {
+                Text("the URL").tag(AfterUploadClipboard.url)
+                Text("the image").tag(AfterUploadClipboard.image)
+            }
+            .pickerStyle(.radioGroup)
+            .horizontalRadioGroupLayout()
+            .padding(.horizontal)
+            .disabled(!model.destinations.settings.uploadAfterCapture)
             Divider()
             DestinationsView(model: model.destinations)
         }

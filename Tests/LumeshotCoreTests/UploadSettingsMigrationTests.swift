@@ -65,3 +65,27 @@ private func tempFile() -> URL {
         #expect(decoded.s3Config?.bucket == "b")   // pre-existing fields unaffected
     }
 }
+
+@Suite struct AfterUploadClipboardTests {
+    /// The key did not exist before; every settings.json in the wild lacks it.
+    /// A decode failure here would reset the user's destinations to nothing.
+    @Test func legacyJSONWithoutTheKeyDecodesToURL() throws {
+        let json = #"{"uploadAfterCapture":true,"activeDestinationID":"d1","destinations":[]}"#
+        let s = try JSONDecoder().decode(UploadSettings.self, from: Data(json.utf8))
+        #expect(s.afterUploadClipboard == .url)
+        #expect(s.uploadAfterCapture == true)
+        #expect(s.activeDestinationID == "d1")
+    }
+
+    @Test func imageChoiceRoundTrips() throws {
+        let s = UploadSettings(uploadAfterCapture: true, activeDestinationID: nil,
+                               destinations: [], afterUploadClipboard: .image)
+        let decoded = try JSONDecoder().decode(UploadSettings.self, from: JSONEncoder().encode(s))
+        #expect(decoded == s)
+        #expect(decoded.afterUploadClipboard == .image)
+    }
+
+    @Test func defaultPreservesTheOldBehavior() {
+        #expect(UploadSettings.disabled.afterUploadClipboard == .url)
+    }
+}
