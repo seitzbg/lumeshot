@@ -11,10 +11,25 @@ enum AppLog {
         return dir.appendingPathComponent("ShareX-Mac.log")
     }()
 
+    /// Rotate at 2 MB, keeping one previous file. A menu-bar app runs for
+    /// weeks, and an unbounded append-only log eventually becomes both a disk
+    /// problem and useless to read.
+    private static let maxBytes = 2 * 1024 * 1024
+
+    private static func rotateIfNeeded() {
+        let fm = FileManager.default
+        guard let size = try? fm.attributesOfItem(atPath: fileURL.path)[.size] as? Int,
+              size > maxBytes else { return }
+        let previous = fileURL.appendingPathExtension("1")
+        try? fm.removeItem(at: previous)
+        try? fm.moveItem(at: fileURL, to: previous)
+    }
+
     static func log(_ message: String) {
         NSLog("%@", message)
         let line = "\(ISO8601DateFormatter().string(from: Date())) \(message)\n"
         guard let data = line.data(using: .utf8) else { return }
+        rotateIfNeeded()
         if let handle = try? FileHandle(forWritingTo: fileURL) {
             defer { try? handle.close() }
             _ = try? handle.seekToEnd()

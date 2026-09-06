@@ -63,9 +63,17 @@ final class PermissionOnboardingController: NSObject {
 
     @objc private func relaunch() {
         let bundlePath = Bundle.main.bundlePath
+        // `open -n` immediately followed by terminate() raced the
+        // duplicate-instance guard: the new process could start while this one
+        // was still registered, decide it was the duplicate, and exit -- then
+        // this one exited too, leaving nothing running. Wait for this PID to
+        // actually go away before launching.
         let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = ["-n", bundlePath]
+        task.executableURL = URL(fileURLWithPath: "/bin/sh")
+        task.arguments = ["-c", """
+            while kill -0 \(ProcessInfo.processInfo.processIdentifier) 2>/dev/null; do sleep 0.1; done
+            exec /usr/bin/open -n "$1"
+            """, "sh", bundlePath]
         do {
             try task.run()
         } catch {

@@ -157,3 +157,49 @@ import CoreGraphics
         #expect(a.handle(at: CGPoint(x: 2, y: 2), tolerance: 6) == .top)
     }
 }
+
+@MainActor @Suite struct ScaleAwareToleranceTests {
+    private func base() -> CGImage {
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = CGContext(data: nil, width: 100, height: 100, bitsPerComponent: 8,
+                            bytesPerRow: 0, space: cs,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        return ctx.makeImage()!
+    }
+
+    private func model(scale: CGFloat) -> EditorModel {
+        let m = EditorModel(baseImage: base())
+        m.canvasScale = scale
+        return m
+    }
+
+    @Test func atOneToOneTolerancesAreTheAuthoredPointValues() {
+        let m = model(scale: 1)
+        #expect(m.hitTolerance == EditorModel.hitTolerancePoints)
+        #expect(m.handleTolerance == EditorModel.handleTolerancePoints)
+    }
+
+    /// A 4K image fitted into a ~900pt window: tolerances must grow in image
+    /// space to stay the same size on screen.
+    @Test func aShrunkenCanvasWidensTheImageSpaceTolerance() {
+        let m = model(scale: 0.25)
+        #expect(m.hitTolerance == EditorModel.hitTolerancePoints * 4)
+        #expect(m.handleTolerance == EditorModel.handleTolerancePoints * 4)
+    }
+
+    @Test func aZoomedInCanvasNarrowsIt() {
+        let m = model(scale: 2)
+        #expect(m.hitTolerance == EditorModel.hitTolerancePoints / 2)
+    }
+
+    /// A canvas mid-layout can report an empty size; dividing by that scale
+    /// would make every hit test match everything.
+    @Test(arguments: [0 as CGFloat, -1, .nan, .infinity])
+    func aDegenerateScaleFallsBackToOneToOne(scale: CGFloat) {
+        #expect(model(scale: scale).hitTolerance == EditorModel.hitTolerancePoints)
+    }
+
+    @Test func defaultsToOneToOneWithoutACanvas() {
+        #expect(EditorModel(baseImage: base()).hitTolerance == EditorModel.hitTolerancePoints)
+    }
+}

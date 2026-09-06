@@ -15,7 +15,8 @@ final class HistoryModel: ObservableObject {
     @Published var deleteError: String?
     private let store: HistoryStore
     private let http: HTTPClient
-    private let recordingSettings: RecordingSettings
+    /// Re-read when the window is shown, not just when it is created.
+    var recordingSettings: RecordingSettings
 
     init(store: HistoryStore, http: HTTPClient = URLSessionHTTPClient(),
         recordingSettings: RecordingSettings = .default) {

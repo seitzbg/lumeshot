@@ -195,7 +195,11 @@ final class EditorCanvasNSView: NSView, NSTextFieldDelegate {
     // MARK: Mouse
 
     private func imagePoint(_ event: NSEvent) -> CGPoint {
-        geometry.viewToImage(convert(event.locationInWindow, from: nil))
+        // Keep the model's interaction tolerances in step with the current fit
+        // scale, so hit targets stay a constant size on screen.
+        let geo = geometry
+        model.canvasScale = geo.scale
+        return geo.viewToImage(convert(event.locationInWindow, from: nil))
     }
 
     override func mouseDown(with event: NSEvent) {
