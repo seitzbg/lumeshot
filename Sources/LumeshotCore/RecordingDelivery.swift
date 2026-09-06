@@ -36,6 +36,7 @@ public enum RecordingDelivery {
         destinationName: String?,
         shouldUpload: Bool,
         showNotification: Bool,
+        copyURLToClipboard: Bool = true,
         mime: String,
         history: HistoryStore?,
         effects: any PipelineEffects,
@@ -66,7 +67,9 @@ public enum RecordingDelivery {
                                          filename: fileURL.lastPathComponent,
                                          mimeType: mime, url: fileURL)
             let result = try await upload(part, fileURL.lastPathComponent)
-            effects.copyTextToClipboard(result.url)
+            // A recording has no clipboard image to preserve, so "keep the image"
+            // just means leave the clipboard alone.
+            if copyURLToClipboard { effects.copyTextToClipboard(result.url) }
             // Matches the still-image path: success honors the preference,
             // failure below always surfaces (fail-loud).
             if showNotification {

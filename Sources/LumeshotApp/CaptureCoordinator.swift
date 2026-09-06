@@ -253,7 +253,15 @@ final class CaptureCoordinator {
                 let file = UploadService.filePart(pngData: pngData, filename: filename)
                 let result = try await uploader.upload(file)
                 AppLog.log("Upload succeeded: \(result.url)")
-                effects.copyTextToClipboard(result.url)
+                switch settings.upload.afterUploadClipboard {
+                case .url:
+                    effects.copyTextToClipboard(result.url)
+                case .image:
+                    // Re-assert the image rather than assume it is still there:
+                    // "copy to clipboard" may be off, or something else may have
+                    // taken the clipboard during the upload.
+                    effects.copyImageToClipboard(pngData)
+                }
                 // Success is routine, so it honors "Show notification"; a failure
                 // always surfaces (fail-loud) — silently losing a capture is worse
                 // than an unwanted notification.
@@ -307,6 +315,7 @@ final class CaptureCoordinator {
                 destinationName: destination?.name,
                 shouldUpload: shouldUpload,
                 showNotification: settings.showNotification,
+                copyURLToClipboard: settings.upload.afterUploadClipboard == .url,
                 mime: mime,
                 history: historyStore,
                 effects: effects,

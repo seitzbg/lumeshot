@@ -90,3 +90,27 @@ private struct Boom: Error {}
         #expect(rows.first?.uploadFailed == false)
     }
 }
+
+@MainActor @Suite struct RecordingClipboardChoiceTests {
+    @Test func keepingTheImageLeavesTheClipboardAlone() async throws {
+        let fileURL = try tempFile()
+        let effects = MockEffects()
+        await RecordingDelivery.deliver(
+            fileURL: fileURL, capturedAt: Date(), destinationName: "Imgur",
+            shouldUpload: true, showNotification: false, copyURLToClipboard: false,
+            mime: "video/mp4", history: nil, effects: effects,
+            upload: { _, _ in DeliveredUpload(url: "https://i/x.mp4", deletionURL: nil) })
+        #expect(effects.textCopies.isEmpty)
+    }
+
+    @Test func urlChoiceStillCopiesTheURL() async throws {
+        let fileURL = try tempFile()
+        let effects = MockEffects()
+        await RecordingDelivery.deliver(
+            fileURL: fileURL, capturedAt: Date(), destinationName: "Imgur",
+            shouldUpload: true, showNotification: false, copyURLToClipboard: true,
+            mime: "video/mp4", history: nil, effects: effects,
+            upload: { _, _ in DeliveredUpload(url: "https://i/x.mp4", deletionURL: nil) })
+        #expect(effects.textCopies == ["https://i/x.mp4"])
+    }
+}

@@ -45,6 +45,10 @@ final class DestinationsModel: ObservableObject {
         persist { $0.upload.uploadAfterCapture = newValue }
     }
 
+    func setAfterUploadClipboard(_ value: AfterUploadClipboard) {
+        persist { $0.upload.afterUploadClipboard = value }
+    }
+
     func setActive(_ id: String) {
         persist { $0.upload = $0.upload.settingActive(id: id) }
     }
