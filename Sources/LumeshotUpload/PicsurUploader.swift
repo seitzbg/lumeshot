@@ -3,7 +3,7 @@ import LumeshotCore
 
 /// Picsur (https://github.com/CaramelFur/Picsur) — a self-hosted image host.
 ///
-/// Picsur's upload API is exactly a ShareX custom uploader, so this synthesizes
+/// Picsur's upload API is exactly a .sxcu custom uploader, so this synthesizes
 /// the same `CustomUploaderConfig` its own generator emits and delegates to the
 /// shared engine — the pattern `ImgurUploader` uses. Keeping the template here
 /// (rather than asking the user to import a .sxcu) means the API key round-trips

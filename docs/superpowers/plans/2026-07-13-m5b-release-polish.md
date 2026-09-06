@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship an ad-hoc-signed `.dmg` release pipeline for ShareX for Mac (a packaging script plus a tag-triggered GitHub Actions release job) and land a curated set of small robustness and UI-polish fixes identified from live-source review — three hardening fixes (B1–B3) and three visual/UX fixes (P1–P3) — without expanding scope beyond the ratified M5b architecture contract. Imgur OAuth stays deferred.
+**Goal:** Ship an ad-hoc-signed `.dmg` release pipeline for Lumeshot (a packaging script plus a tag-triggered GitHub Actions release job) and land a curated set of small robustness and UI-polish fixes identified from live-source review — three hardening fixes (B1–B3) and three visual/UX fixes (P1–P3) — without expanding scope beyond the ratified M5b architecture contract. Imgur OAuth stays deferred.
 
-**Architecture:** R1/R2 build directly on the existing `scripts/bundle.sh` (which already produces an ad-hoc-signed `dist/ShareX for Mac.app` — the dev signing keychain from `scripts/setup-signing.sh` doesn't exist on CI runners, so `bundle.sh` falls back to `codesign --sign -` automatically): `scripts/dmg.sh` (new) stages that `.app` plus an `Applications` symlink and calls `hdiutil create` to emit a compressed `.dmg`; `.github/workflows/release.yml` (new) is a second workflow, triggered only on `v*` tags, that runs `swift build -c release` → `bundle.sh` → `dmg.sh` → `gh release create` on a `macos-15` runner, mirroring `ci.yml`'s runner/checkout. B1–B3 harden three independent seams without touching any call site: `S3Credentials.store`/`SFTPCredentials.store` become all-or-nothing (purge-then-rethrow on partial Keychain-write failure), `CurlFTPTransport` gets a low-speed abort so a stalled mid-transfer can't hang `curl_easy_perform` forever, and `ScreenRecorder` gets a TCC-free test seam (`_assertIdleForTesting`) that lets CI exercise the `alreadyRecording` re-entrancy guard without a live `SCContentFilter`. P1–P3 close visual gaps in state that already exists: `AppDelegate` gains a stored `recordingStartedAt` so a mid-recording `rebuildMenu()` computes the elapsed label instead of re-hardcoding `"● 0:00"`; `HistoryView`'s `GifExportSheet` adds an indeterminate `ProgressView` to its already-correct `isExporting` gate; `EditorModel`/`EditorView` sync the toolbar inspector to the selected annotation's real values and key the inspector switch on the selection's shape kind (not just the active tool), using the selection machinery (`selectedID`, `selectedAnnotation`, `applyInspectorToSelection()`) that already exists from M3b.
+**Architecture:** R1/R2 build directly on the existing `scripts/bundle.sh` (which already produces an ad-hoc-signed `dist/Lumeshot.app` — the dev signing keychain from `scripts/setup-signing.sh` doesn't exist on CI runners, so `bundle.sh` falls back to `codesign --sign -` automatically): `scripts/dmg.sh` (new) stages that `.app` plus an `Applications` symlink and calls `hdiutil create` to emit a compressed `.dmg`; `.github/workflows/release.yml` (new) is a second workflow, triggered only on `v*` tags, that runs `swift build -c release` → `bundle.sh` → `dmg.sh` → `gh release create` on a `macos-15` runner, mirroring `ci.yml`'s runner/checkout. B1–B3 harden three independent seams without touching any call site: `S3Credentials.store`/`SFTPCredentials.store` become all-or-nothing (purge-then-rethrow on partial Keychain-write failure), `CurlFTPTransport` gets a low-speed abort so a stalled mid-transfer can't hang `curl_easy_perform` forever, and `ScreenRecorder` gets a TCC-free test seam (`_assertIdleForTesting`) that lets CI exercise the `alreadyRecording` re-entrancy guard without a live `SCContentFilter`. P1–P3 close visual gaps in state that already exists: `AppDelegate` gains a stored `recordingStartedAt` so a mid-recording `rebuildMenu()` computes the elapsed label instead of re-hardcoding `"● 0:00"`; `HistoryView`'s `GifExportSheet` adds an indeterminate `ProgressView` to its already-correct `isExporting` gate; `EditorModel`/`EditorView` sync the toolbar inspector to the selected annotation's real values and key the inspector switch on the selection's shape kind (not just the active tool), using the selection machinery (`selectedID`, `selectedAnnotation`, `applyInspectorToSelection()`) that already exists from M3b.
 
 **Tech Stack:** Swift 6 (strict concurrency), SwiftPM (tools 6.0), macOS 15+, swift-testing (`@Test`/`#expect`/`@Suite`, zero XCTest). GitHub Actions `macos-15` runners for both `ci.yml` and the new `release.yml`. `hdiutil`/`codesign --sign -` for ad-hoc dmg packaging — no Apple Developer account, no notarization.
 
@@ -15,7 +15,7 @@
 - Swift 6 strict concurrency; `swift-tools-version: 6.0`; `platforms: [.macOS(.v15)]`. NO downgrade. CI (macos-15/Xcode16.4/Swift6.0) is the gate.
 - Secrets Keychain-only (B1 must strengthen, not regress, this). Local-first/fail-loud. No `nonisolated(unsafe)`/`@unchecked` in production. No AI-attribution boilerplate anywhere (commits, workflow yaml, docs, comments).
 - Release workflow is ad-hoc-signed (`codesign --sign -`), no notarization. The dev signing keychain doesn't exist on CI runners, so `bundle.sh` lands on the ad-hoc fallback automatically.
-- **Current-state facts (ground truth, verified live):** `scripts/bundle.sh` outputs `dist/ShareX for Mac.app`; takes a `VERSION` env (default `0.1.0`) sed-substituted into `Resources/Info.plist`'s `@VERSION@`; codesigns with a keychain-derived identity or `-` (ad-hoc) as fallback; assumes `swift build -c release` already ran (it does not build); no icns, no entitlements; `dist/` is gitignored. `Resources/Info.plist` has `CFBundleIdentifier org.sharexmac.app`, `CFBundleExecutable SXApp`, `CFBundleName/DisplayName "ShareX for Mac"`. `.github/workflows/ci.yml` is 21 lines: `push branches:[main]` + `pull_request`, `runs-on: macos-15`, `checkout@v4` → `swift build` → `swift test`, no explicit Swift setup. `scripts/remote.sh run` already does `swift build -c release && scripts/bundle.sh` — so `dmg.sh` must run strictly after `bundle.sh`, consuming its output.
+- **Current-state facts (ground truth, verified live):** `scripts/bundle.sh` outputs `dist/Lumeshot.app`; takes a `VERSION` env (default `0.1.0`) sed-substituted into `Resources/Info.plist`'s `@VERSION@`; codesigns with a keychain-derived identity or `-` (ad-hoc) as fallback; assumes `swift build -c release` already ran (it does not build); no icns, no entitlements; `dist/` is gitignored. `Resources/Info.plist` has `CFBundleIdentifier org.lumeshot.app`, `CFBundleExecutable SXApp`, `CFBundleName/DisplayName "Lumeshot"`. `.github/workflows/ci.yml` is 21 lines: `push branches:[main]` + `pull_request`, `runs-on: macos-15`, `checkout@v4` → `swift build` → `swift test`, no explicit Swift setup. `scripts/remote.sh run` already does `swift build -c release && scripts/bundle.sh` — so `dmg.sh` must run strictly after `bundle.sh`, consuming its output.
 - **Test framework:** swift-testing (`import Testing`, `@Test`, `#expect`, `@Suite`). Zero XCTest.
 - **No `SXAppTests` target** (established M4/M5a precedent): `SXApp` is an `.executableTarget` with top-level code (`Sources/SXApp/main.swift`), which a test target cannot `@testable import`. `AppDelegate`/`HistoryView`/`EditorView` changes (P1, P2, P3's View half) are therefore build-only + Mac-smoke; only the library-target halves that are genuinely unit-testable (`S3Credentials`/`SFTPCredentials` in `SXCoreTests`, `ScreenRecorder` in `SXRecordTests`, `EditorModel` in `SXAnnotateTests`) get CI tests.
 - **Build/test loop:** `scripts/remote.sh build` and `scripts/remote.sh test` rsync to the Mac and run over SSH; `scripts/remote.sh run` rebuilds+bundles+launches for interactive smoke; `scripts/remote.sh ssh '<cmd>'` runs an arbitrary command in the synced tree (used by R1's dmg + mount verification). `build`/`test` do NOT re-bundle the `.app` or build a dmg.
@@ -662,8 +662,8 @@ git commit -m "Sync editor inspector to the selected annotation's real values"
 - Test: none (shell script). Verified by a Mac build + `hdiutil attach`/`detach` mount check.
 
 **Interfaces:**
-- Consumes: `dist/ShareX for Mac.app` (produced by `scripts/bundle.sh`, which must already have run) and a `VERSION` env var (default `0.1.0`, same default as `bundle.sh`).
-- Produces: `dist/ShareX-for-Mac-<VERSION>.dmg` — a compressed (`UDZO`) disk image containing the `.app` plus an `Applications` symlink, so dragging the app onto the symlink installs it (the standard macOS dmg convention).
+- Consumes: `dist/Lumeshot.app` (produced by `scripts/bundle.sh`, which must already have run) and a `VERSION` env var (default `0.1.0`, same default as `bundle.sh`).
+- Produces: `dist/Lumeshot-<VERSION>.dmg` — a compressed (`UDZO`) disk image containing the `.app` plus an `Applications` symlink, so dragging the app onto the symlink installs it (the standard macOS dmg convention).
 
 - [ ] **Step 1: Create the script**
 
@@ -674,15 +674,15 @@ Create `scripts/dmg.sh`:
 set -euo pipefail
 cd "$(dirname "$0")/.."
 VERSION="${VERSION:-0.1.0}"
-APP="dist/ShareX for Mac.app"
+APP="dist/Lumeshot.app"
 [ -d "$APP" ] || { echo "error: $APP not found — run scripts/bundle.sh first" >&2; exit 1; }
 STAGE="dist/dmg-root"
-DMG="dist/ShareX-for-Mac-${VERSION}.dmg"
+DMG="dist/Lumeshot-${VERSION}.dmg"
 rm -rf "$STAGE" "$DMG"
 mkdir -p "$STAGE"
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
-hdiutil create -volname "ShareX for Mac" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
+hdiutil create -volname "Lumeshot" -srcfolder "$STAGE" -ov -format UDZO "$DMG"
 rm -rf "$STAGE"
 echo "Built $DMG"
 ```
@@ -696,14 +696,14 @@ chmod +x scripts/dmg.sh
 - [ ] **Step 3: Verify on the Mac — build, bundle, and package**
 
 Run: `scripts/remote.sh ssh 'swift build -c release && scripts/bundle.sh && VERSION=0.1.0 scripts/dmg.sh'`
-Expected: ends with `Built dist/ShareX-for-Mac-0.1.0.dmg`; `swift build`/`bundle.sh` succeed exactly as `scripts/remote.sh run` already exercises them.
+Expected: ends with `Built dist/Lumeshot-0.1.0.dmg`; `swift build`/`bundle.sh` succeed exactly as `scripts/remote.sh run` already exercises them.
 
 - [ ] **Step 4: Verify the dmg mounts and contains the right layout**
 
-Run: `scripts/remote.sh ssh 'hdiutil attach "dist/ShareX-for-Mac-0.1.0.dmg" -mountpoint /tmp/sxmac-dmg-check -nobrowse -quiet && ls -la /tmp/sxmac-dmg-check && hdiutil detach /tmp/sxmac-dmg-check -quiet'`
-Expected: the `ls -la` output lists `ShareX for Mac.app` and an `Applications` symlink (`Applications -> /Applications`); `hdiutil detach` exits 0.
+Run: `scripts/remote.sh ssh 'hdiutil attach "dist/Lumeshot-0.1.0.dmg" -mountpoint /tmp/sxmac-dmg-check -nobrowse -quiet && ls -la /tmp/sxmac-dmg-check && hdiutil detach /tmp/sxmac-dmg-check -quiet'`
+Expected: the `ls -la` output lists `Lumeshot.app` and an `Applications` symlink (`Applications -> /Applications`); `hdiutil detach` exits 0.
 
-Report the dmg's size (`scripts/remote.sh ssh 'ls -lh dist/ShareX-for-Mac-0.1.0.dmg'`) and the mount-check result before proceeding — this is the task's actual verification, since there's no unit test.
+Report the dmg's size (`scripts/remote.sh ssh 'ls -lh dist/Lumeshot-0.1.0.dmg'`) and the mount-check result before proceeding — this is the task's actual verification, since there's no unit test.
 
 - [ ] **Step 5: Commit**
 
@@ -791,15 +791,15 @@ Create `docs/smoke-m5b.md`:
 # M5b manual smoke checklist (release dmg + robustness/UI polish)
 
 Run on the Mac after `scripts/remote.sh run` (for the UI items) and via `scripts/remote.sh ssh`
-(for the dmg packaging item). Diagnostics: `~/Library/Logs/ShareX-Mac.log`. B1 (atomic Keychain
+(for the dmg packaging item). Diagnostics: `~/Library/Logs/Lumeshot.log`. B1 (atomic Keychain
 store), B2 (FTP stall abort), and B3 (recorder re-entrancy guard) are covered by their
 SXCoreTests/SXRecordTests unit tests plus the existing SFTP/FTP live-upload smoke in
 `docs/smoke-m5a.md` — not re-verified here.
 
 - [ ] **dmg builds, mounts, and drag-installs (R1):** `scripts/remote.sh ssh 'swift build -c
       release && scripts/bundle.sh && VERSION=0.1.0 scripts/dmg.sh'`; confirm
-      `dist/ShareX-for-Mac-0.1.0.dmg` is created. Double-click it in Finder (or `hdiutil attach`);
-      confirm a Finder window opens showing "ShareX for Mac.app" and an "Applications" symlink;
+      `dist/Lumeshot-0.1.0.dmg` is created. Double-click it in Finder (or `hdiutil attach`);
+      confirm a Finder window opens showing "Lumeshot.app" and an "Applications" symlink;
       drag the app onto Applications and launch it from there.
 - [ ] **Elapsed timer no longer flashes 0:00 (P1):** Start a recording, wait a few seconds, then
       trigger any menu rebuild mid-recording (e.g. toggle **System Audio**, which calls
@@ -826,7 +826,7 @@ smoke: see `docs/smoke-m2a.md`. M4 recording smoke: see `docs/smoke-m4.md`.
 Create `docs/RELEASING.md`:
 
 ```markdown
-# Releasing ShareX for Mac
+# Releasing Lumeshot
 
 Releases are ad-hoc signed (no Apple Developer account, no notarization) and built by
 `.github/workflows/release.yml` on a version tag push.
@@ -839,9 +839,9 @@ Releases are ad-hoc signed (no Apple Developer account, no notarization) and bui
 Pushing a `v*` tag triggers the `Release` workflow on `macos-15`, which:
 
 1. `swift build -c release`
-2. `scripts/bundle.sh` — bundles `.build/release/SXApp` into `dist/ShareX for Mac.app`, ad-hoc
+2. `scripts/bundle.sh` — bundles `.build/release/SXApp` into `dist/Lumeshot.app`, ad-hoc
    signed (`codesign --sign -`; no dev signing keychain exists on CI runners).
-3. `scripts/dmg.sh` — packages the `.app` into `dist/ShareX-for-Mac-<version>.dmg` via `hdiutil`.
+3. `scripts/dmg.sh` — packages the `.app` into `dist/Lumeshot-<version>.dmg` via `hdiutil`.
 4. `gh release create` — publishes the tag as a GitHub Release with the `.dmg` attached and
    auto-generated release notes.
 
@@ -854,7 +854,7 @@ The release build is signed with `codesign --sign -` (ad-hoc), not a Developer I
 there is no Apple Developer account or notarization in this pipeline. On first launch, macOS
 Gatekeeper will refuse to open the app with a plain double-click ("can't be opened because Apple
 cannot check it for malicious software"). Users need to **right-click → Open** (or
-`xattr -d com.apple.quarantine "ShareX for Mac.app"`) once to bypass this; subsequent launches
+`xattr -d com.apple.quarantine "Lumeshot.app"`) once to bypass this; subsequent launches
 work normally.
 
 ## Local (manual) build
@@ -888,7 +888,7 @@ Deploy with `scripts/remote.sh run` (and `scripts/remote.sh ssh` for the dmg ste
 
 This is the same checklist authored into `docs/smoke-m5b.md` by Task 9, reproduced here per the plan-format convention established in M5a. Deploy with `scripts/remote.sh run` (and `scripts/remote.sh ssh` for item 1), then:
 
-1. **dmg builds, mounts, drag-installs (R1):** `scripts/remote.sh ssh 'swift build -c release && scripts/bundle.sh && VERSION=0.1.0 scripts/dmg.sh'` → `dist/ShareX-for-Mac-0.1.0.dmg` exists. Mount it; confirm the app + `Applications` symlink are inside; drag-install and launch from `/Applications`.
+1. **dmg builds, mounts, drag-installs (R1):** `scripts/remote.sh ssh 'swift build -c release && scripts/bundle.sh && VERSION=0.1.0 scripts/dmg.sh'` → `dist/Lumeshot-0.1.0.dmg` exists. Mount it; confirm the app + `Applications` symlink are inside; drag-install and launch from `/Applications`.
 2. **Elapsed timer no longer flashes 0:00 (P1):** Start a recording, wait a few seconds, trigger a mid-recording menu rebuild (e.g. toggle System Audio); confirm the elapsed label doesn't reset.
 3. **GIF-export spinner (P2):** Export an mp4 as GIF from History; confirm a spinner + "Exporting…" appear while `isExporting` is true.
 4. **Inspector reflects selection (P3):** Draw a blur/pixelate/text annotation each with a distinct value; switch to Select, click each; confirm the matching inspector control shows with that annotation's real value, and edits apply only to the selected one.
@@ -910,7 +910,7 @@ M5a SFTP/FTP smoke: see `docs/smoke-m5a.md`. M1 capture smoke: see `docs/smoke-m
 - P1 (`AppDelegate` `recordingStartedAt` + `elapsedLabel(since:)` helper, set-before-`rebuildMenu()`, `buildRecordingItems` computed title, `tickElapsed` reuses the helper) → Task 4, matches the contract's four-part description exactly against the live file (`Sources/SXApp/AppDelegate.swift:172` hardcoded `"● 0:00"`, `:225-238` `updateRecordingUI`, `:243-248` `tickElapsed`, all verified live before editing). ✅
 - P2 (`GifExportSheet` `ProgressView` + "Exporting…" in the button row, no `GifConverter` change) → Task 5, verbatim contract code inserted into the live button `HStack` (`Sources/SXApp/HistoryView.swift:206-220`). ✅
 - P3 MVP (#1 sync-on-select in `beginSelectGesture`, #2 effective-kind inspector switch in `EditorView`) → Task 6, both implemented against the live `EditorModel`/`EditorView` code with `EditorModelTests` coverage for #1 and the `applyInspectorToSelection()` interaction; #3 (stroke push) explicitly DEFERRED with the SwiftUI `ColorPicker`-has-no-`onEditingChanged` rationale documented in the task's Interfaces section, per the contract's own "if this widens the diff too much, DEFER #3" escape hatch. ✅
-- R1 (`scripts/dmg.sh`, chmod +x, consumes `dist/ShareX for Mac.app`, emits `dist/ShareX-for-Mac-<VERSION>.dmg`, Mac mount verification) → Task 7, verbatim contract script, `hdiutil attach`/`detach` verification step, size + mount-check reporting called out explicitly. ✅
+- R1 (`scripts/dmg.sh`, chmod +x, consumes `dist/Lumeshot.app`, emits `dist/Lumeshot-<VERSION>.dmg`, Mac mount verification) → Task 7, verbatim contract script, `hdiutil attach`/`detach` verification step, size + mount-check reporting called out explicitly. ✅
 - R2 (`.github/workflows/release.yml`, `v*` tag trigger, ad-hoc, `gh release create`, no tag cut in-task) → Task 8, verbatim contract YAML, YAML-validity step, structural diff-against-`ci.yml` step, explicit "do not tag" step. ✅
 - D1 (`docs/smoke-m5b.md` + `docs/RELEASING.md`, checkbox convention, no AI-attribution/emoji) → Task 9, both docs written to match `docs/smoke-m4.md`'s established checkbox format, `docs/RELEASING.md` covers the tag → workflow → release chain plus the ad-hoc/Gatekeeper caveat. ✅
 - Task ordering (B1→B2→B3→P1→P2→P3→R1→R2→D1) → followed exactly as Tasks 1–9. ✅

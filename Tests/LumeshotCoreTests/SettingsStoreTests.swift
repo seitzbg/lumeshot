@@ -21,7 +21,6 @@ private func tempFile() -> URL {
         let store = SettingsStore(fileURL: url)
         var s = AppSettings.default
         s.filenameTemplate = "shot_%y"
-        s.copyToClipboard = false
         s.hotkeys.region = HotkeyCombo(keyCode: 99, modifiers: 2560)
         try store.save(s)
         let (loaded, issue) = store.loadOrDefault()

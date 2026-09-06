@@ -12,11 +12,8 @@ public struct DeliveredUpload: Sendable {
 }
 
 /// Library-level delivery core for an already-on-disk artifact (a recording's
-/// mp4, or a derived gif). Lives in LumeshotCore — NOT LumeshotApp — because LumeshotApp is an
-/// executable target with top-level code (`main.swift`) that a test target
-/// cannot `@testable import`; hoisting the ordering here makes it unit-testable
-/// in LumeshotCoreTests with a `PipelineEffects` mock, a temp-file `HistoryStore`,
-/// and an injected `upload` closure.
+/// mp4, or a derived gif). The shared core can be tested with simulated effects,
+/// a temporary history store, and an injected upload closure.
 public enum RecordingDelivery {
     /// Records the history row FIRST (the file is already on disk = local-first
     /// satisfied), then — only when `shouldUpload` — hands the *file* to
@@ -66,10 +63,14 @@ public enum RecordingDelivery {
             let part = try FilePart.file(fieldName: "file",
                                          filename: fileURL.lastPathComponent,
                                          mimeType: mime, url: fileURL)
+            let clipboardChangeCount = effects.clipboardChangeCount
             let result = try await upload(part, fileURL.lastPathComponent)
-            // A recording has no clipboard image to preserve, so "keep the image"
-            // just means leave the clipboard alone.
-            if copyURLToClipboard { effects.copyTextToClipboard(result.url) }
+            // Match still-image delivery: detect copies during the upload.
+            // Best effort across apps; NSPasteboard cannot atomically compare
+            // the ownership generation and replace its contents.
+            if copyURLToClipboard && effects.clipboardChangeCount == clipboardChangeCount {
+                effects.copyTextToClipboard(result.url)
+            }
             // Matches the still-image path: success honors the preference,
             // failure below always surfaces (fail-loud).
             if showNotification {

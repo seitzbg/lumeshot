@@ -32,7 +32,7 @@ import ImageIO
                 CGPoint(x: 20, y: 132), CGPoint(x: 80, y: 132)]),
                        style: AnnotationStyle(strokeColor: RGBAColor(r: 1, g: 0.9, b: 0.1, a: 1), strokeWidth: 4)),
             Annotation(id: .init(), shape: .text(rect: CGRect(x: 15, y: 60, width: 120, height: 34),
-                                                 string: "ShareX", fontSize: 26),
+                                                 string: "Lumeshot", fontSize: 26),
                        style: AnnotationStyle(strokeColor: red, strokeWidth: 4)),
             Annotation(id: .init(), shape: .step(center: CGPoint(x: 180, y: 30), number: 1),
                        style: AnnotationStyle(strokeColor: red, strokeWidth: 4)),

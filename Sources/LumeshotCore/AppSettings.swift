@@ -71,7 +71,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var captureSavePath: String     // supports leading ~
     public var filenameTemplate: String    // NameParser template, no extension
     public var saveToDisk: Bool
-    public var copyToClipboard: Bool
     public var showNotification: Bool
     public var hotkeys: HotkeySettings
     public var upload: UploadSettings
@@ -79,14 +78,13 @@ public struct AppSettings: Codable, Equatable, Sendable {
     public var recording: RecordingSettings
 
     public init(schemaVersion: Int, captureSavePath: String, filenameTemplate: String,
-                saveToDisk: Bool, copyToClipboard: Bool, showNotification: Bool,
+                saveToDisk: Bool, showNotification: Bool,
                 hotkeys: HotkeySettings, upload: UploadSettings,
                 editor: EditorSettings = .default, recording: RecordingSettings = .default) {
         self.schemaVersion = schemaVersion
         self.captureSavePath = captureSavePath
         self.filenameTemplate = filenameTemplate
         self.saveToDisk = saveToDisk
-        self.copyToClipboard = copyToClipboard
         self.showNotification = showNotification
         self.hotkeys = hotkeys
         self.upload = upload
@@ -104,7 +102,6 @@ public struct AppSettings: Codable, Equatable, Sendable {
         captureSavePath = try c.decode(String.self, forKey: .captureSavePath)
         filenameTemplate = try c.decode(String.self, forKey: .filenameTemplate)
         saveToDisk = try c.decode(Bool.self, forKey: .saveToDisk)
-        copyToClipboard = try c.decode(Bool.self, forKey: .copyToClipboard)
         showNotification = try c.decode(Bool.self, forKey: .showNotification)
         hotkeys = try c.decode(HotkeySettings.self, forKey: .hotkeys)
         upload = try c.decodeIfPresent(UploadSettings.self, forKey: .upload) ?? .disabled
@@ -114,16 +111,15 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case schemaVersion, captureSavePath, filenameTemplate, saveToDisk,
-             copyToClipboard, showNotification, hotkeys, upload, editor, recording
+             showNotification, hotkeys, upload, editor, recording
     }
 
     // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23, _6=22
     public static let `default` = AppSettings(
         schemaVersion: 2,
-        captureSavePath: "~/Pictures/ShareX",
+        captureSavePath: "~/Pictures/Lumeshot",
         filenameTemplate: "Screenshot_%y-%mo-%d_%h-%mi-%s",
         saveToDisk: true,
-        copyToClipboard: true,
         showNotification: true,
         hotkeys: HotkeySettings(
             fullscreen: HotkeyCombo(keyCode: 20, modifiers: 2560),

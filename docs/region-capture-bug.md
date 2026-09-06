@@ -1,7 +1,51 @@
-# Open bug: region capture (⌥⇧4) silently produces nothing on macOS 26
+# Region capture (⌥⇧4) silently produces nothing: optional callback skips persistence
 
 _Filed 2026-09-06. Reproduced on BSMBP2 (MacBook Pro, macOS 26.6.2, built-in
 Liquid Retina XDR, 1728×1117 pt @2x). Not reproducible on the macOS 15 dev Mac._
+
+## Root cause found locally (2026-09-06)
+
+`CaptureCoordinator.deliver()` calls:
+
+```swift
+onOutcome?(finishPersist(image: image, ...))
+```
+
+Swift optional chaining does **not evaluate the arguments** when the optional
+closure is nil. Region and window capture call `deliver` without `onOutcome`,
+so `finishPersist` never runs: no encoding, file, notification, upload, or
+delivery/failure log. Fullscreen supplies an outcome closure to count persisted
+files, so that path works. The editor's Save and Upload branches contain the
+same mistake. This is a control-flow bug independent of macOS version; the
+earlier OS-specific observation did not establish the cause.
+
+The local log's region attempts at 02:17:58 and 02:18:41 produced no file in
+the then-configured capture folder (the latest file was 02:06:21), consistent with the skipped
+persistence call. The crop and encoder do not need a workaround.
+
+Fix: evaluate `finishPersist` into a local result unconditionally, then pass
+that result to `onOutcome?`. Apply to passthrough, editor Save, and editor Upload.
+
+Regression coverage in `Tests/LumeshotAppTests/CaptureCoordinatorTests.swift`
+feeds a cropped image through the actual coordinator for all three routes,
+with and without an outcome callback. It verifies exactly one PNG with the
+crop's dimensions, callback results, and explicit Save overriding disabled
+automatic saving. It uses temporary settings/output and simulated clipboard/notification effects,
+with network upload disabled.
+
+Validation on macOS 26.6.2: before the fix, all three cases without a callback
+failed with a missing PNG; the three cases with a callback passed. After the
+fix, all six cases passed, along with crop geometry, PNG encoder, and pipeline
+tests (16 tests total). After the clean-break rebrand, the full suite also
+passed (384 tests in 78 suites). Release compilation passed. The GUI hotkey smoke
+is still pending; see `docs/local-development.md` for the local test command,
+renamed data paths, and smoke steps.
+
+## Original investigation
+
+The notes below preserve the evidence and the initial hypothesis before the
+optional-callback short circuit was identified. Example paths now use the
+current Lumeshot defaults.
 
 ## Symptom
 
@@ -49,7 +93,7 @@ all.
 
 ## Next step (cheap, decisive)
 
-1. `ls -lt ~/Pictures/ShareX | head` right after an attempt.
+1. `ls -lt ~/Pictures/Lumeshot | head` right after an attempt.
    - A file dated to the attempt → `finishPersist` ran; the bug is only that
      the region path isn't logging. Narrow.
    - No new file → the cropped image dies in crop→encode→write. Real bug.

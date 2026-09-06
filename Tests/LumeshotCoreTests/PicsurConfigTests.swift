@@ -20,7 +20,7 @@ import Testing
         #expect(PicsurConfig.normalizeFormat(raw) == expected)
     }
 
-    @Test func urlsMatchPicsurOwnShareXGenerator() {
+    @Test func urlsMatchPicsurOwnUploaderGenerator() {
         let c = PicsurConfig(host: "pic.example.net/", imageFormat: ".JPG")
         #expect(c.uploadURL == "https://pic.example.net/api/image/upload")
         #expect(c.url(id: "abc") == "https://pic.example.net/i/abc.jpg")

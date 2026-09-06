@@ -10,7 +10,7 @@ enum DeliveryError: Error, LocalizedError {
 @MainActor
 final class CaptureCoordinator {
     private let settingsStore: SettingsStore
-    private let effects: AppPipelineEffects
+    private let effects: any PipelineEffects
     private let uploadService: UploadService
     private let historyStore: HistoryStore?
     private let editorPresenter: EditorPresenting?
@@ -19,7 +19,7 @@ final class CaptureCoordinator {
     private var windowSession: WindowPickerSession?
     private var windowCaptureInFlight = false
 
-    init(settingsStore: SettingsStore, effects: AppPipelineEffects,
+    init(settingsStore: SettingsStore, effects: any PipelineEffects,
          uploadService: UploadService, historyStore: HistoryStore?,
          editorPresenter: EditorPresenting? = nil) {
         self.settingsStore = settingsStore
@@ -166,11 +166,13 @@ final class CaptureCoordinator {
                     switch r.action {
                     case .save:
                         // Explicit command: write regardless of the automatic-save setting.
-                        onOutcome?(self.finishPersist(image: r.image, appName: appName,
-                                                      upload: false, savePolicy: .require))
+                        let persisted = self.finishPersist(image: r.image, appName: appName,
+                                                           upload: false, savePolicy: .require)
+                        onOutcome?(persisted)
                     case .upload:
-                        onOutcome?(self.finishPersist(image: r.image, appName: appName,
-                                                      upload: true, savePolicy: .followSettings))
+                        let persisted = self.finishPersist(image: r.image, appName: appName,
+                                                           upload: true, savePolicy: .followSettings)
+                        onOutcome?(persisted)
                     case .copy:
                         self.copyImageToClipboard(r.image)
                         AppLog.log("Editor copy: image on clipboard, not persisted")
@@ -181,9 +183,12 @@ final class CaptureCoordinator {
             return
         }
         // Passthrough (annotate off): preserve M3a behavior — upload iff configured.
-        onOutcome?(finishPersist(image: image, appName: appName,
-                                 upload: settings.upload.uploadAfterCapture,
-                                 savePolicy: .followSettings))
+        // Optional chaining skips argument evaluation when the callback is nil.
+        // Region/window callers omit it, so persistence must happen separately.
+        let persisted = finishPersist(image: image, appName: appName,
+                                      upload: settings.upload.uploadAfterCapture,
+                                      savePolicy: .followSettings)
+        onOutcome?(persisted)
     }
 
     /// Persists the (possibly edited) image: encodes PNG, saves to disk, records a
@@ -249,22 +254,27 @@ final class CaptureCoordinator {
             do { try store.insert(entry) } catch { AppLog.log("History insert failed: \(error)") }
         }
 
-        guard willUpload, let destination else { return }
+        guard upload else { return }
+        guard let destination else {
+            AppLog.log("Upload unavailable: no active uploader selected")
+            effects.notify(title: "Choose an active uploader",
+                           body: "Add and select an uploader in Preferences → Uploads. The image is on the clipboard.",
+                           fileURL: savedURL)
+            return
+        }
         let filename = savedURL?.lastPathComponent ?? "capture.png"
+        let clipboardChangeCount = effects.clipboardChangeCount
         Task { @MainActor in
             do {
                 let uploader = try uploadService.uploader(for: destination)
                 let file = UploadService.filePart(pngData: pngData, filename: filename)
                 let result = try await uploader.upload(file)
                 AppLog.log("Upload succeeded: \(result.url)")
-                switch settings.upload.afterUploadClipboard {
-                case .url:
+                // Skip replacement if another copy occurred during the upload.
+                // MainActor serializes our own copies. Across apps this is best
+                // effort: NSPasteboard has no atomic compare-and-replace API.
+                if effects.clipboardChangeCount == clipboardChangeCount {
                     effects.copyTextToClipboard(result.url)
-                case .image:
-                    // Re-assert the image rather than assume it is still there:
-                    // "copy to clipboard" may be off, or something else may have
-                    // taken the clipboard during the upload.
-                    effects.copyImageToClipboard(pngData)
                 }
                 // Success is routine, so it honors "Show notification"; a failure
                 // always surfaces (fail-loud) — silently losing a capture is worse
@@ -319,7 +329,6 @@ final class CaptureCoordinator {
                 destinationName: destination?.name,
                 shouldUpload: shouldUpload,
                 showNotification: settings.showNotification,
-                copyURLToClipboard: settings.upload.afterUploadClipboard == .url,
                 mime: mime,
                 history: historyStore,
                 effects: effects,

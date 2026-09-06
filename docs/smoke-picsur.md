@@ -13,11 +13,11 @@ under **Settings → API keys** in the Picsur web UI.
    normalization, paste the API key, leave format `.png` / link **Direct image**.
    - [ ] **Add** is disabled until both host and key are non-empty.
    - [ ] After adding, the row reads the given name with subtitle **Picsur**, and it
-         is selected as the active destination.
+         is active if it is the first uploader. Otherwise, select it with **Active uploader**.
 3. Confirm the key did **not** land in settings.json:
-   - [ ] `grep -ic '<first 6 chars of key>' ~/Library/Application\ Support/ShareX-Mac/settings.json`
+   - [ ] `grep -ic '<first 6 chars of key>' ~/Library/Application\ Support/Lumeshot/settings.json`
          returns `0`, and the file shows `"kind":"picsur"` with only host/format/linkStyle.
-   - [ ] `security find-generic-password -s org.sharexmac.app -a '<destination-id>/picsur/apiKey'`
+   - [ ] `security find-generic-password -s org.lumeshot.app -a '<destination-id>/picsur/apiKey'`
          finds the entry.
 
 ## Upload

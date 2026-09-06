@@ -8,7 +8,7 @@ enum AppLog {
         let dir = FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask)[0]
             .appendingPathComponent("Logs")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir.appendingPathComponent("ShareX-Mac.log")
+        return dir.appendingPathComponent("Lumeshot.log")
     }()
 
     /// Rotate at 2 MB, keeping one previous file. A menu-bar app runs for

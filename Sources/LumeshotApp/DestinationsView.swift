@@ -42,14 +42,10 @@ final class DestinationsModel: ObservableObject {
     /// Persisted binding for the Uploads tab's "Upload after capture" toggle
     /// — goes through the same persist() as every other Destinations edit.
     func setUploadAfterCapture(_ newValue: Bool) {
-        persist { $0.upload.uploadAfterCapture = newValue }
+        persist { $0.upload = $0.upload.settingUploadAfterCapture(newValue) }
     }
 
-    func setAfterUploadClipboard(_ value: AfterUploadClipboard) {
-        persist { $0.upload.afterUploadClipboard = value }
-    }
-
-    func setActive(_ id: String) {
+    func setActive(_ id: String?) {
         persist { $0.upload = $0.upload.settingActive(id: id) }
     }
 
@@ -92,8 +88,8 @@ final class DestinationsModel: ObservableObject {
     /// it is a no-op, so the Keychain entry is kept rather than re-entered. If
     /// the settings write then fails, compensate: a new destination's secrets
     /// are purged, an edited destination's are restored from the snapshot taken
-    /// before we overwrote them. New destinations become active; edits leave
-    /// the selection alone.
+    /// before we overwrote them. The first destination becomes active; later
+    /// additions and edits preserve the selection.
     private func save(_ dest: UploadDestination, isNew: Bool,
                       storeSecrets: () throws -> Void) {
         var previous: [String: String] = [:]
@@ -111,7 +107,6 @@ final class DestinationsModel: ObservableObject {
         }
         let ok = persist { all in
             all.upload = all.upload.addingOrUpdating(dest)
-            if isNew { all.upload = all.upload.settingActive(id: dest.id) }
         }
         if !ok {
             if isNew {
@@ -236,13 +231,24 @@ struct DestinationsView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            Text("Destinations").font(.headline)
+            Text("Uploaders").font(.headline)
+            Text("Configure multiple uploaders, then choose the one captures will use.")
+                .font(.caption).foregroundStyle(.secondary)
             if model.settings.destinations.isEmpty {
                 Text("No destinations yet. Add one below or import a .sxcu from the menu.")
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.vertical, 12)
             } else {
+                Picker("Active uploader", selection: Binding(
+                    get: { model.settings.activeDestination?.id },
+                    set: { model.setActive($0) }
+                )) {
+                    Text("Choose an uploader").tag(String?.none)
+                    ForEach(model.settings.destinations) { dest in
+                        Text(dest.name).tag(Optional(dest.id))
+                    }
+                }
                 List {
                     ForEach(model.settings.destinations) { dest in
                         HStack {

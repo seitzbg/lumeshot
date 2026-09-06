@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an S3-compatible uploader (hand-rolled SigV4), a SwiftUI history browser, and a SwiftUI destination-management UI to sharex-mac, so destinations can be created/edited/removed and captures browsed without hand-editing `settings.json`.
+**Goal:** Add an S3-compatible uploader (hand-rolled SigV4), a SwiftUI history browser, and a SwiftUI destination-management UI to lumeshot, so destinations can be created/edited/removed and captures browsed without hand-editing `settings.json`.
 
 **Architecture:** Pure, testable logic lands in `SXCore` (SigV4 signer, S3 request builder, S3 credential vault, settings-management helpers, history queries) and `SXUpload` (`S3Uploader`). The two new windows are thin SwiftUI shells hosted from the existing AppKit menu-bar app via `NSHostingController`; all persistence goes through the existing `SettingsStore` + Keychain. No new package dependencies — CryptoKit, SwiftUI, URLSession, Security, and system SQLite are all system frameworks.
 
@@ -10,12 +10,12 @@
 
 ## Global Constraints
 
-Every task's requirements implicitly include these (copied from the design spec, `docs/superpowers/specs/2026-07-10-sharex-mac-design.md`):
+Every task's requirements implicitly include these (copied from the design spec, `docs/superpowers/specs/2026-07-10-lumeshot-design.md`):
 
 - **Swift 6 strict concurrency**, `@MainActor` isolation for all AppKit/SwiftUI/UI-state types.
 - **Platform:** macOS 15+, Apple Silicon (arm64) only.
 - **No runtime dependencies outside the bundle** — only CryptoKit / URLSession / Security / SwiftUI / system SQLite3. Do **not** add any SwiftPM dependency; `Package.swift` stays unchanged.
-- **Bundle ID `org.sharexmac.app`** is immutable (TCC/Keychain/settings key off it).
+- **Bundle ID `org.lumeshot.app`** is immutable (TCC/Keychain/settings key off it).
 - **Local-first invariant:** disk write precedes any upload; a failed upload never loses the artifact. (M2b does not touch the capture path, but must not regress it.)
 - **Fail loud:** no silent catch-and-drop. Surface errors via `AppLog.log` and/or a user notification; never swallow.
 - **Secrets never persist in `settings.json`.** API keys, tokens, S3 secret/access keys live only in the Keychain, referenced by destination id. The only secret-slot value allowed in `settings.json` is the `SecretVault.sentinel` (`$keychain$`).
@@ -1701,7 +1701,7 @@ git commit -m "Add history browser window (search, thumbnails, copy/open/reveal/
 ### Task 11: Docs — porting map + README
 
 **Files:**
-- Modify: `docs/porting-map.md` (add rows for the new Swift types → ShareX classes)
+- Modify: `docs/porting-map.md` (add rows for the new Swift types → upstream classes)
 - Modify: `README.md` (feature list)
 
 **Interfaces:** none (documentation only).
@@ -1713,16 +1713,16 @@ Note the existing table format in `porting-map.md` and the feature-list section 
 
 - [ ] **Step 2: Add porting-map rows**
 
-Append rows to the mapping table in `docs/porting-map.md` matching the existing column format (Swift type → ShareX reference). Add entries for:
+Append rows to the mapping table in `docs/porting-map.md` matching the existing column format (Swift type → upstream reference). Add entries for:
 
-- `SigV4Signer` → `ShareX.UploadersLib` AWS SigV4 signing (`AmazonS3Uploader` request signing).
-- `S3RequestBuilder` / `S3Uploader` → `ShareX.UploadersLib.FileUploaders.AmazonS3`.
+- `SigV4Signer` → `UploadersLib` AWS SigV4 signing (`AmazonS3Uploader` request signing).
+- `S3RequestBuilder` / `S3Uploader` → `UploadersLib.FileUploaders.AmazonS3`.
 - `S3Config` / `S3Credentials` → `AmazonS3Settings`.
-- `DestinationsView` / `DestinationsModel` → ShareX uploaders-config UI (`UploadersConfigForm`).
-- `HistoryView` / `HistoryModel` → ShareX `HistoryForm` / `HistoryManager`.
-- `SecretVault.purge` / `UploadSettings` management helpers → ShareX uploader config persistence.
+- `DestinationsView` / `DestinationsModel` → upstream uploaders-config UI (`UploadersConfigForm`).
+- `HistoryView` / `HistoryModel` → upstream `HistoryForm` / `HistoryManager`.
+- `SecretVault.purge` / `UploadSettings` management helpers → upstream uploader config persistence.
 
-(If `docs/porting-map.md` does not exist, create it with a short header and a table using the columns the spec describes: Swift type, ShareX class, notes.)
+(If `docs/porting-map.md` does not exist, create it with a short header and a table using the columns the spec describes: Swift type, upstream class, notes.)
 
 - [ ] **Step 3: Update the README feature list**
 

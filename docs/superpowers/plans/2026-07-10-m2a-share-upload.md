@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** After a capture is saved locally, upload it to the active destination (a ShareX `.sxcu` custom uploader or Imgur), copy the resulting URL to the clipboard, notify, and record it in a local history database — the core "capture → share a link" flow.
+**Goal:** After a capture is saved locally, upload it to the active destination (an upstream `.sxcu` custom uploader or Imgur), copy the resulting URL to the clipboard, notify, and record it in a local history database — the core "capture → share a link" flow.
 
 **Architecture:** A new `SXUpload` SwiftPM target holds the networking layer (URLSession execution + the three provider clients). Pure, testable logic — the `.sxcu` model, response-URL syntax parser, request-body encoding, upload settings, and the SQLite history store — lives in `SXCore` behind protocols, so it is unit-tested without a network. Upload runs as an async stage *after* the existing synchronous local-first pipeline, preserving the "disk before anything else" invariant. Credentials live in the Keychain (a `CredentialStore` protocol in `SXCore`, real `Security`-framework impl in `SXApp`).
 
@@ -11,15 +11,15 @@
 ## Global Constraints
 
 - macOS 15+ (`platforms: [.macOS(.v15)]`), Apple Silicon only.
-- Bundle ID `org.sharexmac.app`; app display name **ShareX for Mac**; `LSUIElement` true.
+- Bundle ID `org.lumeshot.app`; app display name **Lumeshot**; `LSUIElement` true.
 - SwiftPM-first: no Xcode project files. `.app` assembly only via `scripts/bundle.sh`. License GPL-3.0. No AI-attribution boilerplate anywhere.
-- **The dev machine is Linux; Swift never runs locally.** Every build/test/run goes through `scripts/remote.sh` (rsyncs to and runs on `seitz@macmini1.fiber.house:~/git/sharex-mac`). `remote.sh build`/`test` do NOT re-bundle the `.app`; `remote.sh run` rebuilds+bundles+launches.
+- **The dev machine is Linux; Swift never runs locally.** Every build/test/run goes through `scripts/remote.sh` (rsyncs to and runs on `seitz@macmini1.fiber.house:~/git/lumeshot`). `remote.sh build`/`test` do NOT re-bundle the `.app`; `remote.sh run` rebuilds+bundles+launches.
 - **Local-first invariant:** the capture is written to disk (existing `AfterCapturePipeline`) before any upload attempt. A failed upload never loses the local file.
 - **Fail loud:** no silent `catch {}`. Capture-path and upload-path diagnostics go through `AppLog.log` (SXApp) or thrown/propagated errors; user-visible failures surface as notifications.
 - **No new external dependencies** in `Package.swift` for M2a.
-- `.sxcu` compatibility is the centerpiece: real ShareX custom-uploader files must import and work unchanged for the common shape (multipart file POST + JSON/regex response parsing). Unsupported syntax must produce a clear error on import, never a silent misparse.
+- `.sxcu` compatibility is the centerpiece: real upstream custom-uploader files must import and work unchanged for the common shape (multipart file POST + JSON/regex response parsing). Unsupported syntax must produce a clear error on import, never a silent misparse.
 - Secrets (API keys, tokens) never persist in the settings JSON — they go to the Keychain, referenced by destination id.
-- Reference for `.sxcu` semantics: ShareX repo at `/home/bseitz/git/sharex` (read-only) — `ShareX.UploadersLib/CustomUploader/`.
+- Reference for `.sxcu` semantics: upstream repo at `<reference-checkout>` (read-only) — `UploadersLib/CustomUploader/`.
 
 ---
 
@@ -494,7 +494,7 @@ git add -A && git commit -m "Add HTTPClient protocol with URLSession implementat
 - Produces:
   - `struct CustomUploaderConfig: Codable, Equatable, Sendable` with fields (all optional except as noted): `version: String?`, `name: String?`, `requestMethod: HTTPMethod` (default `.post`), `requestURL: String`, `parameters: [String: String]`, `headers: [String: String]`, `body: CustomUploaderBody` (default `.multipartFormData`), `arguments: [String: String]`, `fileFormName: String?`, `data: String?` (raw body template for JSON/binary bodies), `regexList: [String]`, `url: String?`, `thumbnailURL: String?`, `deletionURL: String?`, `errorMessage: String?`.
   - `enum CustomUploaderBody: String, Codable, Sendable { case none = "None", multipartFormData = "MultipartFormData", formURLEncoded = "FormURLEncoded", json = "JSON", binary = "Binary" }`
-  - `static CustomUploaderConfig.parse(_ data: Data) throws -> CustomUploaderConfig` — maps ShareX's PascalCase JSON keys; throws `UploadError.badResponse` on malformed JSON and `UploadError.unsupported` for a body type it can't handle (`XML`).
+  - `static CustomUploaderConfig.parse(_ data: Data) throws -> CustomUploaderConfig` — maps upstream's PascalCase JSON keys; throws `UploadError.badResponse` on malformed JSON and `UploadError.unsupported` for a body type it can't handle (`XML`).
   - Tasks 6, 12 consume this.
 
 - [ ] **Step 1: Create fixtures**
@@ -661,7 +661,7 @@ public struct CustomUploaderConfig: Codable, Equatable, Sendable {
         self.version = version
     }
 
-    // ShareX .sxcu keys are PascalCase.
+    // upstream .sxcu keys are PascalCase.
     private enum CodingKeys: String, CodingKey {
         case version = "Version"
         case name = "Name"
@@ -908,7 +908,7 @@ Expected: all ResponseURLParser tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "Add ShareX response-URL syntax parser"
+git add -A && git commit -m "Add upstream response-URL syntax parser"
 ```
 
 ---
@@ -1306,7 +1306,7 @@ private func tempFile() -> URL {
                                                 withIntermediateDirectories: true)
         // A settings.json written by M1 (schemaVersion 1, no `upload`).
         let v1 = """
-        {"schemaVersion":1,"captureSavePath":"~/Pictures/ShareX",
+        {"schemaVersion":1,"captureSavePath":"~/Pictures/Lumeshot",
          "filenameTemplate":"Screenshot_%y","saveToDisk":true,"copyToClipboard":true,
          "showNotification":true,
          "hotkeys":{"fullscreen":{"keyCode":20,"modifiers":2560},
@@ -1317,7 +1317,7 @@ private func tempFile() -> URL {
         let (settings, issue) = SettingsStore(fileURL: url).loadOrDefault()
         #expect(issue == nil)                              // migration is not an error
         #expect(settings.schemaVersion == 2)
-        #expect(settings.captureSavePath == "~/Pictures/ShareX")   // preserved
+        #expect(settings.captureSavePath == "~/Pictures/Lumeshot")   // preserved
         #expect(settings.upload == UploadSettings.disabled)        // injected
     }
 
@@ -1442,7 +1442,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
 
     public static let `default` = AppSettings(
         schemaVersion: 2,
-        captureSavePath: "~/Pictures/ShareX",
+        captureSavePath: "~/Pictures/Lumeshot",
         filenameTemplate: "Screenshot_%y-%mo-%d_%h-%mi-%s",
         saveToDisk: true,
         copyToClipboard: true,
@@ -1739,7 +1739,7 @@ git add -A && git commit -m "Add SQLite history store"
 
 **Interfaces:**
 - Consumes: `CredentialStore` protocol (Task 1).
-- Produces: `struct KeychainCredentialStore: CredentialStore` — `init(service: String = "org.sharexmac.app")`; generic-password items keyed by `account`. Build-verified only (Keychain isn't available in the CI sandbox / can't be unit-tested headlessly).
+- Produces: `struct KeychainCredentialStore: CredentialStore` — `init(service: String = "org.lumeshot.app")`; generic-password items keyed by `account`. Build-verified only (Keychain isn't available in the CI sandbox / can't be unit-tested headlessly).
 
 - [ ] **Step 1: Write `Sources/SXApp/KeychainCredentialStore.swift`**
 
@@ -1750,7 +1750,7 @@ import SXCore
 
 struct KeychainCredentialStore: CredentialStore {
     private let service: String
-    init(service: String = "org.sharexmac.app") { self.service = service }
+    init(service: String = "org.lumeshot.app") { self.service = service }
 
     private func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,
@@ -2194,7 +2194,7 @@ Add before the closing `</dict>`:
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
-            <key>CFBundleTypeName</key><string>ShareX Custom Uploader</string>
+            <key>CFBundleTypeName</key><string>Lumeshot Custom Uploader</string>
             <key>CFBundleTypeExtensions</key><array><string>sxcu</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>
@@ -2212,25 +2212,25 @@ Expected: build clean, all tests pass.
 ```markdown
 # M2a manual smoke checklist
 
-Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/ShareX-Mac.log`.
+Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumeshot.log`.
 
 - [ ] Menu shows "Import .sxcu…" and "Upload After Capture" (with a checkmark state)
 - [ ] Import a real .sxcu (e.g. an Imgur or self-hosted config) → "Uploader imported" notification; it becomes the active destination
 - [ ] Toggle "Upload After Capture" on
-- [ ] Capture fullscreen (⌥⇧3) → local file still saved to ~/Pictures/ShareX (local-first), then an "Uploaded" notification appears with the URL
+- [ ] Capture fullscreen (⌥⇧3) → local file still saved to ~/Pictures/Lumeshot (local-first), then an "Uploaded" notification appears with the URL
 - [ ] Clipboard holds the URL (⌘V into a text field) — not the image — after a successful upload
 - [ ] Clicking the "Uploaded" notification opens the URL in the browser
 - [ ] The uploaded image is actually reachable at the URL
 - [ ] Turn off Wi‑Fi, capture → local file saved, "Upload failed … Local file kept" notification, no clipboard URL (capture not lost)
-- [ ] history.sqlite exists at ~/Library/Application Support/ShareX-Mac/ and has rows (verify: `sqlite3 ~/Library/Application\ Support/ShareX-Mac/history.sqlite 'select url,upload_failed from history'`)
-- [ ] Import a .sxcu with an Authorization header → the header value is NOT present in ~/Library/Application Support/ShareX-Mac/settings.json (it's `$keychain$`); the secret is in the login keychain
+- [ ] history.sqlite exists at ~/Library/Application Support/Lumeshot/ and has rows (verify: `sqlite3 ~/Library/Application\ Support/Lumeshot/history.sqlite 'select url,upload_failed from history'`)
+- [ ] Import a .sxcu with an Authorization header → the header value is NOT present in ~/Library/Application Support/Lumeshot/settings.json (it's `$keychain$`); the secret is in the login keychain
 - [ ] Import a malformed / XML-body .sxcu → clear "Import failed" notification, no crash
 ```
 
 - [ ] **Step 6: Update `docs/porting-map.md`, `docs/smoke-m1.md`, `README.md`**
 
-- In `docs/porting-map.md`, add rows for the SXUpload types and the SXCore upload/history types, each mapped to `ShareX.UploadersLib` `CustomUploaderItem.cs`/`CustomUploaderParser`/`URLHelpers`/history equivalents; mark `KeychainCredentialStore`, `HistoryStore` (SQLite is ShareX-parallel via `ShareX.HistoryLib`), and `UploadService` appropriately.
-- In `README.md`, update the status line to: `**Status:** M2a — capture + share: after-capture upload to a ShareX .sxcu custom uploader or Imgur, copy-URL, local SQLite history. Design: docs/superpowers/specs/2026-07-10-sharex-mac-design.md`.
+- In `docs/porting-map.md`, add rows for the SXUpload types and the SXCore upload/history types, each mapped to `UploadersLib` `CustomUploaderItem.cs`/`CustomUploaderParser`/`URLHelpers`/history equivalents; mark `KeychainCredentialStore`, `HistoryStore` (SQLite is upstream-parallel via `HistoryLib`), and `UploadService` appropriately.
+- In `README.md`, update the status line to: `**Status:** M2a — capture + share: after-capture upload to an upstream .sxcu custom uploader or Imgur, copy-URL, local SQLite history. Design: docs/superpowers/specs/2026-07-10-lumeshot-design.md`.
 - In `docs/smoke-m1.md`, add a one-line pointer: "M2a upload smoke: see docs/smoke-m2a.md".
 
 - [ ] **Step 7: Commit**

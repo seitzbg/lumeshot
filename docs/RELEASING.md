@@ -85,7 +85,7 @@ See `docs/smoke-signing.md`. The short version, on a Mac that has never run Lume
 
     scripts/remote.sh ssh 'swift build -c release && scripts/bundle.sh && VERSION=0.2.0 scripts/dmg.sh'
 
-Local builds use the self-signed `sharex-mac-dev` identity from `scripts/setup-signing.sh`,
+Local builds use the self-signed `lumeshot-dev` identity from `scripts/setup-signing.sh`,
 not the Developer ID certificate — the real private key stays in GitHub secrets and never
 reaches the dev Mac. They still get the hardened runtime and the same entitlements, so the
 dev loop exercises the runtime restrictions the shipped app runs under.

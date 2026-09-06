@@ -4,7 +4,7 @@
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleExecutable</key><string>LumeshotApp</string>
-    <key>CFBundleIdentifier</key><string>org.sharexmac.app</string>
+    <key>CFBundleIdentifier</key><string>org.lumeshot.app</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
     <key>CFBundleName</key><string>Lumeshot</string>
     <key>CFBundleDisplayName</key><string>Lumeshot</string>
@@ -19,7 +19,7 @@
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
-            <key>CFBundleTypeName</key><string>ShareX Custom Uploader</string>
+            <key>CFBundleTypeName</key><string>Lumeshot Custom Uploader</string>
             <key>CFBundleTypeExtensions</key><array><string>sxcu</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>

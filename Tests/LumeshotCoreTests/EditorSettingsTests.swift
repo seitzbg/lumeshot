@@ -18,7 +18,7 @@ import Foundation
     @Test func legacyFileWithoutEditorKeyDefaultsIt() throws {
         // A settings JSON that predates the editor field must still decode.
         let json = """
-        {"schemaVersion":2,"captureSavePath":"~/Pictures/ShareX","filenameTemplate":"x",
+        {"schemaVersion":2,"captureSavePath":"~/Pictures/Lumeshot","filenameTemplate":"x",
          "saveToDisk":true,"copyToClipboard":true,"showNotification":true,
          "hotkeys":{"fullscreen":null,"region":null,"window":null}}
         """

@@ -4,6 +4,7 @@ import Testing
 
 @MainActor
 final class MockEffects: PipelineEffects {
+    var clipboardChangeCount = 0
     var existing: Set<String> = []
     var written: [(URL, Int)] = []      // (url, byte count)
     var clipboardCopies = 0
@@ -17,12 +18,14 @@ final class MockEffects: PipelineEffects {
         callOrder.append("write"); written.append((url, data.count))
     }
     func copyImageToClipboard(_ pngData: Data) {
+        clipboardChangeCount += 1
         callOrder.append("clipboard"); clipboardCopies += 1
     }
     func notify(title: String, body: String, fileURL: URL?) {
         callOrder.append("notify"); notifications.append((body, fileURL))
     }
     func copyTextToClipboard(_ text: String) {
+        clipboardChangeCount += 1
         callOrder.append("copyText"); textCopies.append(text)
     }
     func notifyURL(title: String, body: String, url: String) {
@@ -73,21 +76,20 @@ private func settings() -> AppSettings {
         #expect(result.savedURL?.lastPathComponent == "shot_1.png")
     }
 
-    @Test func disabledStepsAreSkipped() throws {
+    @Test func imageIsCopiedWhenSavingAndNotificationsAreDisabled() throws {
         var s = settings()
         s.saveToDisk = false
-        s.copyToClipboard = false
         s.showNotification = false
         let fx = MockEffects()
         let result = try AfterCapturePipeline(settings: s, effects: fx).process(artifact())
-        #expect(fx.callOrder.isEmpty)
+        #expect(fx.callOrder == ["clipboard"])
         #expect(result.savedURL == nil)
-        #expect(!result.copiedToClipboard)
+        #expect(result.copiedToClipboard)
     }
 
     @Test func tildePathExpands() throws {
         var s = settings()
-        s.captureSavePath = "~/Pictures/ShareX"
+        s.captureSavePath = "~/Pictures/Lumeshot"
         let fx = MockEffects()
         let result = try AfterCapturePipeline(settings: s, effects: fx).process(artifact())
         #expect(result.savedURL!.path.hasPrefix(NSHomeDirectory()))
@@ -99,7 +101,6 @@ private func settings() -> AppSettings {
     private func run(saveToDisk: Bool, policy: SavePolicy) throws -> (PipelineResult, MockEffects) {
         var settings = AppSettings.default
         settings.saveToDisk = saveToDisk
-        settings.copyToClipboard = false
         settings.showNotification = false
         let effects = MockEffects()
         let artifact = CaptureArtifact(pngData: Data([1]), width: 2, height: 2,
@@ -131,7 +132,6 @@ private func settings() -> AppSettings {
     @Test func defaultPolicyIsFollowSettings() throws {
         var settings = AppSettings.default
         settings.saveToDisk = false
-        settings.copyToClipboard = false
         settings.showNotification = false
         let result = try AfterCapturePipeline(settings: settings, effects: MockEffects())
             .process(CaptureArtifact(pngData: Data([1]), width: 2, height: 2,

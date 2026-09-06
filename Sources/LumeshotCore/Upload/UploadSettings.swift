@@ -39,51 +39,16 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
-/// What the clipboard holds once an upload succeeds.
-///
-/// The image is copied at capture time (when that preference is on); the URL
-/// used to overwrite it unconditionally on upload, so "copy to clipboard" and
-/// "upload after capture" together always left you with the link and never the
-/// picture. This makes that a choice.
-public enum AfterUploadClipboard: String, Codable, Sendable, CaseIterable {
-    /// Replace the clipboard with the upload URL (the previous behavior).
-    case url
-    /// Keep the image on the clipboard; the URL still goes to history and the
-    /// notification. For recordings there is no image, so the clipboard is
-    /// simply left alone.
-    case image
-}
-
 public struct UploadSettings: Codable, Equatable, Sendable {
     public var uploadAfterCapture: Bool
     public var activeDestinationID: String?
     public var destinations: [UploadDestination]
-    public var afterUploadClipboard: AfterUploadClipboard
 
     public init(uploadAfterCapture: Bool, activeDestinationID: String?,
-                destinations: [UploadDestination],
-                afterUploadClipboard: AfterUploadClipboard = .url) {
+                destinations: [UploadDestination]) {
         self.uploadAfterCapture = uploadAfterCapture
         self.activeDestinationID = activeDestinationID
         self.destinations = destinations
-        self.afterUploadClipboard = afterUploadClipboard
-    }
-
-    // Hand-written so a settings.json written before this key existed still
-    // decodes. Synthesized Codable would throw on the missing key, and the
-    // store answers a decode failure by backing the file up and resetting to
-    // defaults -- which would silently drop every configured destination.
-    private enum CodingKeys: String, CodingKey {
-        case uploadAfterCapture, activeDestinationID, destinations, afterUploadClipboard
-    }
-
-    public init(from decoder: Decoder) throws {
-        let c = try decoder.container(keyedBy: CodingKeys.self)
-        uploadAfterCapture = try c.decode(Bool.self, forKey: .uploadAfterCapture)
-        activeDestinationID = try c.decodeIfPresent(String.self, forKey: .activeDestinationID)
-        destinations = try c.decode([UploadDestination].self, forKey: .destinations)
-        afterUploadClipboard = try c.decodeIfPresent(AfterUploadClipboard.self,
-                                                     forKey: .afterUploadClipboard) ?? .url
     }
 
     public static let disabled = UploadSettings(uploadAfterCapture: false,

@@ -92,6 +92,21 @@ private struct Boom: Error {}
 }
 
 @MainActor @Suite struct RecordingClipboardChoiceTests {
+    @Test func uploadDoesNotOverwriteClipboardChangedDuringRequest() async throws {
+        let fileURL = try tempFile()
+        defer { try? FileManager.default.removeItem(at: fileURL) }
+        let effects = MockEffects()
+        await RecordingDelivery.deliver(
+            fileURL: fileURL, capturedAt: Date(), destinationName: "Uploader",
+            shouldUpload: true, showNotification: false,
+            mime: "video/mp4", history: nil, effects: effects,
+            upload: { _, _ in
+                effects.copyTextToClipboard("Newer content")
+                return DeliveredUpload(url: "https://i/earlier.mp4", deletionURL: nil)
+            })
+        #expect(effects.textCopies == ["Newer content"])
+    }
+
     @Test func keepingTheImageLeavesTheClipboardAlone() async throws {
         let fileURL = try tempFile()
         let effects = MockEffects()

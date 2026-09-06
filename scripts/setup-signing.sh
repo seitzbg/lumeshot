@@ -6,10 +6,10 @@
 set -euo pipefail
 
 KC_DIR="$HOME/Library/Keychains"
-KC="$KC_DIR/sharex-signing.keychain-db"
-CFG_DIR="$HOME/.config/sharex-mac"
+KC="$KC_DIR/lumeshot-signing.keychain-db"
+CFG_DIR="$HOME/.config/lumeshot"
 PW_FILE="$CFG_DIR/signing.pw"
-CN="sharex-mac-dev"
+CN="lumeshot-dev"
 
 mkdir -p "$CFG_DIR"; chmod 700 "$CFG_DIR"
 if [ ! -f "$PW_FILE" ]; then

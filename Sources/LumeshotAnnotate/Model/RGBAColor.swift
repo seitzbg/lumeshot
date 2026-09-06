@@ -12,7 +12,7 @@ public struct RGBAColor: Codable, Sendable, Equatable {
         self.r = r; self.g = g; self.b = b; self.a = a
     }
 
-    /// ShareX's default annotation stroke, #ef4444.
+    /// Lumeshot's default annotation stroke, #ef4444.
     public static let red = RGBAColor(r: 0.937, g: 0.267, b: 0.267, a: 1)
     public static let clear = RGBAColor(r: 0, g: 0, b: 0, a: 0)
 
