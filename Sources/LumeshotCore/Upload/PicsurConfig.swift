@@ -52,6 +52,11 @@ public struct PicsurConfig: Codable, Equatable, Sendable {
 
     public var uploadURL: String { "\(host)/api/image/upload" }
 
+    /// True when the API key and the captured image would cross the network in
+    /// cleartext. Not rejected outright — a LAN-only instance on plain http is a
+    /// legitimate self-host setup — but the Add sheet warns before committing.
+    public var isInsecureTransport: Bool { host.lowercased().hasPrefix("http://") }
+
     public func url(id: String) -> String {
         switch linkStyle {
         case .directImage: return "\(host)/i/\(id).\(imageFormat)"

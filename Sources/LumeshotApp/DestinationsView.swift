@@ -446,6 +446,11 @@ private struct AddPicsurSheet: View {
                 }
                 .pickerStyle(.radioGroup)
             }
+            if PicsurConfig(host: host, imageFormat: imageFormat).isInsecureTransport {
+                Label("Plain http — the API key and your captures are sent in cleartext.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            }
             Text("Create the API key in Picsur under Settings → API keys.")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {

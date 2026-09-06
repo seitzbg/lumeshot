@@ -30,6 +30,16 @@ import Testing
                 == "https://pic.example.net/api/image/delete/abc/dk")
     }
 
+    @Test(arguments: [
+        ("pic.example.net", false),          // bare host defaults to https
+        ("https://pic.example.net", false),
+        ("http://box.lan:8080", true),       // explicit http is allowed, but flagged
+        ("HTTP://box.lan", true),
+    ])
+    func flagsCleartextHosts(raw: String, insecure: Bool) {
+        #expect(PicsurConfig(host: raw).isInsecureTransport == insecure)
+    }
+
     @Test func roundTripsThroughCodable() throws {
         let c = PicsurConfig(host: "pic.example.net", imageFormat: "webp", linkStyle: .viewerPage)
         let decoded = try JSONDecoder().decode(PicsurConfig.self, from: JSONEncoder().encode(c))
