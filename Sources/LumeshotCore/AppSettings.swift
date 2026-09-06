@@ -25,16 +25,34 @@ public struct HotkeySettings: Codable, Equatable, Sendable {
     // A pre-M4 `hotkeys` object has no `record` key at all. Synthesized
     // Codable would decode that absence as `nil`, which silently disables
     // the flagship record hotkey for every upgrading user (registration
-    // skips it via `if let combo = config.record`). Default an absent
+    // skips it via `if let combo = config.record`). Default an *absent*
     // `record` to the shipped combo; `fullscreen`/`region`/`window` keep
     // today's "absent → nil" semantics.
+    //
+    // An explicit `null` is different from an absent key: it means the user
+    // cleared the shortcut in Preferences. Distinguishing the two is what
+    // makes clearing stick — keying off decodeIfPresent alone resurrects the
+    // default on the next load, because the synthesized encoder omits nil.
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         fullscreen = try c.decodeIfPresent(HotkeyCombo.self, forKey: .fullscreen)
         region = try c.decodeIfPresent(HotkeyCombo.self, forKey: .region)
         window = try c.decodeIfPresent(HotkeyCombo.self, forKey: .window)
-        record = try c.decodeIfPresent(HotkeyCombo.self, forKey: .record)
-            ?? HotkeyCombo(keyCode: 22, modifiers: 2560)
+        record = c.contains(.record)
+            ? try c.decodeIfPresent(HotkeyCombo.self, forKey: .record)
+            : HotkeyCombo(keyCode: 22, modifiers: 2560)
+    }
+
+    // Written by hand so a cleared `record` round-trips as an explicit null
+    // rather than being omitted (which the decoder above would read back as
+    // the legacy-migration case and restore the default).
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encodeIfPresent(fullscreen, forKey: .fullscreen)
+        try c.encodeIfPresent(region, forKey: .region)
+        try c.encodeIfPresent(window, forKey: .window)
+        if let record { try c.encode(record, forKey: .record) }
+        else { try c.encodeNil(forKey: .record) }
     }
 
     private enum CodingKeys: String, CodingKey { case fullscreen, region, window, record }
