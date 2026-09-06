@@ -9,7 +9,10 @@ public struct URLSessionHTTPClient: HTTPClient {
 
     public func send(_ request: PreparedRequest) async throws -> HTTPResponse {
         guard let url = URL(string: request.url) else {
-            throw UploadError.transport("Invalid URL: \(request.url)")
+            // Deliberately not interpolated: by this point the URL has been
+            // injected with any Keychain-held credential, and this string
+            // reaches the log and a user-visible notification.
+            throw UploadError.transport("The uploader's request URL is not a valid URL.")
         }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue

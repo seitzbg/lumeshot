@@ -43,7 +43,9 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 ## Security
 
-Secrets (API keys, Picsur API keys, S3 keys, SFTP/FTP passwords and private keys, `.sxcu` header/param secrets) are stored **only in the login Keychain** (`org.sharexmac.app`), never in `settings.json`.
+Secrets (API keys, Picsur API keys, S3 keys, SFTP/FTP passwords and private keys) are stored **only in the login Keychain** (`org.sharexmac.app`), never in `settings.json`.
+
+For imported `.sxcu` custom uploaders the guarantee is narrower, because the format lets a credential sit anywhere. Two surfaces are protected unconditionally — the JSON body template, and a `RequestURL` carrying a query string or user-info, both stored in full. Headers, arguments and query parameters are matched against a key-name heuristic (`authorization`, `token`, `api_key`, `signature`, …). That heuristic is deliberately over-eager, but a secret under a genuinely innocuous key can still reach `settings.json` — treat an untrusted `.sxcu` accordingly.
 
 ## Not affiliated
 

@@ -86,3 +86,72 @@ private final class DictCredentialStore: CredentialStore, @unchecked Sendable {
         #expect(creds.store.isEmpty)                  // every namespaced account removed
     }
 }
+
+@Suite struct SecretVaultRequestURLTests {
+    private func store() -> DictCredentialStore { DictCredentialStore() }
+
+    @Test(arguments: [
+        "https://up.example.net/api?api_key=SECRET",
+        "https://up.example.net/api?anything=x",        // any query could hide one
+        "https://user:pw@up.example.net/api",
+        "not a url at all",                             // unparseable → protect
+    ])
+    func aURLThatCouldHideACredentialIsProtected(url: String) {
+        #expect(SecretVault.urlNeedsProtecting(url))
+    }
+
+    @Test(arguments: ["https://up.example.net/api", "http://box.lan:8080/upload"])
+    func aPlainURLIsLeftInSettings(url: String) {
+        #expect(!SecretVault.urlNeedsProtecting(url))
+    }
+
+    @Test func aTokenInTheQueryStringDoesNotReachSettings() throws {
+        let creds = store()
+        let config = CustomUploaderConfig(requestURL: "https://up.example.net/api?api_key=SECRET")
+        let stripped = try SecretVault.strip(config, id: "d1", into: creds)
+        #expect(stripped.requestURL == SecretVault.sentinel)
+        #expect(!stripped.requestURL.contains("SECRET"))
+        #expect(creds.store["d1/url/requestURL"] == "https://up.example.net/api?api_key=SECRET")
+    }
+
+    @Test func theStrippedURLRoundTripsOnInject() throws {
+        let creds = store()
+        let original = "https://up.example.net/api?api_key=SECRET"
+        let stripped = try SecretVault.strip(CustomUploaderConfig(requestURL: original),
+                                             id: "d1", into: creds)
+        let injected = try SecretVault.inject(stripped, id: "d1", from: creds)
+        #expect(injected.requestURL == original)
+    }
+
+    @Test func aPlainURLIsNotStripped() throws {
+        let creds = store()
+        let stripped = try SecretVault.strip(
+            CustomUploaderConfig(requestURL: "https://up.example.net/api"), id: "d1", into: creds)
+        #expect(stripped.requestURL == "https://up.example.net/api")
+        #expect(creds.store["d1/url/requestURL"] == nil)
+    }
+
+    @Test func aMissingURLSecretFailsLoudRatherThanUploadingToTheSentinel() throws {
+        let creds = store()
+        let stripped = try SecretVault.strip(
+            CustomUploaderConfig(requestURL: "https://up/api?t=S"), id: "d1", into: creds)
+        creds.store["d1/url/requestURL"] = nil
+        #expect(throws: UploadError.missingCredential("d1/url/requestURL")) {
+            try SecretVault.inject(stripped, id: "d1", from: creds)
+        }
+    }
+
+    @Test func theURLAccountIsIncludedInAccountsSoRemovalPurgesIt() throws {
+        let creds = store()
+        let stripped = try SecretVault.strip(
+            CustomUploaderConfig(requestURL: "https://up/api?t=S"), id: "d1", into: creds)
+        #expect(SecretVault.accounts(stripped, id: "d1").contains("d1/url/requestURL"))
+        try SecretVault.purge(stripped, id: "d1", from: creds)
+        #expect(creds.store.isEmpty)
+    }
+
+    @Test(arguments: ["session_id", "X-Signature", "my_credential", "private_key_id"])
+    func theHeuristicCoversMoreInnocuousLookingKeys(key: String) {
+        #expect(SecretVault.isSecretKey(key))
+    }
+}
