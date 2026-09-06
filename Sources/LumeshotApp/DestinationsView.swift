@@ -427,7 +427,7 @@ private struct AddPicsurSheet: View {
     private let formats = ["png", "jpg", "webp", "avif", "gif", "bmp", "tiff", "qoi"]
 
     private var isValid: Bool {
-        !PicsurConfig.normalizeHost(host).isEmpty && !apiKey.isEmpty
+        PicsurConfig.isValidHost(PicsurConfig.normalizeHost(host)) && !apiKey.isEmpty
     }
 
     var body: some View {

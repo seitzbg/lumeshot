@@ -28,14 +28,36 @@ public struct PicsurConfig: Codable, Equatable, Sendable {
     /// Accepts what a human types — `pic.example.net`, a trailing slash, stray
     /// whitespace — and yields a base URL safe to concatenate paths onto.
     /// A bare host is assumed https (Picsur ships behind TLS by default).
+    ///
+    /// A value that already carries some *other* scheme is returned untouched
+    /// rather than prefixed, so `ftp://host` stays invalid instead of becoming
+    /// the nonsense `https://ftp://host`. Validity is `isValidHost`'s job.
     public static func normalizeHost(_ raw: String) -> String {
         var host = raw.trimmingCharacters(in: .whitespacesAndNewlines)
-        while host.hasSuffix("/") { host.removeLast() }
         guard !host.isEmpty else { return "" }
-        if !host.lowercased().hasPrefix("http://"), !host.lowercased().hasPrefix("https://") {
+        let lower = host.lowercased()
+        if !lower.hasPrefix("http://"), !lower.hasPrefix("https://") {
+            if host.contains("://") { return host }   // another scheme — let validation reject it
             host = "https://" + host
         }
+        // Strip trailing slashes only once a scheme is present, and never into it:
+        // trimming first would reduce a bare "https://" to "https:" and re-prefix
+        // it into "https://https:", which parses as a valid-looking host.
+        while host.hasSuffix("/"), !host.lowercased().hasSuffix("://") { host.removeLast() }
         return host
+    }
+
+    /// Whether a normalized host is actually usable as a Picsur base URL.
+    /// A path is allowed (instances are commonly reverse-proxied under one),
+    /// but credentials, a query, or a fragment are not — they would be silently
+    /// dropped or duplicated once we append `/api/image/upload`.
+    public static func isValidHost(_ normalized: String) -> Bool {
+        guard let c = URLComponents(string: normalized),
+              let scheme = c.scheme?.lowercased(), scheme == "http" || scheme == "https",
+              let host = c.host, !host.isEmpty,
+              c.user == nil, c.password == nil, c.query == nil, c.fragment == nil
+        else { return false }
+        return true
     }
 
     /// Strips a leading dot and lowercases, so ".PNG" and "png" agree.
@@ -44,6 +66,9 @@ public struct PicsurConfig: Codable, Equatable, Sendable {
         while ext.hasPrefix(".") { ext.removeFirst() }
         return ext.isEmpty ? "png" : ext
     }
+
+    /// `host` has already been normalized by `init`; this reports whether it survived.
+    public var isValid: Bool { Self.isValidHost(host) }
 
     // MARK: - URL construction
     //

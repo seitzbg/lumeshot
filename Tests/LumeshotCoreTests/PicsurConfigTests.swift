@@ -40,6 +40,25 @@ import Testing
         #expect(PicsurConfig(host: raw).isInsecureTransport == insecure)
     }
 
+    @Test(arguments: [
+        "https://pic.example.net", "http://box.lan:8080", "https://host/picsur",
+    ])
+    func acceptsUsableHosts(raw: String) {
+        #expect(PicsurConfig(host: raw).isValid)
+    }
+
+    @Test(arguments: [
+        "ftp://host",                  // must not become https://ftp://host
+        "https://",                    // no host
+        "https://host#frag",           // fragment would be dropped once we append a path
+        "https://host?a=b",            // ditto for a query
+        "https://user:pw@host",        // credentials belong in the Keychain, not the URL
+        "",
+    ])
+    func rejectsMalformedHosts(raw: String) {
+        #expect(!PicsurConfig(host: raw).isValid)
+    }
+
     @Test func roundTripsThroughCodable() throws {
         let c = PicsurConfig(host: "pic.example.net", imageFormat: "webp", linkStyle: .viewerPage)
         let decoded = try JSONDecoder().decode(PicsurConfig.self, from: JSONEncoder().encode(c))

@@ -32,6 +32,9 @@ struct UploadService {
             guard let cfg = destination.picsurConfig else {
                 throw UploadError.unsupported("Destination has no Picsur config")
             }
+            guard cfg.isValid else {
+                throw UploadError.unsupported("Picsur host is not a valid http(s) URL: \(cfg.host)")
+            }
             let secret = try PicsurCredentials.load(id: destination.id, from: credentials)
             return PicsurUploader(config: cfg, secret: secret, http: http)
 
