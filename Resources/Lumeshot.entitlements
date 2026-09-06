@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      Deliberately empty.
+
+      Notarization requires the hardened runtime, and the hardened runtime is
+      only worth having if we do not immediately punch holes in it. Lumeshot
+      needs none of the usual exceptions:
+
+        * Screen and audio capture go through ScreenCaptureKit, which is gated
+          by the TCC Screen Recording grant, not by an entitlement.
+        * The app is not sandboxed, so writing captures to ~/Pictures, reaching
+          the network, and using the login Keychain all work unentitled.
+        * Every dependency (Citadel, SwiftNIO, swift-crypto) is statically
+          linked, and libcurl resolves to Apple's /usr/lib/libcurl.4.dylib, so
+          library validation has nothing to reject — no
+          com.apple.security.cs.disable-library-validation needed.
+
+      If a future change needs an exception, add it here with a comment saying
+      what required it, rather than reaching for disable-library-validation.
+    -->
+</dict>
+</plist>
