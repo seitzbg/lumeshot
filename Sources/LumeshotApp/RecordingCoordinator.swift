@@ -15,7 +15,11 @@ final class RecordingCoordinator {
     private let effects: any PipelineEffects
     private let deliver: @MainActor (URL, String?) -> Void
     private let onStateChange: @MainActor (Bool) -> Void
-    private var isPresentingOverlay = false
+    /// Claimed for the whole start attempt — overlay/picker *and* the async
+    /// content lookup that follows it. The picker used to clear this before
+    /// dispatching the start, leaving a window in which the recorder was still
+    /// idle and a second hotkey press began a second recording.
+    private var isStarting = false
     private var regionSession: RecordingRegionSession?
     private var windowSession: WindowPickerSession?
 
@@ -31,12 +35,18 @@ final class RecordingCoordinator {
 
     var isRecording: Bool { recorder.state == .recording }
 
+    /// Any in-flight start attempt or live session. `isRecording` alone is not
+    /// enough to gate on: it is false for the entire start handshake.
+    private var isBusy: Bool { isStarting || recorder.isBusy }
+
     func toggle(mode: Mode) {
-        if isRecording { stop() } else { start(mode: mode) }
+        if isRecording { stop() }
+        else if isBusy { return }   // mid-start: neither a stop nor a new start
+        else { start(mode: mode) }
     }
 
     func start(mode: Mode) {
-        guard !isRecording, !isPresentingOverlay else { return }
+        guard !isBusy else { return }
         guard PermissionOnboardingController.ensurePermission() else {
             AppLog.log("Recording start aborted: Screen Recording not granted")
             return
@@ -56,9 +66,9 @@ final class RecordingCoordinator {
     // MARK: - Display
 
     private func startDisplay() {
-        isPresentingOverlay = true
+        isStarting = true
         Task { @MainActor in
-            defer { isPresentingOverlay = false }
+            defer { isStarting = false }
             do {
                 let content = try await DisplayCapture.shareableContent()
                 guard let target = displayUnderMouse(in: content) ?? content.displays.first else {
@@ -96,23 +106,28 @@ final class RecordingCoordinator {
     // MARK: - Region
 
     private func startRegion() {
-        isPresentingOverlay = true
+        isStarting = true
         Task { @MainActor in
             do {
                 let displays = try await DisplayCapture.captureAllDisplays(showCursor: false)
                 let session = RecordingRegionSession(displays: displays) { [weak self] picked in
-                    self?.regionSession = nil
-                    self?.isPresentingOverlay = false
-                    guard let self, let picked else {
+                    guard let self else { return }
+                    self.regionSession = nil
+                    guard let picked else {
+                        self.isStarting = false
                         AppLog.log("Region recording cancelled")
                         return
                     }
-                    Task { @MainActor in await self.startRegionRecording(picked) }
+                    // Stay claimed across the content lookup + recorder.start.
+                    Task { @MainActor in
+                        defer { self.isStarting = false }
+                        await self.startRegionRecording(picked)
+                    }
                 }
                 self.regionSession = session
                 session.begin()
             } catch {
-                isPresentingOverlay = false
+                isStarting = false
                 AppLog.log("Recording: region overlay setup failed: \(error)")
                 effects.notify(title: "Recording failed", body: error.localizedDescription, fileURL: nil)
             }
@@ -138,30 +153,34 @@ final class RecordingCoordinator {
     // MARK: - Window
 
     private func startWindow() {
-        isPresentingOverlay = true
+        isStarting = true
         Task { @MainActor in
             do {
                 let candidates = try await WindowCapture.candidates(
                     excludingBundleID: Bundle.main.bundleIdentifier)
                 guard !candidates.isEmpty else {
-                    isPresentingOverlay = false
+                    isStarting = false
                     effects.notify(title: "No windows to record",
                                    body: "No capturable windows were found.", fileURL: nil)
                     return
                 }
                 let session = WindowPickerSession(candidates: candidates) { [weak self] pick in
-                    self?.windowSession = nil
-                    self?.isPresentingOverlay = false
-                    guard let self, let pick else {
+                    guard let self else { return }
+                    self.windowSession = nil
+                    guard let pick else {
+                        self.isStarting = false
                         AppLog.log("Window recording cancelled")
                         return
                     }
-                    Task { @MainActor in await self.startWindowRecording(pick) }
+                    Task { @MainActor in
+                        defer { self.isStarting = false }
+                        await self.startWindowRecording(pick)
+                    }
                 }
                 self.windowSession = session
                 session.begin()
             } catch {
-                isPresentingOverlay = false
+                isStarting = false
                 AppLog.log("Recording: window candidates failed: \(error)")
                 effects.notify(title: "Recording failed", body: error.localizedDescription, fileURL: nil)
             }
