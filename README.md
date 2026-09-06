@@ -4,6 +4,18 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 **Status:** v1 feature-complete — capture, a full annotation editor, screen recording, five uploader backends, a dedicated Preferences window, and a Developer ID signed + notarized `.dmg` release pipeline. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Design: `docs/superpowers/specs/2026-07-10-lumeshot-design.md` · Local build: `swift build` (see [local development](docs/local-development.md)).
 
+## Screenshots
+
+Settings follows your Mac’s light or dark appearance.
+
+<img src="docs/images/settings-general.png" alt="Lumeshot General settings in light appearance, with sidebar navigation and grouped capture controls" width="820">
+
+<img src="docs/images/settings-uploads-dark.png" alt="Lumeshot Uploads settings in dark appearance, with multiple uploaders and an active uploader selection" width="820">
+
+Uploader configuration uses grouped fields and a dedicated action bar.
+
+<img src="docs/images/settings-uploader.png" alt="Picsur uploader dialog with connection settings and sharing options" width="540">
+
 ## Features
 
 **Capture** (menu-bar resident, hotkey-driven)
@@ -32,9 +44,9 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 **Preferences window** (⌘,)
 - Appears in the Dock and app switcher while open; closing Settings returns Lumeshot to menu-bar-only mode.
-- Tabbed Settings: General · Capture · Hotkeys · Uploads · Recording
+- Sidebar Settings: General · Capture · Shortcuts · Uploads · Recording, following the system’s light/dark appearance
 - Live hotkey recorder (click, press a combo — re-registers instantly, no relaunch)
-- Configure multiple uploaders (S3/SFTP/FTP/Imgur/Picsur or imported `.sxcu`), then choose one **Active uploader** in the Uploads tab. Adding another uploader preserves your selection.
+- Configure multiple uploaders (S3/SFTP/FTP/Imgur/Picsur or imported `.sxcu`), then choose one **Active uploader** on the Uploads page. Adding another uploader preserves your selection.
 
 **History browser**
 - Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (removes the history row and, when the uploader gave one, the remote copy; the local file is left on disk)
