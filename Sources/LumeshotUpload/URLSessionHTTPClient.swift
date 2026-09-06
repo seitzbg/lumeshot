@@ -22,12 +22,16 @@ public struct URLSessionHTTPClient: HTTPClient {
         if let contentType = request.contentType {
             urlRequest.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
-        urlRequest.httpBody = request.body
-
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: urlRequest)
+            if let fileURL = request.bodyFileURL {
+                // Streams from disk: the payload is never held in memory here.
+                (data, response) = try await session.upload(for: urlRequest, fromFile: fileURL)
+            } else {
+                urlRequest.httpBody = request.body
+                (data, response) = try await session.data(for: urlRequest)
+            }
         } catch {
             throw UploadError.transport(error.localizedDescription)
         }

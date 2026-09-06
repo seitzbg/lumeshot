@@ -34,7 +34,7 @@ public enum S3RequestBuilder {
             host = config.endpoint
             path = "/" + encodeSegment(config.bucket) + "/" + encodePath(key)
         }
-        let payloadHash = hex(SHA256.hash(data: file.data))
+        let payloadHash = try streamingPayloadHash(file)
 
         var signed: [String: String] = ["host": host, "x-amz-content-sha256": payloadHash]
         if let acl = config.acl, !acl.isEmpty { signed["x-amz-acl"] = acl }
@@ -51,8 +51,34 @@ public enum S3RequestBuilder {
         headers["x-amz-date"] = SigV4Signer.amzDate(now)
         headers["Authorization"] = auth
 
-        return PreparedRequest(method: .put, url: "https://\(host)\(path)",
-                               headers: headers, body: file.data, contentType: file.mimeType)
+        // Hand the file through rather than its bytes: SigV4 needs the digest,
+        // not the payload, so a large object never has to be resident.
+        switch file.source {
+        case .data(let data):
+            return PreparedRequest(method: .put, url: "https://\(host)\(path)",
+                                   headers: headers, body: data, contentType: file.mimeType)
+        case .file(let url, _):
+            return PreparedRequest(method: .put, url: "https://\(host)\(path)",
+                                   headers: headers, bodyFileURL: url,
+                                   contentType: file.mimeType)
+        }
+    }
+
+    /// SigV4 requires a hash of the whole payload, but not the whole payload in
+    /// memory. Read the file in chunks and feed the digest incrementally.
+    private static func streamingPayloadHash(_ file: FilePart) throws -> String {
+        switch file.source {
+        case .data(let data):
+            return hex(SHA256.hash(data: data))
+        case .file(let url, _):
+            let handle = try FileHandle(forReadingFrom: url)
+            defer { try? handle.close() }
+            var hasher = SHA256()
+            while let chunk = try handle.read(upToCount: 1 << 20), !chunk.isEmpty {
+                hasher.update(data: chunk)
+            }
+            return hex(hasher.finalize())
+        }
     }
 
     public static func resultURL(config: S3Config, filename: String) -> String {

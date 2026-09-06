@@ -310,10 +310,9 @@ final class CaptureCoordinator {
                 mime: mime,
                 history: historyStore,
                 effects: effects,
-                upload: { data, filename, mime in
+                upload: { part, filename in
                     guard let destination else { throw UploadError.unsupported("No active destination") }
-                    let result = try await service.upload(data: data, filename: filename,
-                                                          mime: mime, destination: destination)
+                    let result = try await service.upload(part: part, destination: destination)
                     return DeliveredUpload(url: result.url, deletionURL: result.deletionURL)
                 })
         }

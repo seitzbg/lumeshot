@@ -24,7 +24,7 @@ public struct SFTPUploader: Uploader {
     public func upload(_ file: FilePart) async throws -> UploadResult {
         let remotePath = RemotePathURLMapper.remotePath(directory: config.remoteDirectory,
                                                          filename: file.filename)
-        try await transport.upload(file.data, to: remotePath, host: config.host, port: config.port,
+        try await transport.upload(try file.readData(), to: remotePath, host: config.host, port: config.port,
                                    username: config.username, secret: secret,
                                    knownHostKey: config.knownHostKey,
                                    rememberHostKey: rememberHostKey)

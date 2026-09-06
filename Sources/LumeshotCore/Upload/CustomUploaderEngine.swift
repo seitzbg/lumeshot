@@ -6,8 +6,10 @@ public enum CustomUploaderEngine {
         guard !config.requestURL.isEmpty else {
             throw UploadError.badResponse("Custom uploader has no RequestURL")
         }
-        let filePart = FilePart(fieldName: config.fileFormName ?? "file",
-                                filename: file.filename, mimeType: file.mimeType, data: file.data)
+        // Only the form field name differs; keep the payload source as-is so a
+        // file-backed part stays file-backed all the way to the transport.
+        var filePart = file
+        filePart.fieldName = config.fileFormName ?? "file"
         let argFields = config.arguments.sorted { $0.key < $1.key }.map { ($0.key, $0.value) }
 
         let spec: RequestBodySpec

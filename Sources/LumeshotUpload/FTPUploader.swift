@@ -23,7 +23,7 @@ public struct FTPUploader: Uploader {
         // silently truncates at the fragment.
         let absolute = remotePath.hasPrefix("/") ? remotePath : "/" + remotePath
         let url = "ftp://\(config.host):\(config.port)\(RemotePathURLMapper.encodePath(absolute))"
-        try await transport.upload(file.data, to: url, username: config.username,
+        try await transport.upload(try file.readData(), to: url, username: config.username,
                                    password: secret.password, useTLS: config.useTLS)
         return UploadResult(url: RemotePathURLMapper.resultURL(publicURLBase: config.publicURLBase,
                                                                 filename: file.filename))

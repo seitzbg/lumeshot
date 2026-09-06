@@ -50,7 +50,7 @@ private let png = FilePart(fieldName: "IGNORED", filename: "shot.png",
         var config = CustomUploaderConfig(requestURL: "https://up/bin")
         config.body = .binary
         let req = try CustomUploaderEngine.prepare(config: config, file: png, boundary: "BND")
-        #expect(req.body == png.data)
+        #expect(req.body == (try png.readData()))
         #expect(req.contentType == "image/png")
     }
 

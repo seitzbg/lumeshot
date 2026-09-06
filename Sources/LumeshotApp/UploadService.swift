@@ -104,8 +104,13 @@ struct UploadService {
     /// derived GIFs can reuse the same upload plumbing as stills.
     func upload(data: Data, filename: String, mime: String,
                destination: UploadDestination) async throws -> UploadResult {
-        let uploader = try uploader(for: destination)
-        let file = Self.filePart(data: data, filename: filename, mime: mime)
-        return try await uploader.upload(file)
+        try await upload(part: Self.filePart(data: data, filename: filename, mime: mime),
+                         destination: destination)
+    }
+
+    /// File-backed entry point: the payload stays on disk, so a long recording
+    /// is never materialized just to be uploaded.
+    func upload(part: FilePart, destination: UploadDestination) async throws -> UploadResult {
+        try await uploader(for: destination).upload(part)
     }
 }
