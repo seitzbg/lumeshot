@@ -3,6 +3,7 @@ import Foundation
 public enum UploadDestinationKind: String, Codable, Sendable {
     case customUploader
     case imgur
+    case picsur
     case s3
     case sftp
     case ftp
@@ -14,6 +15,7 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     public var kind: UploadDestinationKind
     public var customUploader: CustomUploaderConfig?   // non-secret config; secrets → Keychain
     public var imgurClientID: String?                  // non-secret; anonymous client id
+    public var picsurConfig: PicsurConfig?             // non-secret Picsur config; API key → Keychain
     public var s3Config: S3Config?                     // non-secret S3 config; secrets → Keychain
     public var sftpConfig: SFTPConfig?                 // non-secret SFTP config; secrets → Keychain
     public var ftpConfig: FTPConfig?                   // non-secret FTP config; secrets → Keychain
@@ -21,6 +23,7 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     public init(id: String, name: String, kind: UploadDestinationKind,
                 customUploader: CustomUploaderConfig? = nil,
                 imgurClientID: String? = nil,
+                picsurConfig: PicsurConfig? = nil,
                 s3Config: S3Config? = nil,
                 sftpConfig: SFTPConfig? = nil,
                 ftpConfig: FTPConfig? = nil) {
@@ -29,6 +32,7 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
         self.kind = kind
         self.customUploader = customUploader
         self.imgurClientID = imgurClientID
+        self.picsurConfig = picsurConfig
         self.s3Config = s3Config
         self.sftpConfig = sftpConfig
         self.ftpConfig = ftpConfig

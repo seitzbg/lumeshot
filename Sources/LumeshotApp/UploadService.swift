@@ -28,6 +28,13 @@ struct UploadService {
             }
             return ImgurUploader(clientID: clientID, http: http)
 
+        case .picsur:
+            guard let cfg = destination.picsurConfig else {
+                throw UploadError.unsupported("Destination has no Picsur config")
+            }
+            let secret = try PicsurCredentials.load(id: destination.id, from: credentials)
+            return PicsurUploader(config: cfg, secret: secret, http: http)
+
         case .customUploader:
             guard let config = destination.customUploader else {
                 throw UploadError.unsupported("Destination has no custom-uploader config")

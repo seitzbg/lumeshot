@@ -1,6 +1,6 @@
 # Lumeshot — Status & Roadmap
 
-_Last updated: 2026-07-14._
+_Last updated: 2026-09-06._
 
 Single source of truth for where the project is and what's left. Per-milestone
 implementation plans live in `docs/superpowers/plans/`; the original design spec is
@@ -35,6 +35,7 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **M5a** — SFTP/FTP | SFTP (Citadel/SwiftNIO-SSH; password + key auth) and FTP/FTPS (libcurl) uploaders — the project's first external dependencies. Stateless connect-per-upload; secrets Keychain-namespaced. |
 | **M5b** — release + polish | Ad-hoc `.dmg` release: `scripts/dmg.sh` + `.github/workflows/release.yml` (push a `v*` tag → build → dmg → GitHub Release). Robustness: atomic Keychain store (no orphan secrets), FTP stall-abort, recorder re-entrancy CI seam. UI polish: elapsed-timer flash fix, GIF-export spinner, inspector keyed on selection. |
 | **Preferences window** | Dedicated tabbed Settings (⌘,): General / Capture / Hotkeys / Uploads / Recording; live hotkey recorder (re-registers instantly); Destinations folded into the Uploads tab. |
+| **Picsur destination** | Native `.picsur` destination kind for self-hosted [Picsur](https://github.com/CaramelFur/Picsur) instances: `PicsurUploader` synthesizes the same custom-uploader template Picsur's own ShareX generator emits (multipart `image`, `Authorization: Api-Key`), API key → Keychain (`<id>/picsur/apiKey`), Add-Picsur sheet with host / serving format / link-style. |
 | **Rebrand + rename** | ShareX-for-Mac → **Lumeshot** (repo, app display name, `.app`/dmg); `SX*` modules → `Lumeshot*`; working dir → `~/git/lumeshot`. Bundle ID + signing cert kept (TCC grant preserved). |
 
 ## Pending — needs you (live Mac smoke)
@@ -45,6 +46,7 @@ Run these when convenient (each is a checklist):
 - [ ] **M4 recording** — `docs/smoke-m4.md` (live mp4 start/stop + GIF export; verify `SCStream.addRecordingOutput` starts and the GIF-export error alert presents).
 - [ ] **M5a SFTP/FTP** — `docs/smoke-m5a.md` (real password + key SFTP, plain FTP, FTPS; result URL reachable; secrets purged on remove).
 - [ ] **M5b dmg + polish** — `docs/smoke-m5b.md` (dmg mounts + drag-installs; elapsed timer; GIF spinner; inspector-on-select).
+- [ ] **Picsur** — `docs/smoke-picsur.md` (real upload to a live instance; direct-image link resolves; deletion URL works; bad key surfaces an error).
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
@@ -55,6 +57,7 @@ Run these when convenient (each is a checklist):
 
 **Uploaders**
 - Imgur **OAuth / authenticated albums** (anonymous-only today).
+- Custom-uploader `ErrorMessage` (`{json:data.message}`) is parsed into `CustomUploaderConfig` but never applied — failures surface as the raw `.http(status:body:)` instead of the service's own message. Affects Picsur and any `.sxcu`.
 - SFTP **host-key pinning** (currently `.acceptAnything()`).
 - Supply-chain: Citadel rides a stale personal fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh` 0.3.4) — watch for an upstream path.
 - Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
