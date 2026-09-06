@@ -43,9 +43,11 @@ public enum SFTPCredentials {
                   passphrase: try c.secret(for: account(id, "passphrase")))
     }
 
+    public static func accounts(id: String) -> [String] {
+        [account(id, "password"), account(id, "privateKey"), account(id, "passphrase")]
+    }
+
     public static func purge(id: String, from c: CredentialStore) throws {
-        try c.deleteSecret(for: account(id, "password"))
-        try c.deleteSecret(for: account(id, "privateKey"))
-        try c.deleteSecret(for: account(id, "passphrase"))
+        try CredentialTransaction.purge(accounts(id: id), in: c)
     }
 }

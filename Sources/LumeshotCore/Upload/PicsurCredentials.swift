@@ -22,7 +22,9 @@ public enum PicsurCredentials {
         return PicsurSecret(apiKey: apiKey)
     }
 
+    public static func accounts(id: String) -> [String] { [account(id, "apiKey")] }
+
     public static func purge(id: String, from c: CredentialStore) throws {
-        try c.deleteSecret(for: account(id, "apiKey"))
+        try CredentialTransaction.purge(accounts(id: id), in: c)
     }
 }

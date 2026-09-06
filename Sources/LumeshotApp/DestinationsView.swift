@@ -5,6 +5,7 @@ import LumeshotUpload
 @MainActor
 final class DestinationsModel: ObservableObject {
     @Published var settings: UploadSettings
+    @Published var removeError: String?
     private let store: SettingsStore
     private let credentials: CredentialStore
     private let onChange: () -> Void
@@ -47,29 +48,35 @@ final class DestinationsModel: ObservableObject {
         persist { $0.upload = $0.upload.settingActive(id: id) }
     }
 
+    /// Removes a destination and its Keychain secrets.
+    ///
+    /// The two stores cannot be written atomically. Purging first and saving
+    /// second could strand a still-visible destination whose credentials were
+    /// already destroyed; saving first could orphan secrets. So: read the
+    /// secrets out as we delete them, and if the settings write then fails, put
+    /// them back. A purge attempts every account rather than stopping at the
+    /// first error.
     func remove(_ destination: UploadDestination) {
-        // Purge Keychain secrets BEFORE dropping the destination so nothing is orphaned.
-        do {
-            switch destination.kind {
-            case .customUploader:
-                if let cfg = destination.customUploader {
-                    try SecretVault.purge(cfg, id: destination.id, from: credentials)
-                }
-            case .s3:
-                try S3Credentials.purge(id: destination.id, from: credentials)
-            case .imgur:
-                break
-            case .picsur:
-                try PicsurCredentials.purge(id: destination.id, from: credentials)
-            case .ftp:
-                try FTPCredentials.purge(id: destination.id, from: credentials)
-            case .sftp:
-                try SFTPCredentials.purge(id: destination.id, from: credentials)
-            }
-        } catch {
-            AppLog.log("Destinations: secret purge failed for \(destination.id): \(error)")
+        let (saved, purgeError) = CredentialTransaction.purgeRestorable(
+            destination.secretAccounts, in: credentials)
+        if let purgeError {
+            AppLog.log("Destinations: secret purge failed for \(destination.id): "
+                       + "\(purgeError.failedAccounts)")
+            removeError = "Some stored secrets for “\(destination.name)” could not be removed "
+                + "from the Keychain. The destination was kept — try again, or remove the "
+                + "entries manually in Keychain Access."
+            CredentialTransaction.restore(saved, into: credentials)
+            return
         }
-        persist { $0.upload = $0.upload.removing(id: destination.id) }
+        if !persist({ $0.upload = $0.upload.removing(id: destination.id) }) {
+            // Settings write failed — the destination is still there, so put its
+            // credentials back rather than leaving it permanently broken.
+            if let restoreError = CredentialTransaction.restore(saved, into: credentials) {
+                AppLog.log("Destinations: credential restore failed for \(destination.id): "
+                           + "\(restoreError.failedAccounts)")
+            }
+            removeError = "Couldn’t save the change, so “\(destination.name)” was kept."
+        }
     }
 
     func addImgur(name: String, clientID: String) {
@@ -225,6 +232,11 @@ struct DestinationsView: View {
             }
         }
         .padding()
+        .alert("Couldn’t Remove Destination",
+               isPresented: .constant(model.removeError != nil),
+               presenting: model.removeError) { _ in
+            Button("OK") { model.removeError = nil }
+        } message: { Text($0) }
         .sheet(isPresented: $showAddS3) { AddS3Sheet(model: model, isPresented: $showAddS3) }
         .sheet(isPresented: $showAddImgur) { AddImgurSheet(model: model, isPresented: $showAddImgur) }
         .sheet(isPresented: $showAddSFTP) { AddSFTPSheet(model: model, isPresented: $showAddSFTP) }

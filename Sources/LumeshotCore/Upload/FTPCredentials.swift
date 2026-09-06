@@ -22,7 +22,9 @@ public enum FTPCredentials {
         return FTPSecret(password: password)
     }
 
+    public static func accounts(id: String) -> [String] { [account(id, "password")] }
+
     public static func purge(id: String, from c: CredentialStore) throws {
-        try c.deleteSecret(for: account(id, "password"))
+        try CredentialTransaction.purge(accounts(id: id), in: c)
     }
 }

@@ -23,19 +23,52 @@ public enum SecretVault {
 
     /// Return a copy of `config` with every secret-looking value moved into
     /// `credentials` and replaced by the sentinel — safe to persist.
+    ///
+    /// All-or-nothing: a write that fails partway deletes everything already
+    /// written for `id`, matching the S3/SFTP helpers. Otherwise a half-stripped
+    /// import left orphaned Keychain entries no destination pointed at.
     public static func strip(_ config: CustomUploaderConfig, id: String,
                              into credentials: CredentialStore) throws -> CustomUploaderConfig {
-        var out = config
-        out.headers = try stripMap(config.headers, id: id, surface: "header", into: credentials)
-        out.arguments = try stripMap(config.arguments, id: id, surface: "arg", into: credentials)
-        out.parameters = try stripMap(config.parameters, id: id, surface: "param", into: credentials)
-        if let data = config.data, !data.isEmpty {
-            // A JSON body template is freeform and may embed secrets we can't
-            // key-detect, so store it wholesale rather than risk leaking one.
-            try credentials.setSecret(data, for: account(id: id, surface: "data", key: "body"))
-            out.data = sentinel
+        var written: [String] = []
+        do {
+            var out = config
+            out.headers = try stripMap(config.headers, id: id, surface: "header",
+                                       into: credentials, written: &written)
+            out.arguments = try stripMap(config.arguments, id: id, surface: "arg",
+                                         into: credentials, written: &written)
+            out.parameters = try stripMap(config.parameters, id: id, surface: "param",
+                                          into: credentials, written: &written)
+            if let data = config.data, !data.isEmpty {
+                // A JSON body template is freeform and may embed secrets we can't
+                // key-detect, so store it wholesale rather than risk leaking one.
+                let acct = account(id: id, surface: "data", key: "body")
+                try credentials.setSecret(data, for: acct)
+                written.append(acct)
+                out.data = sentinel
+            }
+            return out
+        } catch {
+            _ = CredentialTransaction.purgeRestorable(written, in: credentials)
+            throw error
         }
-        return out
+    }
+
+    /// Every Keychain account this stripped config's secrets occupy.
+    public static func accounts(_ config: CustomUploaderConfig, id: String) -> [String] {
+        var accounts: [String] = []
+        for (key, value) in config.headers where value == sentinel {
+            accounts.append(account(id: id, surface: "header", key: key))
+        }
+        for (key, value) in config.arguments where value == sentinel {
+            accounts.append(account(id: id, surface: "arg", key: key))
+        }
+        for (key, value) in config.parameters where value == sentinel {
+            accounts.append(account(id: id, surface: "param", key: key))
+        }
+        if config.data == sentinel {
+            accounts.append(account(id: id, surface: "data", key: "body"))
+        }
+        return accounts
     }
 
     /// Inverse of `strip`: replace sentinels with the stored secret; throw if missing.
@@ -59,18 +92,7 @@ public enum SecretVault {
     /// Call on destination removal so no orphaned secrets linger.
     public static func purge(_ config: CustomUploaderConfig, id: String,
                              from credentials: CredentialStore) throws {
-        for (key, value) in config.headers where value == sentinel {
-            try credentials.deleteSecret(for: account(id: id, surface: "header", key: key))
-        }
-        for (key, value) in config.arguments where value == sentinel {
-            try credentials.deleteSecret(for: account(id: id, surface: "arg", key: key))
-        }
-        for (key, value) in config.parameters where value == sentinel {
-            try credentials.deleteSecret(for: account(id: id, surface: "param", key: key))
-        }
-        if config.data == sentinel {
-            try credentials.deleteSecret(for: account(id: id, surface: "data", key: "body"))
-        }
+        try CredentialTransaction.purge(accounts(config, id: id), in: credentials)
     }
 
     private static func account(id: String, surface: String, key: String) -> String {
@@ -78,10 +100,13 @@ public enum SecretVault {
     }
 
     private static func stripMap(_ dict: [String: String], id: String, surface: String,
-                                 into credentials: CredentialStore) throws -> [String: String] {
+                                 into credentials: CredentialStore,
+                                 written: inout [String]) throws -> [String: String] {
         var out = dict
         for (key, value) in dict where isSecretKey(key) && !value.isEmpty {
-            try credentials.setSecret(value, for: account(id: id, surface: surface, key: key))
+            let acct = account(id: id, surface: surface, key: key)
+            try credentials.setSecret(value, for: acct)
+            written.append(acct)
             out[key] = sentinel
         }
         return out
