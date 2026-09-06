@@ -34,6 +34,15 @@ Run the wizard, which walks through the Apple portals and uploads the secrets:
 
     scripts/setup-developer-id.sh
 
+**Run it on the machine where `gh` is authenticated and the git checkout lives** — for this
+project that is the Linux dev box, over ssh. Not the Mac mirror: rsync excludes `.git` there
+and `gh` is not installed, so setting secrets would silently do nothing.
+
+That box is headless, so the wizard prints each URL for you to open on whatever machine has
+a browser, rather than pretending to launch one. Files move in both directions: it offers to
+print the CSR for copy/paste (a CSR is public — it is a public key and a subject), and each
+download can arrive as a local path, an `scp` pull (`host:path`), or pasted base64.
+
 It generates a private key and CSR locally, has you create a **Developer ID Application**
 certificate, packages it as a `.p12` (with Apple's G2 intermediate — omitting that is the
 usual cause of `errSecInternalComponent` on a clean runner), creates an App Store Connect

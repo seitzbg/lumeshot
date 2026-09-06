@@ -200,6 +200,81 @@ b64() {
   if base64 --help 2>&1 | grep -q -- '-w'; then base64 -w0 "$1"; else base64 "$1" | tr -d '\n'; fi
 }
 
+# ── Remote/headless overrides ─────────────────────────────────────────────
+# This wizard is meant to run wherever `gh` is authenticated and the git repo
+# lives — for this project that is the Linux dev box, over ssh. The Mac mirror
+# has neither (rsync excludes .git, and gh is not installed there).
+#
+# That machine has no display, and its xdg-open would exit 0 having done
+# nothing, so the library's open_url is replaced below rather than left to lie
+# about having opened something. Two consequences follow, both handled here:
+# the CSR has to get *out* to the machine with the browser, and the downloaded
+# .cer/.p8 have to come back *in*.
+
+# Pin the repo so `gh secret set` works regardless of cwd.
+if command -v gh >/dev/null 2>&1 && gh repo view --json nameWithOwner -q .nameWithOwner >/dev/null 2>&1; then
+  GH_REPO="$(gh repo view --json nameWithOwner -q .nameWithOwner)"
+  export GH_REPO
+fi
+
+HEADLESS=0
+if [ -z "${DISPLAY:-}" ] && [ -z "${WAYLAND_DISPLAY:-}" ] \
+   && [ "$(uname -s)" != "Darwin" ] && ! command -v wslview >/dev/null 2>&1; then
+  HEADLESS=1
+fi
+
+open_url() {
+  local url="$1"
+  if [ "$HEADLESS" -eq 1 ]; then
+    printf '\n  %sOpen this on the machine with your browser:%s\n' "$BOLD" "$RESET"
+    printf '    %s%s%s\n\n' "$BLUE" "$url" "$RESET"
+    return 0
+  fi
+  printf '  %s↗ opening%s %s\n' "$GREEN" "$RESET" "$url"
+  { if   command -v wslview     >/dev/null 2>&1; then wslview "$url"
+    elif command -v explorer.exe >/dev/null 2>&1; then explorer.exe "$url"
+    elif command -v xdg-open    >/dev/null 2>&1; then xdg-open "$url"
+    elif command -v open        >/dev/null 2>&1; then open "$url"
+    else warn "couldn't open a browser; visit it manually: $url"; fi
+  } >/dev/null 2>&1 || warn "couldn't open a browser, so visit it manually: $url"
+}
+
+# obtain_file VAR "description" DEST — get a browser-downloaded file onto this
+# machine. Downloads land wherever the browser is, which is usually not here.
+obtain_file() {
+  local var="$1" what="$2" dest="$3" choice src path b64
+  printf '\n  %sThe %s downloaded on the browser machine. Bring it here:%s\n' \
+    "$BOLD" "$what" "$RESET"
+  step "1) it is already on this machine — give me a path"
+  step "2) pull it over ssh — host:path"
+  step "3) paste its base64"
+  printf '  %sChoose 1, 2 or 3:%s ' "$BOLD" "$RESET"; read -r choice || true
+  case "${choice:-1}" in
+    2)
+      note "e.g. ${LUMESHOT_MAC_HOST:-seitz@macmini1.fiber.house}:Downloads/$what"
+      printf '  %sRemote source:%s ' "$BOLD" "$RESET"; read -r src || true
+      scp -q "$src" "$dest" || { warn "scp failed"; return 1; }
+      ;;
+    3)
+      say "Run this where the file is, then paste the single line it prints:"
+      note "  base64 -w0 <file>        # Linux"
+      note "  base64 <file> | tr -d '\\n'   # macOS"
+      printf '  %sBase64:%s ' "$BOLD" "$RESET"; read -r b64 || true
+      printf '%s' "$b64" | base64 -d > "$dest" 2>/dev/null || { warn "that was not valid base64"; return 1; }
+      ;;
+    *)
+      printf '  %sPath:%s ' "$BOLD" "$RESET"; read -r path || true
+      path="${path/#\~/$HOME}"
+      [ -f "$path" ] || { warn "no file at $path"; return 1; }
+      [ "$path" = "$dest" ] || cp "$path" "$dest"
+      ;;
+  esac
+  [ -s "$dest" ] || { warn "ended up with an empty file"; return 1; }
+  printf '  %s✓%s got %s (%s bytes)\n' "$GREEN" "$RESET" "$dest" "$(wc -c < "$dest" | tr -d ' ')"
+  printf -v "$var" '%s' "$dest"
+}
+# ──────────────────────────────────────────────────────────────────────────
+
 banner "Lumeshot Developer ID signing + notarization"
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -215,10 +290,15 @@ for tool in openssl curl gh; do
     printf '  %s✗ %s (required)%s\n' "$RED" "$tool" "$RESET"; MISSING=1
   fi
 done
-if gh auth status >/dev/null 2>&1; then
-  printf '  %s✓%s gh authenticated → %s\n' "$GREEN" "$RESET" "$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo 'unknown repo')"
-else
+if ! gh auth status >/dev/null 2>&1; then
   printf '  %s✗ gh is not authenticated — run: gh auth login%s\n' "$RED" "$RESET"; MISSING=1
+elif [ -z "${GH_REPO:-}" ]; then
+  # Every secret would otherwise "succeed" as a skipped warning and the whole
+  # run would end with nothing set.
+  printf '  %s✗ gh cannot tell which repo this is — run from a lumeshot checkout,%s\n' "$RED" "$RESET"
+  printf '  %s  or export GH_REPO=owner/name%s\n' "$RED" "$RESET"; MISSING=1
+else
+  printf '  %s✓%s gh authenticated → secrets go to %s\n' "$GREEN" "$RESET" "$GH_REPO"
 fi
 printf '\n'
 [ "$MISSING" -eq 0 ] || { warn "install/authenticate the above, then re-run."; exit 1; }
@@ -257,6 +337,20 @@ else
   printf '  %s✓%s wrote %s\n' "$GREEN" "$RESET" "$WORK/developer-id.csr"
 fi
 note "Private key: $WORK/developer-id.key (never leaves this machine except as the .p12)"
+printf '\n'
+say "Apple's portal wants you to upload this CSR, but the browser is elsewhere."
+say "A CSR is not secret — it is a public key and a subject — so either copy the"
+say "text below into a file named lumeshot.csr on that machine, or scp it across."
+printf '\n'
+if confirm "Print the CSR for copy/paste?"; then
+  printf '\n'
+  cat "$WORK/developer-id.csr"
+  printf '\n'
+else
+  note "scp it yourself:"
+  note "  scp ${LUMESHOT_MAC_HOST:-you@your-mac}:$WORK/developer-id.csr ."
+  note "(that command runs FROM the browser machine, pulling from here)"
+fi
 pause
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -269,10 +363,7 @@ printf '\n      %s%s%s\n\n' "$BOLD" "$WORK/developer-id.csr" "$RESET"
 step "Click Continue, then Download. You'll get a developerID_application.cer."
 note "Apple caps you at 5 Developer ID Application certificates per team, and"
 note "they cannot be deleted — only revoked. Reuse one if you already have it."
-printf '\n'
-ask CER_PATH "Full path to the downloaded .cer:"
-CER_PATH="${CER_PATH/#\~/$HOME}"
-[ -f "$CER_PATH" ] || { warn "No file at $CER_PATH"; exit 1; }
+obtain_file CER_PATH "developerID_application.cer" "$WORK/developer-id.cer" || exit 1
 if ! openssl x509 -inform DER -in "$CER_PATH" -noout -subject 2>/dev/null | grep -q "Developer ID Application"; then
   warn "That certificate is not a 'Developer ID Application' certificate:"
   openssl x509 -inform DER -in "$CER_PATH" -noout -subject 2>/dev/null | sed 's/^/    /'
@@ -326,9 +417,7 @@ printf '\n'
 step "The Issuer ID is above the key list; the Key ID is on the key's row."
 ask ASC_KEY_ID "Paste the Key ID (10 chars):"
 ask ASC_ISSUER_ID "Paste the Issuer ID (a UUID):"
-ask P8_PATH "Full path to the downloaded .p8:"
-P8_PATH="${P8_PATH/#\~/$HOME}"
-[ -f "$P8_PATH" ] || { warn "No file at $P8_PATH"; exit 1; }
+obtain_file P8_PATH "AuthKey_$ASC_KEY_ID.p8" "$WORK/asc-key.p8" || exit 1
 grep -q "PRIVATE KEY" "$P8_PATH" || { warn "$P8_PATH does not look like a .p8 private key"; exit 1; }
 write_env ASC_KEY_ID "$ASC_KEY_ID"
 write_env ASC_ISSUER_ID "$ASC_ISSUER_ID"
