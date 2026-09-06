@@ -36,7 +36,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - Destination management (add/remove/select S3/SFTP/FTP/Imgur/Picsur, import `.sxcu`) folded into the Uploads tab
 
 **History browser**
-- Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (local + remote cleanup)
+- Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (removes the history row and, when the uploader gave one, the remote copy; the local file is left on disk)
 
 **Distribution**
 - Ad-hoc-signed `.dmg` built by a `v*`-tag-triggered GitHub Actions release (no Apple Developer account yet — see `docs/RELEASING.md`)
