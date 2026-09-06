@@ -67,7 +67,16 @@ public enum SecretVault {
             }
             return out
         } catch {
-            _ = CredentialTransaction.purgeRestorable(written, in: credentials)
+            // If the rollback itself fails, those accounts are unreachable: no
+            // destination will ever reference them, so nothing can purge them
+            // later. LumeshotCore has no logger, so name them in the thrown
+            // error — it reaches the import-failure notification, and the user
+            // can clear them in Keychain Access.
+            if let rollback = CredentialTransaction.purgeRestorable(written, in: credentials).error {
+                throw UploadError.transport(
+                    "\(error) — and these partially-written Keychain entries could not be "
+                    + "cleaned up: \(rollback.failedAccounts.joined(separator: ", "))")
+            }
             throw error
         }
     }

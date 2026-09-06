@@ -107,6 +107,28 @@ private final class FaultyCredentialStore: CredentialStore, @unchecked Sendable 
         #expect(Set(dest.secretAccounts) == Set(store.store.keys))
     }
 
+    /// If the rollback itself fails the orphans are unreachable forever, so the
+    /// thrown error has to name them — nothing else ever will.
+    @Test func aFailedRollbackNamesTheOrphanedAccounts() {
+        let store = FaultyCredentialStore()
+        store.failWritesFor = ["d1/data/body"]
+        store.failDeletesFor = ["d1/header/Authorization"]
+        var config = CustomUploaderConfig(requestURL: "https://up")
+        config.headers = ["Authorization": "S1"]
+        config.data = #"{"t":"S2"}"#
+        do {
+            _ = try SecretVault.strip(config, id: "d1", into: store)
+            Issue.record("expected strip to throw")
+        } catch let error as UploadError {
+            guard case .transport(let message) = error else {
+                Issue.record("expected .transport, got \(error)"); return
+            }
+            #expect(message.contains("d1/header/Authorization"))
+        } catch {
+            Issue.record("expected UploadError, got \(error)")
+        }
+    }
+
     /// A write that fails partway must not leave the earlier ones behind.
     @Test func aPartialStripRollsBack() {
         let store = FaultyCredentialStore()
