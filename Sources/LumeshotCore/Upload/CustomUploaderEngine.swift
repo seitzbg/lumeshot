@@ -1,8 +1,16 @@
 import Foundation
 
 public enum CustomUploaderEngine {
+    /// Whether `prepare` should build the request body or only its metadata.
+    public enum BodyMode: Sendable {
+        case encodeInMemory
+        /// Headers, URL and Content-Type only — the caller supplies the body.
+        case metadataOnly
+    }
+
     public static func prepare(config: CustomUploaderConfig, file: FilePart,
-                               boundary: String) throws -> PreparedRequest {
+                               boundary: String,
+                               bodyMode: BodyMode = .encodeInMemory) throws -> PreparedRequest {
         guard !config.requestURL.isEmpty else {
             throw UploadError.badResponse("Custom uploader has no RequestURL")
         }
@@ -27,7 +35,18 @@ public enum CustomUploaderEngine {
         case .binary:
             spec = .binary(filePart)
         }
-        let (body, contentType) = RequestBodyEncoder.encode(spec, boundary: boundary)
+        let body: Data?
+        let contentType: String?
+        switch bodyMode {
+        case .encodeInMemory:
+            (body, contentType) = try RequestBodyEncoder.encode(spec, boundary: boundary)
+        case .metadataOnly:
+            // The caller streams the body itself. Encoding it here first would
+            // read the whole payload into memory — exactly what staging exists
+            // to avoid — only for the result to be thrown away.
+            body = nil
+            contentType = RequestBodyEncoder.contentType(for: spec, boundary: boundary)
+        }
 
         var url = config.requestURL
         if !config.parameters.isEmpty {

@@ -100,7 +100,12 @@ public final class ScreenRecorder {
             if sessionID == session { reset() }
             throw RecordingError.startFailed(error.localizedDescription)
         }
-        guard sessionID == session else { return }   // superseded while suspended
+        // Both conditions matter. The session id alone is not enough: a `.failed`
+        // delegate event arriving during the handshake delivers and resets to
+        // .idle *without* bumping the id, so committing .recording here would
+        // relatch the recorder with a nil stream — the same stuck state the
+        // .starting claim exists to prevent.
+        guard sessionID == session, state == .starting else { return }
         state = .recording
     }
 

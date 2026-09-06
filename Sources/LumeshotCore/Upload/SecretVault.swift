@@ -130,13 +130,14 @@ public enum SecretVault {
     /// Expressed as an allowlist rather than a blocklist: URLComponents parses
     /// almost any string (it reads "not a url at all" as a bare path), so
     /// "failed to parse" is not a usable signal. Only a well-formed absolute
-    /// http(s) URL with a host and no query or user-info is left in settings.
+    /// http(s) URL with a host and no query, fragment or user-info is left in
+    /// settings.
     static func urlNeedsProtecting(_ url: String) -> Bool {
         guard let c = URLComponents(string: url),
               let scheme = c.scheme?.lowercased(), scheme == "http" || scheme == "https",
               let host = c.host, !host.isEmpty,
               c.user == nil, c.password == nil,
-              (c.query ?? "").isEmpty
+              (c.query ?? "").isEmpty, (c.fragment ?? "").isEmpty
         else { return true }
         return false
     }

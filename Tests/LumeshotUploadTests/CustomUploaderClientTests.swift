@@ -82,7 +82,7 @@ private let png = FilePart(fieldName: "file", filename: "s.png",
         #expect(request.body == nil)                 // not buffered
         let stagedBytes = try #require(captured.stagedBytes)
 
-        let (expected, _) = RequestBodyEncoder.encode(
+        let (expected, _) = try RequestBodyEncoder.encode(
             .multipart(fields: [("album", "shots")],
                        file: FilePart(fieldName: "image", filename: "clip.mp4",
                                       mimeType: "video/mp4", data: payload)),

@@ -89,8 +89,11 @@ public enum RequestBodySpec: Equatable, Sendable {
 }
 
 public enum RequestBodyEncoder {
+    /// Throwing, because a payload that cannot be read must not silently become
+    /// an empty body: a `.binary` uploader would then POST nothing and the
+    /// response could still parse as success.
     public static func encode(_ spec: RequestBodySpec,
-                              boundary: String) -> (body: Data?, contentType: String?) {
+                              boundary: String) throws -> (body: Data?, contentType: String?) {
         switch spec {
         case .none:
             return (nil, nil)
@@ -98,7 +101,7 @@ public enum RequestBodyEncoder {
         case let .multipart(fields, file):
             var data = multipartPrologue(fields: fields, file: file, boundary: boundary)
             if let file {
-                data.append((try? file.readData()) ?? Data())
+                data.append(try file.readData())
                 data.append(multipartEpilogue(boundary: boundary))
             } else {
                 data.append(Data("--\(boundary)--\r\n".utf8))
@@ -113,7 +116,18 @@ public enum RequestBodyEncoder {
             return (payload, "application/json")
 
         case let .binary(file):
-            return ((try? file.readData()) ?? Data(), file.mimeType)
+            return (try file.readData(), file.mimeType)
+        }
+    }
+
+    /// The Content-Type a spec would produce, without encoding anything.
+    public static func contentType(for spec: RequestBodySpec, boundary: String) -> String? {
+        switch spec {
+        case .none: return nil
+        case .multipart: return multipartContentType(boundary: boundary)
+        case .formURLEncoded: return "application/x-www-form-urlencoded"
+        case .json: return "application/json"
+        case .binary(let file): return file.mimeType
         }
     }
 

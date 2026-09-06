@@ -86,7 +86,7 @@ struct UploadService {
             var (settings, _) = settingsStore.loadOrDefault()
             guard let index = settings.upload.destinations
                 .firstIndex(where: { $0.id == destinationID }),
-                  settings.upload.destinations[index].sftpConfig?.knownHostKey == nil
+                  (settings.upload.destinations[index].sftpConfig?.knownHostKey ?? "").isEmpty
             else { return }
             settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
             do {

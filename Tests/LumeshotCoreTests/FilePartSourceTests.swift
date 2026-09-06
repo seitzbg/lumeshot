@@ -27,7 +27,7 @@ import Testing
         #expect(try part.readData() == bytes)
     }
 
-    @Test func aMissingFileThrowsRatherThanUploadingNothing() {
+    @Test func aMissingFileThrowsRatherThanUploadingNothing() throws {
         let missing = FileManager.default.temporaryDirectory
             .appendingPathComponent(UUID().uuidString)
         #expect(throws: (any Error).self) {
@@ -36,7 +36,7 @@ import Testing
     }
 
     /// The point of the cap: refuse before allocating, not during.
-    @Test func anOversizedPartRefusesToMaterialize() {
+    @Test func anOversizedPartRefusesToMaterialize() throws {
         let url = URL(fileURLWithPath: "/nonexistent")
         let part = FilePart(fieldName: "f", filename: "huge.mp4", mimeType: "video/mp4",
                             source: .file(url, byteCount: maxUploadBytes + 1))
@@ -63,7 +63,7 @@ import Testing
         let fields = [("album", "shots"), ("title", "x")]
         let boundary = "BOUNDARY"
 
-        let (inMemory, contentType) = RequestBodyEncoder.encode(
+        let (inMemory, contentType) = try RequestBodyEncoder.encode(
             .multipart(fields: fields, file: part), boundary: boundary)
 
         var streamed = RequestBodyEncoder.multipartPrologue(fields: fields, file: part,
@@ -75,15 +75,93 @@ import Testing
         #expect(contentType == RequestBodyEncoder.multipartContentType(boundary: boundary))
     }
 
-    @Test func theEpilogueClosesTheBoundary() {
+    @Test func theEpilogueClosesTheBoundary() throws {
         let epilogue = String(decoding: RequestBodyEncoder.multipartEpilogue(boundary: "B"),
                               as: UTF8.self)
         #expect(epilogue == "\r\n--B--\r\n")
     }
 
-    @Test func aMultipartBodyWithNoFileStillTerminates() {
-        let (body, _) = RequestBodyEncoder.encode(
+    @Test func aMultipartBodyWithNoFileStillTerminates() throws {
+        let (body, _) = try RequestBodyEncoder.encode(
             .multipart(fields: [("a", "b")], file: nil), boundary: "B")
         #expect(String(decoding: body ?? Data(), as: UTF8.self).hasSuffix("--B--\r\n"))
+    }
+}
+
+@Suite struct BodyEncodingFailureTests {
+    private func unreadable() -> FilePart {
+        // Oversized: readData() must refuse before allocating.
+        FilePart(fieldName: "f", filename: "huge.mp4", mimeType: "video/mp4",
+                 source: .file(URL(fileURLWithPath: "/nonexistent"),
+                               byteCount: maxUploadBytes + 1))
+    }
+
+    /// A payload that cannot be read must fail the upload, not become an empty
+    /// body that the server may well accept and report as success.
+    @Test func aBinaryBodyThatCannotBeReadThrows() {
+        #expect(throws: (any Error).self) {
+            try RequestBodyEncoder.encode(.binary(unreadable()), boundary: "B")
+        }
+    }
+
+    @Test func aMultipartBodyThatCannotBeReadThrows() {
+        #expect(throws: (any Error).self) {
+            try RequestBodyEncoder.encode(.multipart(fields: [], file: unreadable()),
+                                          boundary: "B")
+        }
+    }
+
+    @Test func prepareSurfacesTheReadFailureRatherThanUploadingNothing() {
+        var config = CustomUploaderConfig(requestURL: "https://up/api")
+        config.body = .binary
+        #expect(throws: (any Error).self) {
+            try CustomUploaderEngine.prepare(config: config, file: unreadable(), boundary: "B")
+        }
+    }
+}
+
+@Suite struct MetadataOnlyBodyModeTests {
+    private func config() -> CustomUploaderConfig {
+        var c = CustomUploaderConfig(requestURL: "https://up/api")
+        c.body = .multipartFormData
+        c.fileFormName = "image"
+        return c
+    }
+
+    /// The whole point of staging: metadataOnly must not read the payload, so
+    /// it works even for a part whose bytes could never be materialized.
+    @Test func metadataOnlyNeverTouchesThePayload() throws {
+        let huge = FilePart(fieldName: "f", filename: "huge.mp4", mimeType: "video/mp4",
+                            source: .file(URL(fileURLWithPath: "/nonexistent"),
+                                          byteCount: maxUploadBytes + 1))
+        let request = try CustomUploaderEngine.prepare(config: config(), file: huge,
+                                                       boundary: "B", bodyMode: .metadataOnly)
+        #expect(request.body == nil)
+        #expect(request.contentType == "multipart/form-data; boundary=B")
+        #expect(request.url == "https://up/api")
+    }
+
+    @Test func theDefaultModeStillEncodesInMemory() throws {
+        let request = try CustomUploaderEngine.prepare(
+            config: config(),
+            file: FilePart(fieldName: "f", filename: "a.png", mimeType: "image/png",
+                           data: Data([1, 2, 3])),
+            boundary: "B")
+        #expect(request.body != nil)
+    }
+
+    @Test(arguments: [
+        (CustomUploaderBody.json, "application/json"),
+        (.formURLEncoded, "application/x-www-form-urlencoded"),
+    ])
+    func contentTypeIsDerivedWithoutEncoding(body: CustomUploaderBody, expected: String) throws {
+        var c = config()
+        c.body = body
+        c.data = "{}"
+        let request = try CustomUploaderEngine.prepare(
+            config: c,
+            file: FilePart(fieldName: "f", filename: "a", mimeType: "x", data: Data()),
+            boundary: "B", bodyMode: .metadataOnly)
+        #expect(request.contentType == expected)
     }
 }

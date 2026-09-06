@@ -52,18 +52,24 @@ public struct CustomUploaderClient: Uploader {
 
     public func upload(_ file: FilePart) async throws -> UploadResult {
         let boundary = boundaryProvider()
-        var request = try CustomUploaderEngine.prepare(config: config, file: file,
-                                                       boundary: boundary)
         // A multipart body built in memory holds the payload twice: once as the
         // FilePart and again inside the assembled body. For a file-backed part
         // (a screen recording) that is the difference between paging and being
-        // killed, so stage the request body to disk and stream it instead.
+        // killed, so stage the request body to disk and stream it instead —
+        // and ask prepare() for metadata only, or it would build the very
+        // allocation we are trying to avoid just to have it discarded.
+        let stream = { if case .file = file.source { return config.body == .multipartFormData }
+                       return false }()
+
+        var request = try CustomUploaderEngine.prepare(
+            config: config, file: file, boundary: boundary,
+            bodyMode: stream ? .metadataOnly : .encodeInMemory)
+
         var staged: URL?
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
-        if case .file = file.source, config.body == .multipartFormData {
+        if stream {
             let url = try Self.stageMultipartBody(config: config, file: file, boundary: boundary)
             staged = url
-            request.body = nil
             request.bodyFileURL = url
         }
         let response = try await http.send(request)

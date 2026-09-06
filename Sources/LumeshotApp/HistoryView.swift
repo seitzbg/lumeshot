@@ -13,6 +13,10 @@ final class HistoryModel: ObservableObject {
     @Published var exportingEntry: HistoryEntry?
     @Published var exportError: String?
     @Published var deleteError: String?
+    /// Entries with a remote deletion already in flight. Without this a
+    /// second click schedules a second request, and a late failure from it
+    /// would report an error for a row the first request already removed.
+    private var deletionsInFlight: Set<String> = []
     private let store: HistoryStore
     private let http: HTTPClient
     /// Re-read when the window is shown, not just when it is created.
@@ -75,8 +79,11 @@ final class HistoryModel: ObservableObject {
             removeRow(entry)
             return
         }
+        guard !deletionsInFlight.contains(entry.id) else { return }
+        deletionsInFlight.insert(entry.id)
         let http = self.http
         Task { @MainActor in
+            defer { deletionsInFlight.remove(entry.id) }
             do {
                 let response = try await http.send(PreparedRequest(method: .get,
                                                                    url: url.absoluteString))
