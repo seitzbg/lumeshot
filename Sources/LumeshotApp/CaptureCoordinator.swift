@@ -81,6 +81,10 @@ final class CaptureCoordinator {
             do {
                 let displays = try await DisplayCapture.captureAllDisplays(showCursor: false)
                 AppLog.log("captureAllDisplays returned \(displays.count) display(s) for region overlay")
+                for d in displays {
+                    AppLog.log("  display \(d.displayID): screenFrame=\(NSStringFromRect(d.screenFrame)) "
+                               + "scale=\(d.scale) image=\(d.image.width)x\(d.image.height)")
+                }
                 let session = RegionOverlaySession(displays: displays) { [weak self] image in
                     self?.regionSession = nil
                     self?.regionCaptureInFlight = false

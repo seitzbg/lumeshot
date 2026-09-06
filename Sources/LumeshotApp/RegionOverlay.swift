@@ -51,11 +51,26 @@ final class RegionOverlaySession {
         windows.removeAll()
         NSCursor.arrow.set()
 
-        guard let selection else { onComplete(nil); return }
+        guard let selection else {
+            AppLog.log("Region selection cancelled by user")
+            onComplete(nil); return
+        }
         let crop = CaptureGeometry.pixelCropRect(selection: selection, scale: display.scale,
                                                  imageWidth: display.image.width,
                                                  imageHeight: display.image.height)
-        guard !crop.isEmpty else { onComplete(nil); return }
+        // Every number that decides whether a drag becomes a capture. An empty
+        // crop used to fall through to the same "cancelled" line a deliberate
+        // Escape produces, so a geometry mismatch (scaled resolution, notch,
+        // wrong backing scale) was indistinguishable from the user changing
+        // their mind.
+        AppLog.log("Region selection \(NSStringFromRect(selection)) on display \(display.displayID): "
+                   + "screenFrame=\(NSStringFromRect(display.screenFrame)) scale=\(display.scale) "
+                   + "image=\(display.image.width)x\(display.image.height) → crop=\(NSStringFromRect(crop))")
+        guard !crop.isEmpty else {
+            AppLog.log("Region crop is EMPTY — selection scaled outside the captured image; "
+                       + "geometry mismatch between the overlay and the frozen display")
+            onComplete(nil); return
+        }
         guard let cropped = display.image.cropping(to: crop) else {
             AppLog.log("Region crop failed for rect \(crop)")
             onComplete(nil); return
@@ -182,6 +197,7 @@ final class RegionSelectionView: NSView {
     override func mouseDown(with event: NSEvent) {
         dragStart = convert(event.locationInWindow, from: nil)
         current = dragStart!
+        AppLog.log("Region overlay: mouseDown at \(NSStringFromPoint(current))")
         needsDisplay = true
     }
 
@@ -195,10 +211,15 @@ final class RegionSelectionView: NSView {
         current = convert(event.locationInWindow, from: nil)
         let selection = CaptureGeometry.normalizedRect(from: start, to: current)
         if selection.width >= 4 && selection.height >= 4 {
+            AppLog.log("Region overlay: mouseUp, selection \(NSStringFromRect(selection))")
             onDone(selection)
         } else {
             // A click or sub-4pt slip is not a selection; keep the overlay up
-            // (only Escape cancels) so a stray click doesn't dismiss it.
+            // (only Escape cancels) so a stray click doesn't dismiss it. Logged
+            // because from the user's side this is "I dragged and nothing
+            // happened" -- indistinguishable from a real failure without it.
+            AppLog.log("Region overlay: mouseUp ignored, drag too small "
+                       + "(\(Int(selection.width))x\(Int(selection.height)) pt); overlay stays up")
             dragStart = nil
             needsDisplay = true
         }
@@ -206,6 +227,7 @@ final class RegionSelectionView: NSView {
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 {   // Escape
+            AppLog.log("Region overlay: Escape")
             onDone(nil)
         } else {
             super.keyDown(with: event)
