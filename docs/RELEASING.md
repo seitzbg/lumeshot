@@ -5,6 +5,12 @@ Releases are built by `.github/workflows/release.yml` on a version tag push, and
 
 ## Cut a release
 
+Write `docs/releases/<tag>.md` and commit it before creating the tag. Describe
+user-visible changes and upgrade steps in plain language, with no author mentions
+or attribution trailers. The workflow requires this file and publishes it verbatim;
+it does not generate notes from PR titles. For example, `v0.2.0` requires
+`docs/releases/v0.2.0.md`.
+
     git tag v0.2.0
     git push origin v0.2.0
 

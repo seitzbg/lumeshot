@@ -1,6 +1,5 @@
 import SwiftUI
 import LumeshotCore
-import LumeshotUpload
 
 @MainActor
 final class DestinationsModel: ObservableObject {
@@ -230,63 +229,83 @@ struct DestinationsView: View {
     @State private var editing: UploadDestination?
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text("Uploaders").font(.headline)
-            Text("Configure multiple uploaders, then choose the one captures will use.")
-                .font(.caption).foregroundStyle(.secondary)
-            if model.settings.destinations.isEmpty {
-                Text("No destinations yet. Add one below or import a .sxcu from the menu.")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 12)
-            } else {
-                Picker("Active uploader", selection: Binding(
-                    get: { model.settings.activeDestination?.id },
-                    set: { model.setActive($0) }
-                )) {
-                    Text("Choose an uploader").tag(String?.none)
-                    ForEach(model.settings.destinations) { dest in
-                        Text(dest.name).tag(Optional(dest.id))
-                    }
+        VStack(alignment: .leading, spacing: 16) {
+            HStack {
+                Text("Uploaders").font(.headline)
+                Spacer()
+                Menu {
+                    Button("Picsur…") { adding = .picsur }
+                    Button("Imgur…") { adding = .imgur }
+                    Divider()
+                    Button("Amazon S3…") { adding = .s3 }
+                    Button("SFTP…") { adding = .sftp }
+                    Button("FTP / FTPS…") { adding = .ftp }
+                } label: {
+                    Label("Add uploader", systemImage: "plus")
                 }
-                List {
+                .fixedSize()
+            }
+            if model.settings.destinations.isEmpty {
+                VStack(spacing: 12) {
+                    Image(systemName: "arrow.up.doc")
+                        .font(.system(size: 32, weight: .light)).foregroundStyle(.secondary)
+                    Text("Your captures, your destination").font(.headline)
+                    Text("Add an uploader to share captures with a link.")
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity).padding(.vertical, 32)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
+            } else {
+                VStack(spacing: 0) {
+                    HStack {
+                    Text("Active uploader")
+                    Spacer()
+                    Picker("Active uploader", selection: Binding(
+                        get: { model.settings.activeDestination?.id },
+                        set: { model.setActive($0) }
+                    )) {
+                        Text("None").tag(String?.none)
+                        ForEach(model.settings.destinations) { dest in
+                            Text(dest.name).tag(Optional(dest.id))
+                        }
+                    }
+                    .labelsHidden()
+                    .frame(maxWidth: 240)
+                    }
+                    .padding(16)
                     ForEach(model.settings.destinations) { dest in
-                        HStack {
-                            Image(systemName: model.settings.activeDestinationID == dest.id
-                                  ? "largecircle.fill.circle" : "circle")
-                                .foregroundStyle(.tint)
-                                .onTapGesture { model.setActive(dest.id) }
-                            VStack(alignment: .leading) {
-                                Text(dest.name)
-                                Text(model.kindLabel(dest.kind))
-                                    .font(.caption).foregroundStyle(.secondary)
+                        Divider().padding(.horizontal, 16)
+                        HStack(spacing: 12) {
+                            Image(systemName: "externaldrive")
+                                .font(.title3).foregroundStyle(.secondary).frame(width: 28)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(dest.name).fontWeight(.medium).lineLimit(1).help(dest.name)
+                                Text(model.kindLabel(dest.kind)).font(.caption).foregroundStyle(.secondary)
                             }
-                            Spacer()
-                            Button { editing = dest } label: { Image(systemName: "pencil") }
-                                .buttonStyle(.borderless)
-                                .help("Edit")
+                            Spacer(minLength: 4)
+                            if model.settings.activeDestinationID == dest.id {
+                                Text("Active").font(.caption.weight(.medium))
+                                    .foregroundStyle(.tint).padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Color.accentColor.opacity(0.1), in: Capsule())
+                            }
+                            Button("Edit…") { editing = dest }
+                                .accessibilityLabel("Edit \(dest.name)")
                             Button(role: .destructive) { model.remove(dest) } label: {
                                 Image(systemName: "trash")
                             }
                             .buttonStyle(.borderless)
-                            .help("Remove")
+                            .help("Remove \(dest.name)").accessibilityLabel("Remove \(dest.name)")
                         }
-                        .contentShape(Rectangle())
-                        .onTapGesture(count: 2) { editing = dest }
-                        .onTapGesture { model.setActive(dest.id) }
+                        .padding(16)
                     }
                 }
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
             }
-            HStack {
-                Button("Add S3…") { adding = .s3 }
-                Button("Add Imgur…") { adding = .imgur }
-                Button("Add SFTP…") { adding = .sftp }
-                Button("Add FTP…") { adding = .ftp }
-                Button("Add Picsur…") { adding = .picsur }
-                Spacer()
-            }
+            Text("For a custom service, choose Import .sxcu… in the Lumeshot menu.")
+                .font(.callout).foregroundStyle(.secondary)
         }
-        .padding()
         .alert("Couldn’t Remove Destination",
                isPresented: .constant(model.removeError != nil),
                presenting: model.removeError) { _ in
@@ -332,6 +351,7 @@ extension UploadDestinationKind: Identifiable {
 /// Keychain value", so the field says so instead of looking required.
 private struct SheetFrame<Content: View>: View {
     let kind: String
+    let formHeight: CGFloat
     let isEdit: Bool
     let isValid: Bool
     let dismiss: () -> Void
@@ -339,20 +359,34 @@ private struct SheetFrame<Content: View>: View {
     @ViewBuilder let content: () -> Content
 
     var body: some View {
-        VStack(alignment: .leading) {
-            Text("\(isEdit ? "Edit" : "Add") \(kind) Destination").font(.headline)
+        VStack(alignment: .leading, spacing: 0) {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("\(isEdit ? "Edit" : "Add") \(kind) uploader")
+                    .font(.system(size: 22, weight: .bold))
+                Text(isEdit ? "Update the connection for this uploader." : "Connect a destination for your captures.")
+                    .foregroundStyle(.secondary)
+            }
+            .padding(24)
+            Divider()
             Form { content() }
-            HStack {
+                .formStyle(.grouped)
+                .textFieldStyle(.roundedBorder)
+                .frame(height: formHeight)
+            Divider()
+            HStack(spacing: 12) {
                 Spacer()
-                Button("Cancel") { dismiss() }
-                Button(isEdit ? "Save" : "Add") { commit(); dismiss() }
+                Button("Cancel", action: dismiss).keyboardShortcut(.cancelAction)
+                Button(isEdit ? "Save changes" : "Add uploader") { commit(); dismiss() }
                     .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
                     .disabled(!isValid)
             }
+            .padding(20)
         }
-        .padding()
-        .frame(width: 420)
+        .frame(width: 540)
+        .background(Color(nsColor: .windowBackgroundColor))
     }
+
 }
 
 private let keepPrompt = Text("unchanged")
@@ -395,22 +429,30 @@ private struct S3Sheet: View {
     }
 
     var body: some View {
-        SheetFrame(kind: "S3", isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
+        SheetFrame(kind: "S3", formHeight: 470, isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
             model.saveS3(id: existing?.id, name: name, region: region, endpoint: endpoint,
                          bucket: bucket, prefix: prefix, accessKeyID: accessKeyID,
                          secretAccessKey: secretAccessKey, pathStyle: pathStyle,
                          acl: acl, customDomain: customDomain)
         }) {
-            TextField("Name", text: $name)
-            TextField("Region", text: $region)
-            TextField("Endpoint (host, no bucket)", text: $endpoint)
-            TextField("Bucket", text: $bucket)
-            TextField("Object prefix (optional)", text: $prefix)
-            TextField("Access Key ID", text: $accessKeyID, prompt: isEdit ? keepPrompt : nil)
-            SecureField("Secret Access Key", text: $secretAccessKey, prompt: isEdit ? keepPrompt : nil)
-            Toggle("Path-style addressing", isOn: $pathStyle)
-            TextField("ACL (optional, e.g. public-read)", text: $acl)
-            TextField("Custom domain (optional)", text: $customDomain)
+            Section("Connection") {
+                TextField("Name", text: $name, prompt: Text("Work screenshots"))
+                TextField("Region", text: $region)
+                TextField("Endpoint", text: $endpoint, prompt: Text("s3.us-east-1.amazonaws.com"))
+                TextField("Bucket", text: $bucket)
+                TextField("Object prefix", text: $prefix, prompt: Text("Optional"))
+            }
+            Section {
+                TextField("Access key ID", text: $accessKeyID, prompt: isEdit ? keepPrompt : nil)
+                SecureField("Secret access key", text: $secretAccessKey, prompt: isEdit ? keepPrompt : nil)
+            } header: { Text("Credentials") } footer: {
+                Text(isEdit ? "Leave both fields blank to keep the saved credentials." : "Credentials are stored in your Mac’s Keychain.")
+            }
+            Section("Advanced") {
+                Toggle("Path-style addressing", isOn: $pathStyle)
+                TextField("ACL", text: $acl, prompt: Text("Optional, e.g. public-read"))
+                TextField("Custom domain", text: $customDomain, prompt: Text("Optional"))
+            }
         }
     }
 }
@@ -429,7 +471,7 @@ private struct ImgurSheet: View {
     }
 
     var body: some View {
-        SheetFrame(kind: "Imgur", isEdit: existing != nil, isValid: !clientID.isEmpty,
+        SheetFrame(kind: "Imgur", formHeight: 170, isEdit: existing != nil, isValid: !clientID.isEmpty,
                    dismiss: dismiss, commit: {
             model.saveImgur(id: existing?.id, name: name, clientID: clientID)
         }) {
@@ -473,29 +515,36 @@ private struct SFTPSheet: View {
     }
 
     var body: some View {
-        SheetFrame(kind: "SFTP", isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
+        SheetFrame(kind: "SFTP", formHeight: 470, isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
             model.saveSFTP(id: existing?.id, name: name, host: host, port: portValue,
                            username: username, remoteDirectory: remoteDirectory,
                            publicURLBase: publicURLBase, password: password,
                            privateKeyPEM: privateKeyPEM, passphrase: passphrase)
         }) {
-            TextField("Name", text: $name)
-            TextField("Host", text: $host)
-            TextField("Port", text: $port)
-            TextField("Username", text: $username)
-            TextField("Remote directory", text: $remoteDirectory)
-            TextField("Public URL base", text: $publicURLBase)
-            SecureField("Password (optional if using a key)", text: $password,
-                        prompt: isEdit ? keepPrompt : nil)
-            if isEdit {
-                Text("Leave the credentials blank to keep the stored ones. Entering any replaces all of them.")
-                    .font(.caption).foregroundStyle(.secondary)
+            Section("Connection") {
+                TextField("Name", text: $name)
+                TextField("Host", text: $host)
+                TextField("Port", text: $port)
+                TextField("Username", text: $username)
             }
-            TextEditor(text: $privateKeyPEM)
-                .frame(height: 80)
-                .font(.system(.body, design: .monospaced))
-            SecureField("Key passphrase (optional)", text: $passphrase,
-                        prompt: isEdit ? keepPrompt : nil)
+            Section("Destination") {
+                TextField("Remote directory", text: $remoteDirectory)
+                TextField("Public URL base", text: $publicURLBase)
+            }
+            Section {
+                SecureField("Password", text: $password, prompt: isEdit ? keepPrompt : Text("Optional when using a key"))
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Private key (PEM)")
+                    TextEditor(text: $privateKeyPEM)
+                        .frame(height: 80)
+                        .font(.system(.body, design: .monospaced))
+                        .overlay(RoundedRectangle(cornerRadius: 4).stroke(.quaternary))
+                        .accessibilityLabel("Private key in PEM format")
+                }
+                SecureField("Key passphrase", text: $passphrase, prompt: isEdit ? keepPrompt : Text("Optional"))
+            } header: { Text("Authentication") } footer: {
+                Text(isEdit ? "Leave all credentials blank to keep the stored ones. Entering any replaces the entire credential set." : "Use a password or private key. Credentials are stored in your Mac’s Keychain.")
+            }
             if isEdit, existing?.sftpConfig?.knownHostKey != nil {
                 Text("Host key pinned. Changing the host clears the pin so the new server is trusted on first use.")
                     .font(.caption).foregroundStyle(.secondary)
@@ -537,19 +586,27 @@ private struct FTPSheet: View {
     }
 
     var body: some View {
-        SheetFrame(kind: "FTP", isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
+        SheetFrame(kind: "FTP", formHeight: 400, isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
             model.saveFTP(id: existing?.id, name: name, host: host, port: portValue,
                           username: username, remoteDirectory: remoteDirectory,
                           publicURLBase: publicURLBase, password: password, useTLS: useTLS)
         }) {
-            TextField("Name", text: $name)
-            TextField("Host", text: $host)
-            TextField("Port", text: $port)
-            TextField("Username", text: $username)
-            TextField("Remote directory", text: $remoteDirectory)
-            TextField("Public URL base", text: $publicURLBase)
-            SecureField("Password", text: $password, prompt: isEdit ? keepPrompt : nil)
-            Toggle("Use FTPS (TLS)", isOn: $useTLS)
+            Section("Connection") {
+                TextField("Name", text: $name)
+                TextField("Host", text: $host)
+                TextField("Port", text: $port)
+                TextField("Username", text: $username)
+                Toggle("Use FTPS (TLS)", isOn: $useTLS)
+            }
+            Section("Destination") {
+                TextField("Remote directory", text: $remoteDirectory)
+                TextField("Public URL base", text: $publicURLBase)
+            }
+            Section {
+                SecureField("Password", text: $password, prompt: isEdit ? keepPrompt : nil)
+            } header: { Text("Credentials") } footer: {
+                Text(isEdit ? "Leave blank to keep the saved password." : "Your password is stored in your Mac’s Keychain.")
+            }
         }
     }
 }
@@ -582,27 +639,29 @@ private struct PicsurSheet: View {
     }
 
     var body: some View {
-        SheetFrame(kind: "Picsur", isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
+        SheetFrame(kind: "Picsur", formHeight: 380, isEdit: isEdit, isValid: isValid, dismiss: dismiss, commit: {
             model.savePicsur(id: existing?.id, name: name, host: host, apiKey: apiKey,
                              imageFormat: imageFormat, linkStyle: linkStyle)
         }) {
-            TextField("Name", text: $name)
-            TextField("Host", text: $host, prompt: Text("https://pic.example.net"))
-            SecureField("API key", text: $apiKey, prompt: isEdit ? keepPrompt : nil)
-            Picker("Image format", selection: $imageFormat) {
-                ForEach(formats, id: \.self) { Text(".\($0)").tag($0) }
+            Section("Connection") {
+                TextField("Name", text: $name)
+                TextField("Host", text: $host, prompt: Text("https://pic.example.net"))
+                SecureField("API key", text: $apiKey, prompt: isEdit ? keepPrompt : nil)
             }
-            Picker("Copied link", selection: $linkStyle) {
-                Text("Direct image").tag(PicsurLinkStyle.directImage)
-                Text("Viewer page").tag(PicsurLinkStyle.viewerPage)
-            }
-            .pickerStyle(.radioGroup)
             if PicsurConfig(host: host, imageFormat: imageFormat).isInsecureTransport {
-                Label("Plain http — the API key and your captures are sent in cleartext.",
-                      systemImage: "exclamationmark.triangle.fill")
+                Label("Plain HTTP sends your API key and captures without encryption.", systemImage: "exclamationmark.triangle.fill")
                     .font(.caption).foregroundStyle(.orange)
             }
-            Text("Create the API key in Picsur under Settings → API keys.")
+            Section("Sharing") {
+                Picker("Image format", selection: $imageFormat) {
+                    ForEach(formats, id: \.self) { Text(".\($0)").tag($0) }
+                }
+                Picker("Copied link", selection: $linkStyle) {
+                    Text("Direct image").tag(PicsurLinkStyle.directImage)
+                    Text("Viewer page").tag(PicsurLinkStyle.viewerPage)
+                }
+            }
+            Text(isEdit ? "Leave the API key blank to keep the saved key." : "Create a key in Picsur → Settings → API keys. It is stored in your Mac’s Keychain.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -621,7 +680,7 @@ private struct RenameSheet: View {
     }
 
     var body: some View {
-        SheetFrame(kind: "Custom (.sxcu)", isEdit: true, isValid: !name.isEmpty,
+        SheetFrame(kind: "Custom (.sxcu)", formHeight: 190, isEdit: true, isValid: !name.isEmpty,
                    dismiss: dismiss, commit: { model.renameCustom(destination, to: name) }) {
             TextField("Name", text: $name)
             Text("The uploader definition comes from the imported file. To change it, remove this destination and import an updated .sxcu.")

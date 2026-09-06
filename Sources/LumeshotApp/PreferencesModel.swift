@@ -1,7 +1,7 @@
 import SwiftUI
 import LumeshotCore
 
-enum PreferencesTab: Hashable {
+enum PreferencesTab: Hashable, CaseIterable {
     case general, capture, hotkeys, uploads, recording
 }
 

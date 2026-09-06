@@ -2,28 +2,113 @@ import AppKit
 import SwiftUI
 import LumeshotCore
 
+extension PreferencesTab: Identifiable {
+    var id: Self { self }
+
+    var title: String {
+        switch self {
+        case .general: "General"
+        case .capture: "Capture"
+        case .hotkeys: "Shortcuts"
+        case .uploads: "Uploads"
+        case .recording: "Recording"
+        }
+    }
+
+    var symbol: String {
+        switch self {
+        case .general: "slider.horizontal.3"
+        case .capture: "viewfinder"
+        case .hotkeys: "keyboard"
+        case .uploads: "arrow.up.circle"
+        case .recording: "record.circle"
+        }
+    }
+
+    var subtitle: String {
+        switch self {
+        case .general: "Make every capture feel like your own."
+        case .capture: "A place and a name for your screenshots."
+        case .hotkeys: "Your next capture is a keystroke away."
+        case .uploads: "Choose where your captures go."
+        case .recording: "Fine-tune video and animated GIFs."
+        }
+    }
+}
+
 struct PreferencesView: View {
     @ObservedObject var model: PreferencesModel
 
     var body: some View {
-        TabView(selection: $model.selectedTab) {
-            GeneralTab(model: model)
-                .tabItem { Label("General", systemImage: "gearshape") }
-                .tag(PreferencesTab.general)
-            CaptureTab(model: model)
-                .tabItem { Label("Capture", systemImage: "camera.viewfinder") }
-                .tag(PreferencesTab.capture)
-            HotkeysTab(model: model)
-                .tabItem { Label("Hotkeys", systemImage: "keyboard") }
-                .tag(PreferencesTab.hotkeys)
-            UploadsTab(model: model.destinations)
-                .tabItem { Label("Uploads", systemImage: "arrow.up.circle") }
-                .tag(PreferencesTab.uploads)
-            RecordingTab(model: model)
-                .tabItem { Label("Recording", systemImage: "video") }
-                .tag(PreferencesTab.recording)
+        HStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 0) {
+                HStack(spacing: 8) {
+                    Group {
+                        if let icon = NSApp.applicationIconImage {
+                            Image(nsImage: icon).resizable()
+                        } else {
+                            Image(systemName: "viewfinder").resizable().padding(8)
+                        }
+                    }
+                    .frame(width: 42, height: 42).accessibilityHidden(true)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Lumeshot").font(.headline)
+                        Text("Settings").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal, 16).padding(.top, 20).padding(.bottom, 22)
+                List(selection: $model.selectedTab) {
+                    ForEach(PreferencesTab.allCases) { tab in
+                        Label(tab.title, systemImage: tab.symbol)
+                            .padding(.vertical, 6).tag(tab)
+                    }
+                }
+                .listStyle(.sidebar).scrollContentBackground(.hidden)
+                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development")")
+                    .font(.caption).foregroundStyle(.tertiary).padding(20)
+            }
+            .frame(width: 190).background(.regularMaterial)
+            Divider()
+            VStack(alignment: .leading, spacing: 0) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(model.selectedTab.title).font(.system(size: 26, weight: .bold))
+                    Text(model.selectedTab.subtitle).foregroundStyle(.secondary)
+                }
+                .padding(.horizontal, 28).padding(.top, 28).padding(.bottom, 8)
+                Group {
+                    switch model.selectedTab {
+                    case .general: GeneralTab(model: model)
+                    case .capture: CaptureTab(model: model)
+                    case .hotkeys: HotkeysTab(model: model)
+                    case .uploads: UploadsTab(model: model.destinations)
+                    case .recording: RecordingTab(model: model)
+                    }
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
+            .background(Color(nsColor: .windowBackgroundColor))
         }
-        .frame(minWidth: 560, minHeight: 420)
+        .frame(minWidth: 760, minHeight: 560)
+    }
+}
+
+/// A setting label with supporting text that wraps without crowding its control.
+struct SettingLabel: View {
+    let title: String
+    let detail: String
+
+    init(_ title: String, detail: String) {
+        self.title = title
+        self.detail = detail
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+            Text(detail).font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(.vertical, 3)
     }
 }
 
@@ -32,20 +117,35 @@ private struct GeneralTab: View {
 
     var body: some View {
         Form {
-            Toggle("Save screenshots to disk", isOn: Binding(
-                get: { model.settings.saveToDisk },
-                set: { newValue in model.update { $0.saveToDisk = newValue } }
-            ))
-            Toggle("Show notification", isOn: Binding(
-                get: { model.settings.showNotification },
-                set: { newValue in model.update { $0.showNotification = newValue } }
-            ))
-            Toggle("Annotate before sharing", isOn: Binding(
-                get: { model.settings.editor.annotateBeforeShare },
-                set: { newValue in model.update { $0.editor.annotateBeforeShare = newValue } }
-            ))
+            Section("After capture") {
+                Toggle(isOn: Binding(
+                    get: { model.settings.editor.annotateBeforeShare },
+                    set: { value in model.update { $0.editor.annotateBeforeShare = value } }
+                )) {
+                    SettingLabel("Open the editor", detail: "Annotate, crop, or redact before sharing.")
+                }
+                Toggle(isOn: Binding(
+                    get: { model.settings.saveToDisk },
+                    set: { value in model.update { $0.saveToDisk = value } }
+                )) {
+                    SettingLabel("Save a copy", detail: "Keep screenshots in your capture folder.")
+                }
+                Toggle(isOn: Binding(
+                    get: { model.settings.showNotification },
+                    set: { value in model.update { $0.showNotification = value } }
+                )) {
+                    SettingLabel("Show notifications", detail: "Know when captures are saved or uploaded.")
+                }
+            }
+            Section {
+                Label {
+                    SettingLabel("Ready to paste", detail: "Captures copy an image. Successful uploads copy a link. Configure automatic uploads in Uploads.")
+                } icon: {
+                    Image(systemName: "doc.on.clipboard").foregroundStyle(.secondary)
+                }
+            }
         }
-        .padding()
+        .formStyle(.grouped).toggleStyle(.switch).padding(.horizontal, 8)
     }
 }
 
@@ -58,20 +158,30 @@ private struct CaptureTab: View {
 
     var body: some View {
         Form {
-            HStack {
-                TextField("Save Folder", text: .constant(displayPath))
-                    .disabled(true)
-                Button("Choose…") { chooseFolder() }
+            Section("Storage") {
+                HStack(spacing: 16) {
+                    Image(systemName: "folder.fill").font(.title2).foregroundStyle(.tint)
+                    VStack(alignment: .leading, spacing: 5) {
+                        Text("Capture folder")
+                        Text(displayPath).font(.callout).foregroundStyle(.secondary)
+                            .lineLimit(2).truncationMode(.middle).textSelection(.enabled).help(displayPath)
+                    }
+                    Spacer(minLength: 8)
+                    Button("Choose…", action: chooseFolder)
+                }
+                .padding(.vertical, 6)
             }
-            TextField("Filename Template", text: Binding(
-                get: { model.settings.filenameTemplate },
-                set: { newValue in model.update { $0.filenameTemplate = newValue } }
-            ))
-            Text("Tokens: %y year  %mo month  %d day  %h hour  %mi minute  %s second")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            Section {
+                TextField("Filename template", text: Binding(
+                    get: { model.settings.filenameTemplate },
+                    set: { value in model.update { $0.filenameTemplate = value } }
+                ))
+                .textFieldStyle(.roundedBorder)
+            } header: { Text("File naming") } footer: {
+                Text("Use %y for year, %mo for month, %d for day, %h for hour, %mi for minute, and %s for second. Screenshots are saved as PNG.")
+            }
         }
-        .padding()
+        .formStyle(.grouped).padding(.horizontal, 8)
     }
 
     private func chooseFolder() {
@@ -79,8 +189,17 @@ private struct CaptureTab: View {
         panel.canChooseDirectories = true
         panel.canChooseFiles = false
         panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        model.update { $0.captureSavePath = url.path }
+        panel.prompt = "Choose folder"
+        panel.directoryURL = URL(fileURLWithPath: (model.settings.captureSavePath as NSString).expandingTildeInPath)
+        let applySelection: (NSApplication.ModalResponse) -> Void = { response in
+            guard response == .OK, let url = panel.url else { return }
+            model.update { $0.captureSavePath = url.path }
+        }
+        if let window = NSApp.keyWindow {
+            panel.beginSheetModal(for: window, completionHandler: applySelection)
+        } else {
+            applySelection(panel.runModal())
+        }
     }
 }
 
@@ -89,34 +208,41 @@ private struct HotkeysTab: View {
 
     var body: some View {
         Form {
-            HotkeyRow(label: "Capture Fullscreen", combo: model.settings.hotkeys.fullscreen) { newCombo in
-                model.updateHotkeys { $0.fullscreen = newCombo }
-            }
-            HotkeyRow(label: "Capture Region", combo: model.settings.hotkeys.region) { newCombo in
-                model.updateHotkeys { $0.region = newCombo }
-            }
-            HotkeyRow(label: "Capture Window", combo: model.settings.hotkeys.window) { newCombo in
-                model.updateHotkeys { $0.window = newCombo }
-            }
-            HotkeyRow(label: "Toggle Recording", combo: model.settings.hotkeys.record) { newCombo in
-                model.updateHotkeys { $0.record = newCombo }
+            Section {
+                HotkeyRow(label: "Capture fullscreen", symbol: "display", combo: model.settings.hotkeys.fullscreen) { combo in
+                    model.updateHotkeys { $0.fullscreen = combo }
+                }
+                HotkeyRow(label: "Capture region", symbol: "viewfinder", combo: model.settings.hotkeys.region) { combo in
+                    model.updateHotkeys { $0.region = combo }
+                }
+                HotkeyRow(label: "Capture window", symbol: "macwindow", combo: model.settings.hotkeys.window) { combo in
+                    model.updateHotkeys { $0.window = combo }
+                }
+                HotkeyRow(label: "Start or stop recording", symbol: "record.circle", combo: model.settings.hotkeys.record) { combo in
+                    model.updateHotkeys { $0.record = combo }
+                }
+            } header: { Text("Global shortcuts") } footer: {
+                Text("Click a shortcut, then press a key combination with ⌘, ⌥, ⌃, or ⇧. Shortcuts work even when Lumeshot is in the background.")
             }
         }
-        .padding()
+        .formStyle(.grouped).padding(.horizontal, 8)
     }
 }
 
 private struct HotkeyRow: View {
     let label: String
+    let symbol: String
     let combo: HotkeyCombo?
     let onChange: (HotkeyCombo?) -> Void
 
     var body: some View {
-        HStack {
+        HStack(spacing: 12) {
+            Image(systemName: symbol).foregroundStyle(.secondary).frame(width: 22).accessibilityHidden(true)
             Text(label)
             Spacer()
-            HotkeyRecorderField(combo: combo, onChange: onChange)
+            HotkeyRecorderField(combo: combo, onChange: onChange).accessibilityLabel(label)
         }
+        .padding(.vertical, 6)
     }
 }
 
@@ -124,27 +250,31 @@ private struct UploadsTab: View {
     @ObservedObject var model: DestinationsModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Toggle("Upload after capture", isOn: Binding(
-                get: { model.settings.uploadAfterCapture },
-                set: { newValue in model.setUploadAfterCapture(newValue) }
-            ))
-            // Older or hand-edited settings may enable upload without a valid
-            // destination. Allow turning it off, while still gating enablement.
-            .disabled(model.settings.activeDestination == nil && !model.settings.uploadAfterCapture)
-            .padding([.horizontal, .top])
-            Text("Upload on: copy the uploaded image URL. Upload off: copy the image.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal)
-            if model.settings.activeDestination == nil {
-                Text("Add and select an active uploader to enable uploading.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .padding(.horizontal)
+        ScrollView {
+            VStack(alignment: .leading, spacing: 24) {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(spacing: 16) {
+                        SettingLabel("Upload after capture", detail: "Upload to your active uploader and copy the link.")
+                        Spacer(minLength: 0)
+                        Toggle("Upload after capture", isOn: Binding(
+                        get: { model.settings.uploadAfterCapture },
+                        set: { model.setUploadAfterCapture($0) }
+                        ))
+                        .labelsHidden()
+                        .toggleStyle(.switch)
+                        .disabled(model.settings.activeDestination == nil && !model.settings.uploadAfterCapture)
+                    }
+                    if model.settings.activeDestination == nil {
+                        Text("Choose an active uploader below to turn this on.")
+                            .font(.callout).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(16)
+                .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
+                DestinationsView(model: model)
             }
-            Divider()
-            DestinationsView(model: model)
+            .padding(28)
         }
     }
 }
@@ -152,45 +282,57 @@ private struct UploadsTab: View {
 private struct RecordingTab: View {
     @ObservedObject var model: PreferencesModel
     @State private var gifMaxWidthText = ""
+    @FocusState private var editingWidth: Bool
 
     var body: some View {
         Form {
-            Toggle("Capture system audio", isOn: Binding(
-                get: { model.settings.recording.systemAudio },
-                set: { newValue in model.update { $0.recording.systemAudio = newValue } }
-            ))
-            // VideoCodec isn't Hashable, so Picker binds through its String
-            // rawValue rather than the enum itself (see Task 4's Interfaces).
-            Picker("Video Codec", selection: Binding(
-                get: { model.settings.recording.videoCodec.rawValue },
-                set: { newValue in
-                    guard let codec = RecordingSettings.VideoCodec(rawValue: newValue) else { return }
-                    model.update { $0.recording.videoCodec = codec }
+            Section("Video") {
+                Toggle(isOn: Binding(
+                    get: { model.settings.recording.systemAudio },
+                    set: { value in model.update { $0.recording.systemAudio = value } }
+                )) {
+                    SettingLabel("System audio", detail: "Include sound playing on your Mac.")
                 }
-            )) {
-                Text("H.264").tag("h264")
-                Text("HEVC").tag("hevc")
+                .toggleStyle(.switch)
+                Picker("Video format", selection: Binding(
+                    get: { model.settings.recording.videoCodec.rawValue },
+                    set: { value in
+                        guard let codec = RecordingSettings.VideoCodec(rawValue: value) else { return }
+                        model.update { $0.recording.videoCodec = codec }
+                    }
+                )) {
+                    Text("H.264 · Most compatible").tag("h264")
+                    Text("HEVC · Smaller files").tag("hevc")
+                }
             }
-            Stepper(value: Binding(
-                get: { model.settings.recording.gifFPS },
-                set: { newValue in model.update { $0.recording.gifFPS = newValue } }
-            ), in: 1...60) {
-                Text("GIF Frame Rate: \(model.settings.recording.gifFPS) fps")
+            Section {
+                Stepper(value: Binding(
+                    get: { model.settings.recording.gifFPS },
+                    set: { value in model.update { $0.recording.gifFPS = value } }
+                ), in: 1...60) {
+                    LabeledContent("Frame rate", value: "\(model.settings.recording.gifFPS) fps")
+                }
+                TextField("Maximum width", text: $gifMaxWidthText, prompt: Text("Original size"))
+                    .textFieldStyle(.roundedBorder)
+                    .focused($editingWidth)
+                    .onAppear { gifMaxWidthText = model.settings.recording.gifMaxWidth.map(String.init) ?? "" }
+                    .onChange(of: model.settings.recording.gifMaxWidth) { _, value in
+                        gifMaxWidthText = value.map(String.init) ?? ""
+                    }
+                    .onSubmit { saveWidth() }
+                    .onChange(of: editingWidth) { _, focused in if !focused { saveWidth() } }
+            } header: { Text("Animated GIFs") } footer: {
+                Text("Width is in pixels. Leave it blank to keep the source width. Lower frame rates and smaller dimensions produce smaller files.")
             }
-            TextField("GIF Max Width (blank = source width)", text: $gifMaxWidthText)
-                .onAppear {
-                    gifMaxWidthText = model.settings.recording.gifMaxWidth.map(String.init) ?? ""
-                }
-                .onChange(of: model.settings.recording.gifMaxWidth) { _, newValue in
-                    gifMaxWidthText = newValue.map(String.init) ?? ""
-                }
-                .onSubmit {
-                    // Non-numeric, zero, or negative input means "no max width" —
-                    // same convention as HistoryView's GifExportSheet.
-                    let width = Int(gifMaxWidthText).flatMap { $0 > 0 ? $0 : nil }
-                    model.update { $0.recording.gifMaxWidth = width }
-                }
         }
-        .padding()
+        .formStyle(.grouped).padding(.horizontal, 8)
+    }
+
+    private func saveWidth() {
+        let width = Int(gifMaxWidthText).flatMap { $0 > 0 ? $0 : nil }
+        model.update { $0.recording.gifMaxWidth = width }
+        // Normalize even when the stored value is unchanged (and onChange
+        // therefore does not fire), e.g. invalid input when already unlimited.
+        gifMaxWidthText = width.map(String.init) ?? ""
     }
 }

@@ -25,11 +25,14 @@ final class DestinationsWindowController {
         }
         let model = DestinationsModel(store: store, credentials: credentials, onChange: onChange)
         self.model = model
-        let hosting = NSHostingController(rootView: DestinationsView(model: model))
+        let hosting = NSHostingController(rootView: ScrollView {
+            DestinationsView(model: model).padding(24)
+        })
         let w = NSWindow(contentViewController: hosting)
         w.title = "Manage Destinations"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        w.setContentSize(NSSize(width: 480, height: 440))
+        w.setContentSize(NSSize(width: 600, height: 500))
+        w.contentMinSize = NSSize(width: 540, height: 400)
         w.isReleasedWhenClosed = false
         window = w
         NSApp.activate(ignoringOtherApps: true)
