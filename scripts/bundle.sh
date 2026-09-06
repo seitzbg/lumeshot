@@ -51,6 +51,7 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/LumeshotApp "$APP/Contents/MacOS/LumeshotApp"
+cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 sed "s/@VERSION@/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 
 # --options runtime is what notarization actually requires. It is applied on

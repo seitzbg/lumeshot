@@ -33,6 +33,9 @@ jobs:
 
       # A v* tag can point at a commit the push/PR workflow never saw, so the
       # release job re-runs the full suite rather than trusting the tag.
+      - name: Check release notes
+        run: test -s "docs/releases/${GITHUB_REF_NAME}.md"
+
       - name: Test
         run: swift test
 
@@ -126,7 +129,9 @@ jobs:
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release create "${GITHUB_REF_NAME}" dist/*.dmg dist/SHA256SUMS.txt --title "${GITHUB_REF_NAME}" --generate-notes
+        run: >-
+          gh release create "${GITHUB_REF_NAME}" dist/*.dmg dist/SHA256SUMS.txt
+          --title "${GITHUB_REF_NAME}" --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
 
       - name: Remove the signing keychain
         if: always()

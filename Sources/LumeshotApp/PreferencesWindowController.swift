@@ -47,12 +47,15 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
         let w = NSWindow(contentViewController: hosting)
         w.title = "Lumeshot Settings"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        w.setContentSize(NSSize(width: 560, height: 420))
+        w.setContentSize(NSSize(width: 820, height: 620))
+        w.contentMinSize = NSSize(width: 760, height: 560)
+        let restoredFrame = w.setFrameUsingName("LumeshotSettings")
+        w.setFrameAutosaveName("LumeshotSettings")
         w.isReleasedWhenClosed = false
         w.delegate = self
         window = w
         NSApp.activate(ignoringOtherApps: true)
-        w.center()
+        if !restoredFrame { w.center() }
         w.makeKeyAndOrderFront(nil)
     }
 

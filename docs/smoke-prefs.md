@@ -1,13 +1,13 @@
 # Preferences window manual smoke checklist
 
-Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumeshot.log`.
-Covers the tabbed Preferences window (Tasks 1–5, 7) end to end; Task 6's hotkey
+Build and launch the local bundle using `docs/local-development.md`. Diagnostics: `~/Library/Logs/Lumeshot.log`.
+Covers the sidebar Settings window (Tasks 1–5, 7) end to end; Task 6's hotkey
 formatting/mapping is covered by `Tests/LumeshotCoreTests/HotkeyFormattingTests.swift`, not
 re-verified here.
 
 - [ ] **Window opens and reuses (Task 1):** Status-bar menu → **Settings…** (confirm the ⌘,
       keyEquivalent also opens it while the status-bar menu is open). A window titled
-      "Lumeshot Settings" appears with 5 tabs: General, Capture, Hotkeys, Uploads, Recording.
+      "Lumeshot Settings" appears with 5 sidebar items: General, Capture, Shortcuts, Uploads, Recording.
       Close it and reopen via the menu; confirm it's the same window (position/selected tab
       persist within the app session), not a second window stacking on top.
 - [ ] **App switcher:** Open Settings and confirm Lumeshot appears in the Dock and
@@ -15,11 +15,11 @@ re-verified here.
       then click Lumeshot in the Dock to restore it. Hide with ⌘H and switch back.
       Close Settings with the red button or ⌘W: the Dock entry disappears while
       the menu-bar icon and capture hotkeys remain. Reopen Settings and repeat.
-- [ ] **General tab persists + live-applies (Task 2):** Toggle each of the 3 switches (Save
-      to Disk, Show Notification, Annotate Before Sharing). Confirm
+- [ ] **General tab persists + live-applies (Task 2):** Toggle each of the 3 switches (Save a copy, Show notifications,
+      Open the editor). Confirm
       `settings.json` reflects each change immediately and the "Annotate Before Sharing"
       status-bar checkmark follows the last one.
-- [ ] **Capture tab (Task 3):** Confirm the Save Folder field shows `~/Pictures/Lumeshot`
+- [ ] **Capture tab (Task 3):** Confirm the Capture folder shows `~/Pictures/Lumeshot`
       abbreviated with `~`. Click **Choose…**, pick a new folder; capture (⌥⇧3) and confirm
       the file lands there. Edit the filename template; confirm the next capture's name
       matches it.
@@ -41,14 +41,25 @@ re-verified here.
 - [ ] **Delayed upload:** While an upload is pending, copy text in another app or turn
       upload off and capture again. The old upload must not replace the newer clipboard
       contents; its URL should still appear in history.
-- [ ] **Hotkeys tab: live recorder + re-register (Task 7):** Click the Fullscreen recorder,
+- [ ] **Shortcuts page: live recorder + re-register (Task 7):** Click the Fullscreen recorder,
       press a new combo (e.g. ⌃⌥⇧2); the field updates immediately. Without relaunching,
       confirm the NEW combo triggers a fullscreen capture and the OLD combo (⌥⇧3) no longer
       does anything (proves the old Carbon registration was actually unregistered, not just
       shadowed). Click "clear" on a hotkey and confirm it stops firing. Repeat for
       Region/Window/Record.
-- [ ] **Recorder monitor teardown on window close:** In the Hotkeys tab, click a hotkey field so it shows "Press a key…", then close the Settings window via the red traffic-light button WITHOUT pressing a key. Reopen Settings (⌘,) and confirm the next keystroke you type elsewhere is NOT swallowed (i.e. the stale key-capture monitor was torn down). (A belt-and-suspenders NSWindow.willCloseNotification teardown was added for this; this verifies it.)
+- [ ] **Recorder monitor teardown on window close:** In the Shortcuts page, click a hotkey field so it shows "Press a key…", then close the Settings window via the red traffic-light button WITHOUT pressing a key. Reopen Settings (⌘,) and confirm the next keystroke you type elsewhere is NOT swallowed (i.e. the stale key-capture monitor was torn down). (A belt-and-suspenders NSWindow.willCloseNotification teardown was added for this; this verifies it.)
 
 M1 capture smoke: see `docs/smoke-m1.md`. M2a upload smoke: see `docs/smoke-m2a.md`.
 M4 recording smoke: see `docs/smoke-m4.md`. M5a SFTP/FTP smoke: see `docs/smoke-m5a.md`.
 M5b release/polish smoke: see `docs/smoke-m5b.md`.
+
+## Visual refresh checks
+
+- [ ] Resize Settings down to 760 × 560; every page remains usable and scrolls when needed.
+- [ ] Switch between light and dark appearance; labels and controls remain readable.
+- [ ] Check the custom Lumeshot icon in Finder, the Dock, and the Settings sidebar.
+- [ ] Use **Add uploader** to open each provider form. S3 and SFTP scroll to all fields;
+      Cancel and Add/Save stay visible. Escape cancels without saving.
+- [ ] Check the empty Uploads state, multiple uploaders, and a long uploader name.
+- [ ] Type a GIF maximum width and click another control; the value persists.
+- [ ] Close and relaunch; the Settings window restores its saved size and position.
