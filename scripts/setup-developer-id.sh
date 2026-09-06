@@ -465,12 +465,26 @@ if [ "$ALL_OK" -eq 1 ]; then
 else
   warn "Set the missing secrets before tagging, or the release will be unsigned."
 fi
-if confirm "Delete the local working files (.key/.csr/.p12/.pem) now that they're uploaded?"; then
+printf '\n'
+warn "Before you clean up: a GitHub secret is write-only."
+say "Uploading the .p12 was a one-way trip — nothing can read it back out. The"
+say "private key in $WORK is therefore the only copy you can still reach, and"
+say "Apple cannot re-issue it: losing it means revoking this certificate and"
+say "burning another of your five Developer ID slots."
+printf '\n'
+say "Back it up somewhere durable first:"
+printf '\n      %scp %s/developer-id.p12 <your-password-manager-or-backup>%s\n' \
+  "$BOLD" "$WORK" "$RESET"
+printf '      %s# its password is the DEVELOPER_ID_P12_PASSWORD secret%s\n\n' "$DIM" "$RESET"
+note "The .cer and .csr are public and do not need protecting. The .p8 is secret,"
+note "but you can always generate a replacement key in App Store Connect."
+printf '\n'
+if confirm "Backed up? Delete the working directory now?"; then
   rm -rf "$WORK"
   printf '  %s✓%s removed %s\n' "$GREEN" "$RESET" "$WORK"
-  note "Keep your .cer and .p8 backups elsewhere — Apple will not re-issue the .p8."
 else
-  warn "Sensitive material remains in $WORK — it is mode 700, but delete it when done."
+  note "Left in place (mode 700): $WORK"
+  note "Delete it once you have the .p12 stored somewhere safe."
 fi
 
 finish
