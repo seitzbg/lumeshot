@@ -4,18 +4,18 @@
 
 **Goal:** A menu-bar macOS app that captures fullscreen/region/window screenshots via global hotkeys, saves to disk + clipboard, and notifies — daily-drivable in place of ⌘⇧4.
 
-**Architecture:** SwiftPM package with one executable (`SXApp`) and two libraries: `SXCore` (pure logic: settings, naming, after-capture pipeline — fully unit-tested) and `SXCapture` (ScreenCaptureKit stills, permission gate, geometry). AppKit shell; all UI on `@MainActor`. Spec: `docs/superpowers/specs/2026-07-10-sharex-mac-design.md`.
+**Architecture:** SwiftPM package with one executable (`SXApp`) and two libraries: `SXCore` (pure logic: settings, naming, after-capture pipeline — fully unit-tested) and `SXCapture` (ScreenCaptureKit stills, permission gate, geometry). AppKit shell; all UI on `@MainActor`. Spec: `docs/superpowers/specs/2026-07-10-lumeshot-design.md`.
 
 **Tech Stack:** Swift 6 (strict concurrency), SwiftPM (tools 6.0), AppKit, ScreenCaptureKit (`SCScreenshotManager`), Carbon `RegisterEventHotKey`, UserNotifications, Swift Testing (`import Testing`).
 
 ## Global Constraints
 
 - macOS 15+ (`platforms: [.macOS(.v15)]`), Apple Silicon only — never add Intel/older-OS fallbacks.
-- Bundle ID `org.sharexmac.app` (immutable); app display name **ShareX for Mac**; `LSUIElement` = true.
+- Bundle ID `org.lumeshot.app` (immutable); app display name **Lumeshot**; `LSUIElement` = true.
 - SwiftPM-first: no Xcode project files ever committed. `.app` assembly only via `scripts/bundle.sh`.
 - License GPL-3.0. No AI-attribution boilerplate anywhere (commits, docs, code).
-- **The dev machine is Linux; Swift never runs locally.** Every build/test/run goes through `scripts/remote.sh` which rsyncs to and executes on `seitz@macmini1.fiber.house:~/git/sharex-mac` (the Mac dir is an rsync mirror; git lives on the Linux side at `/home/bseitz/git/sharex-mac`).
-- Reference implementation for behavior questions: ShareX repo at `/home/bseitz/git/sharex` (read-only) + `sharex-audit-digest.txt` there.
+- **The dev machine is Linux; Swift never runs locally.** Every build/test/run goes through `scripts/remote.sh` which rsyncs to and executes on `seitz@macmini1.fiber.house:~/git/lumeshot` (the Mac dir is an rsync mirror; git lives on the Linux side at `/home/bseitz/git/lumeshot`).
+- Reference implementation for behavior questions: upstream repo at `<reference-checkout>` (read-only) + `portability-audit.txt` there.
 - Local-first invariant: disk write happens before clipboard/notification effects.
 - Fail loud: no silent `catch {}` — errors surface via `NSLog` at minimum, notification where user-visible.
 
@@ -53,7 +53,7 @@ dist/
 import PackageDescription
 
 let package = Package(
-    name: "sharex-mac",
+    name: "lumeshot",
     platforms: [.macOS(.v15)],
     targets: [
         .executableTarget(name: "SXApp", dependencies: ["SXCore", "SXCapture"]),
@@ -79,7 +79,7 @@ let package = Package(
 
 `Sources/SXApp/main.swift`:
 ```swift
-print("sharex-mac scaffold")
+print("lumeshot scaffold")
 ```
 
 `Tests/SXCoreTests/SmokeTests.swift`:
@@ -98,8 +98,8 @@ import Testing
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-MAC_HOST="${SHAREX_MAC_HOST:-seitz@macmini1.fiber.house}"
-MAC_DIR="${SHAREX_MAC_DIR:-git/sharex-mac}"   # relative to remote $HOME
+MAC_HOST="${LUMESHOT_MAC_HOST:-seitz@macmini1.fiber.house}"
+MAC_DIR="${LUMESHOT_MAC_DIR:-git/lumeshot}"   # relative to remote $HOME
 
 cmd="${1:-build}"
 shift || true
@@ -111,7 +111,7 @@ case "$cmd" in
   build)  ssh "$MAC_HOST" "cd $MAC_DIR && swift build 2>&1" ;;
   test)   ssh "$MAC_HOST" "cd $MAC_DIR && swift test 2>&1" ;;
   bundle) ssh "$MAC_HOST" "cd $MAC_DIR && swift build -c release 2>&1 && scripts/bundle.sh" ;;
-  run)    ssh "$MAC_HOST" "cd $MAC_DIR && swift build -c release 2>&1 && scripts/bundle.sh && open -n \"dist/ShareX for Mac.app\" --args $*" ;;
+  run)    ssh "$MAC_HOST" "cd $MAC_DIR && swift build -c release 2>&1 && scripts/bundle.sh && open -n \"dist/Lumeshot.app\" --args $*" ;;
   ssh)    ssh "$MAC_HOST" "cd $MAC_DIR && $*" ;;
   *) echo "usage: remote.sh {build|test|bundle|run|ssh <cmd>}" >&2; exit 2 ;;
 esac
@@ -146,7 +146,7 @@ git add -A && git commit -m "Scaffold SwiftPM package and remote build loop"
 
 **Interfaces:**
 - Consumes: `scripts/remote.sh` (Task 1).
-- Produces: launchable `dist/ShareX for Mac.app`; `AppDelegate` with stored properties later tasks extend; `StatusItemController(menu: NSMenu)`; `AppDelegate.buildMenu()` returning the status menu (Task 10 rewires its items to the coordinator).
+- Produces: launchable `dist/Lumeshot.app`; `AppDelegate` with stored properties later tasks extend; `StatusItemController(menu: NSMenu)`; `AppDelegate.buildMenu()` returning the status menu (Task 10 rewires its items to the coordinator).
 
 - [ ] **Step 1: Write `Resources/Info.plist`**
 
@@ -157,10 +157,10 @@ git add -A && git commit -m "Scaffold SwiftPM package and remote build loop"
 <dict>
     <key>CFBundleDevelopmentRegion</key><string>en</string>
     <key>CFBundleExecutable</key><string>SXApp</string>
-    <key>CFBundleIdentifier</key><string>org.sharexmac.app</string>
+    <key>CFBundleIdentifier</key><string>org.lumeshot.app</string>
     <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
-    <key>CFBundleName</key><string>ShareX for Mac</string>
-    <key>CFBundleDisplayName</key><string>ShareX for Mac</string>
+    <key>CFBundleName</key><string>Lumeshot</string>
+    <key>CFBundleDisplayName</key><string>Lumeshot</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>@VERSION@</string>
     <key>CFBundleVersion</key><string>@VERSION@</string>
@@ -180,7 +180,7 @@ git add -A && git commit -m "Scaffold SwiftPM package and remote build loop"
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP="dist/ShareX for Mac.app"
+APP="dist/Lumeshot.app"
 VERSION="${VERSION:-0.1.0}"
 CODESIGN_ID="${CODESIGN_ID:--}"   # '-' = ad-hoc; set a stable dev cert to keep TCC grants across rebuilds
 
@@ -188,7 +188,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/SXApp "$APP/Contents/MacOS/SXApp"
 sed "s/@VERSION@/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
-codesign --force --sign "$CODESIGN_ID" --identifier org.sharexmac.app "$APP"
+codesign --force --sign "$CODESIGN_ID" --identifier org.lumeshot.app "$APP"
 echo "Built $APP (version $VERSION, sign: $CODESIGN_ID)"
 ```
 
@@ -217,7 +217,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         statusItem = StatusItemController(menu: buildMenu())
-        NSLog("ShareX for Mac launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"))")
+        NSLog("Lumeshot launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"))")
     }
 
     func buildMenu() -> NSMenu {
@@ -226,7 +226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(NSMenuItem(title: "Capture Window", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Capture Full Screen", action: nil, keyEquivalent: ""))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit ShareX for Mac", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
+        menu.addItem(NSMenuItem(title: "Quit Lumeshot", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         return menu
     }
 }
@@ -245,7 +245,7 @@ final class StatusItemController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "camera.viewfinder",
-                                   accessibilityDescription: "ShareX for Mac")
+                                   accessibilityDescription: "Lumeshot")
         }
         statusItem.menu = menu
     }
@@ -255,9 +255,9 @@ final class StatusItemController {
 - [ ] **Step 6: Build, bundle, launch, verify process, quit**
 
 Run: `scripts/remote.sh bundle`
-Expected: `Built dist/ShareX for Mac.app (version 0.1.0, sign: -)`
+Expected: `Built dist/Lumeshot.app (version 0.1.0, sign: -)`
 
-Run: `scripts/remote.sh ssh 'open -n "dist/ShareX for Mac.app" && sleep 3 && pgrep -x SXApp'`
+Run: `scripts/remote.sh ssh 'open -n "dist/Lumeshot.app" && sleep 3 && pgrep -x SXApp'`
 Expected: a PID number (app is running; menu-bar icon visible on the Mac).
 
 Run: `scripts/remote.sh ssh 'pkill -x SXApp && echo quit-ok'`
@@ -386,7 +386,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23
     public static let `default` = AppSettings(
         schemaVersion: 1,
-        captureSavePath: "~/Pictures/ShareX",
+        captureSavePath: "~/Pictures/Lumeshot",
         filenameTemplate: "Screenshot_%y-%mo-%d_%h-%mi-%s",
         saveToDisk: true,
         copyToClipboard: true,
@@ -418,7 +418,7 @@ public struct SettingsStore: Sendable {
 
     public static var defaultFileURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ShareX-Mac/settings.json")
+            .appendingPathComponent("Lumeshot/settings.json")
     }
 
     public func loadOrDefault() -> (AppSettings, SettingsLoadIssue?) {
@@ -467,7 +467,7 @@ git add -A && git commit -m "Add versioned JSON settings store"
 **Interfaces:**
 - Consumes: nothing.
 - Produces: `NameContext(date:width:height:processName:increment:calendar:)` and `NameParser.render(_ template: String, context: NameContext, rng: inout some RandomNumberGenerator) -> String` plus a convenience `render(_:context:)`. Task 5 consumes these exact signatures.
-- Tokens (ShareX-compatible subset per spec §3.5): `%y %mo %d %h %mi %s %ms %rn %ra %width %height %pn %i`. The spec also lists `%n`; it is intentionally omitted in M1 — its ShareX semantics get verified against `ShareX.HelpersLib` `NameParser.cs` when M2 extends this type (recorded in `docs/porting-map.md`, Task 13).
+- Tokens (upstream-compatible subset per spec §3.5): `%y %mo %d %h %mi %s %ms %rn %ra %width %height %pn %i`. The spec also lists `%n`; it is intentionally omitted in M1 — its upstream semantics get verified against `HelpersLib` `NameParser.cs` when M2 extends this type (recorded in `docs/porting-map.md`, Task 13).
 
 - [ ] **Step 1: Write failing tests `Tests/SXCoreTests/NameParserTests.swift`**
 
@@ -640,7 +640,7 @@ Expected: all NameParser + SettingsStore tests pass.
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A && git commit -m "Add ShareX-style filename template parser"
+git add -A && git commit -m "Add upstream-style filename template parser"
 ```
 
 ---
@@ -746,7 +746,7 @@ private func settings() -> AppSettings {
 
     @Test func tildePathExpands() throws {
         var s = settings()
-        s.captureSavePath = "~/Pictures/ShareX"
+        s.captureSavePath = "~/Pictures/Lumeshot"
         let fx = MockEffects()
         let result = try AfterCapturePipeline(settings: s, effects: fx).process(artifact())
         #expect(result.savedURL!.path.hasPrefix(NSHomeDirectory()))
@@ -1195,10 +1195,10 @@ final class PermissionOnboardingController: NSObject {
             return
         }
         let text = NSTextField(wrappingLabelWithString: """
-        ShareX for Mac needs the Screen Recording permission to capture your screen.
+        Lumeshot needs the Screen Recording permission to capture your screen.
 
         1. Click “Open System Settings” below.
-        2. Enable “ShareX for Mac” under Screen & System Audio Recording.
+        2. Enable “Lumeshot” under Screen & System Audio Recording.
         3. Click “Relaunch” — macOS applies this permission at app launch.
         """)
         text.frame = NSRect(x: 20, y: 70, width: 380, height: 130)
@@ -1455,7 +1455,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         self.coordinator = coordinator
         statusItem = StatusItemController(menu: buildMenu())
         registerHotkeys(settings.hotkeys)
-        NSLog("ShareX for Mac launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"))")
+        NSLog("Lumeshot launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"))")
 
         handleCLIArguments()
     }
@@ -1486,7 +1486,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(menuItem("Open Captures Folder", #selector(openCapturesFolder)))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit ShareX for Mac",
+        menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
         return menu
@@ -1510,7 +1510,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSWorkspace.shared.open(URL(fileURLWithPath: path, isDirectory: true))
     }
 
-    /// Debug/e2e hook: `open -n "ShareX for Mac.app" --args --capture fullscreen`
+    /// Debug/e2e hook: `open -n "Lumeshot.app" --args --capture fullscreen`
     /// captures and exits, so the flow is verifiable over ssh.
     private func handleCLIArguments() {
         let args = CommandLine.arguments
@@ -1547,10 +1547,10 @@ Then ask the user to, on the Mac: click the menu-bar camera icon → **Capture F
 
 - [ ] **Step 5: Verify fullscreen e2e over ssh**
 
-Run: `scripts/remote.sh ssh 'rm -rf ~/Pictures/ShareX && open -n "dist/ShareX for Mac.app" --args --capture fullscreen && sleep 6 && ls ~/Pictures/ShareX/'`
+Run: `scripts/remote.sh ssh 'open -n "dist/Lumeshot.app" --args --capture fullscreen && sleep 6 && ls ~/Pictures/Lumeshot/'`
 Expected: at least one `Screenshot_2026-*.png` listed.
 
-Run: `scripts/remote.sh ssh 'file ~/Pictures/ShareX/*.png'`
+Run: `scripts/remote.sh ssh 'file ~/Pictures/Lumeshot/*.png'`
 Expected: `PNG image data` with the Mac's pixel dimensions (e.g. `5120 x 2880`).
 
 - [ ] **Step 6: Commit**
@@ -1889,7 +1889,7 @@ Expected: build succeeds, all tests pass.
 - [ ] **Step 8: Manual smoke (needs the user at the Mac)**
 
 Run: `scripts/remote.sh run`
-Ask the user to press **⌥⇧4** on the Mac and verify: frozen dimmed screen; crosshair + loupe + coordinate label follow the mouse; drag shows undimmed selection with pixel dimensions; release saves + copies + notifies; **Esc** cancels cleanly; multi-display shows the overlay on every screen. Then confirm the file: `scripts/remote.sh ssh 'ls -t ~/Pictures/ShareX | head -3'`.
+Ask the user to press **⌥⇧4** on the Mac and verify: frozen dimmed screen; crosshair + loupe + coordinate label follow the mouse; drag shows undimmed selection with pixel dimensions; release saves + copies + notifies; **Esc** cancels cleanly; multi-display shows the overlay on every screen. Then confirm the file: `scripts/remote.sh ssh 'ls -t ~/Pictures/Lumeshot | head -3'`.
 
 - [ ] **Step 9: Commit**
 
@@ -1938,7 +1938,7 @@ private func candidate(id: UInt32 = 1, title: String? = "Doc", app: String? = "S
 
     @Test func dropsOwnAppMenuBarLayersOffscreenAndTiny() {
         let windows = [
-            candidate(id: 1, bundle: "org.sharexmac.app"),                     // own app
+            candidate(id: 1, bundle: "org.lumeshot.app"),                     // own app
             candidate(id: 2, layer: 25),                                       // status bar layer
             candidate(id: 3, onScreen: false),                                 // hidden
             candidate(id: 4, frame: CGRect(x: 0, y: 0, width: 30, height: 20)),// tiny
@@ -1946,7 +1946,7 @@ private func candidate(id: UInt32 = 1, title: String? = "Doc", app: String? = "S
             candidate(id: 6),                                                  // keeper
         ]
         let result = WindowFilter.selectable(from: windows,
-                                             excludingBundleID: "org.sharexmac.app")
+                                             excludingBundleID: "org.lumeshot.app")
         #expect(result.map(\.windowID) == [6])
     }
 
@@ -2287,26 +2287,26 @@ jobs:
 - [ ] **Step 2: Write `docs/porting-map.md`**
 
 ```markdown
-# Porting map — Swift type → ShareX reference
+# Porting map — Swift type → upstream reference
 
-The ShareX repo (`~/git/sharex`, read-only) is the behavioral spec. When
+The upstream repo (`<reference-checkout>`, read-only) is the behavioral spec. When
 behavior is unclear, read the reference class before inventing semantics.
-The repowise MCP index and `sharex-audit-digest.txt` in that repo locate
+The repowise MCP index and `portability-audit.txt` in that repo locate
 things fast.
 
-| Swift (this repo) | ShareX reference | Notes |
+| Swift (this repo) | upstream reference | Notes |
 |---|---|---|
-| `SXCore/AppSettings` | `ShareX/ApplicationConfig.cs`, `TaskSettings.cs` | Tiny M1 subset; grows per milestone |
-| `SXCore/SettingsStore` | `ShareX.HelpersLib` `SettingsBase.cs` | Corrupt-file backup replaces ShareX's silent error swallowing |
-| `SXCore/NameParser` | `ShareX.HelpersLib` `NameParser.cs` | M1 tokens: %y %mo %d %h %mi %s %ms %rn %ra %width %height %pn %i. `%n` intentionally omitted — verify ShareX semantics before adding in M2 |
-| `SXCore/AfterCapturePipeline` | `ShareX` `WorkerTask.cs`, `AfterCaptureTasks` enum | M1 chain: save → clipboard → notify; upload chain lands in M2 |
-| `SXCapture/DisplayCapture` | `ShareX.ScreenCaptureLib` `Screenshot.cs` | GDI BitBlt → SCScreenshotManager |
-| `SXCapture/WindowCapture`/`WindowFilter` | `ShareX.ScreenCaptureLib` `WindowsList.cs`, `Screenshot_Window.cs` | EnumWindows → SCShareableContent |
-| `SXCapture/CaptureGeometry` | `ShareX.ScreenCaptureLib` `CaptureHelpers.cs` | |
-| `SXApp/RegionOverlay` | `ShareX.ScreenCaptureLib` `RegionCaptureForm.cs` | Freeze-frame model; single-display selection in M1 |
-| `SXApp/HotkeyManager` | `ShareX.HelpersLib` `HotkeyManager.cs` | RegisterHotKey → Carbon RegisterEventHotKey |
+| `SXCore/AppSettings` | `ApplicationConfig.cs`, `TaskSettings.cs` | Tiny M1 subset; grows per milestone |
+| `SXCore/SettingsStore` | `HelpersLib` `SettingsBase.cs` | Corrupt-file backup replaces upstream's silent error swallowing |
+| `SXCore/NameParser` | `HelpersLib` `NameParser.cs` | M1 tokens: %y %mo %d %h %mi %s %ms %rn %ra %width %height %pn %i. `%n` intentionally omitted — verify upstream semantics before adding in M2 |
+| `SXCore/AfterCapturePipeline` | `upstream` `WorkerTask.cs`, `AfterCaptureTasks` enum | M1 chain: save → clipboard → notify; upload chain lands in M2 |
+| `SXCapture/DisplayCapture` | `ScreenCaptureLib` `Screenshot.cs` | GDI BitBlt → SCScreenshotManager |
+| `SXCapture/WindowCapture`/`WindowFilter` | `ScreenCaptureLib` `WindowsList.cs`, `Screenshot_Window.cs` | EnumWindows → SCShareableContent |
+| `SXCapture/CaptureGeometry` | `ScreenCaptureLib` `CaptureHelpers.cs` | |
+| `SXApp/RegionOverlay` | `ScreenCaptureLib` `RegionCaptureForm.cs` | Freeze-frame model; single-display selection in M1 |
+| `SXApp/HotkeyManager` | `HelpersLib` `HotkeyManager.cs` | RegisterHotKey → Carbon RegisterEventHotKey |
 | `SXApp/PermissionOnboardingController` | (none — macOS TCC concept) | |
-| `SXApp/AppPipelineEffects` | `ShareX` `ClipboardHelpers.cs`, toast notifications | |
+| `SXApp/AppPipelineEffects` | `upstream` `ClipboardHelpers.cs`, toast notifications | |
 ```
 
 - [ ] **Step 3: Write `docs/smoke-m1.md`**
@@ -2318,7 +2318,7 @@ Run on the Mac after `scripts/remote.sh run`. All boxes must pass to call M1 don
 
 - [ ] Menu-bar camera icon appears; menu lists Region / Window / Full Screen / Open Captures Folder / Quit
 - [ ] First capture attempt without permission shows onboarding; System Settings deep-link works; Relaunch works
-- [ ] ⌥⇧3 captures all displays → one PNG per display in ~/Pictures/ShareX, image on clipboard (⌘V into Preview), notification appears
+- [ ] ⌥⇧3 captures all displays → one PNG per display in ~/Pictures/Lumeshot, image on clipboard (⌘V into Preview), notification appears
 - [ ] Notification click reveals the file in Finder
 - [ ] ⌥⇧4 shows frozen dimmed overlay: crosshair, loupe with pixel coordinates, drag shows live px dimensions, release saves+copies+notifies
 - [ ] ⌥⇧4 then Esc cancels; no file written, overlays gone
@@ -2332,11 +2332,11 @@ Run on the Mac after `scripts/remote.sh run`. All boxes must pass to call M1 don
 
 Replace:
 ```markdown
-**Status:** design phase. See [`docs/superpowers/specs/2026-07-10-sharex-mac-design.md`](docs/superpowers/specs/2026-07-10-sharex-mac-design.md).
+**Status:** design phase. See [`docs/superpowers/specs/2026-07-10-lumeshot-design.md`](docs/superpowers/specs/2026-07-10-lumeshot-design.md).
 ```
 with:
 ```markdown
-**Status:** M1 (capture core) — menu-bar app with fullscreen/region/window capture, global hotkeys, clipboard + disk + notifications. Design: [`docs/superpowers/specs/2026-07-10-sharex-mac-design.md`](docs/superpowers/specs/2026-07-10-sharex-mac-design.md) · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
+**Status:** M1 (capture core) — menu-bar app with fullscreen/region/window capture, global hotkeys, clipboard + disk + notifications. Design: [`docs/superpowers/specs/2026-07-10-lumeshot-design.md`](docs/superpowers/specs/2026-07-10-lumeshot-design.md) · Build: `scripts/remote.sh build` (see spec §4 for the SSH dev loop).
 ```
 
 - [ ] **Step 5: Full test run + commit**
@@ -2350,10 +2350,10 @@ git add -A && git commit -m "Add CI workflow, porting map, and M1 smoke checklis
 
 - [ ] **Step 6: Publish gate (requires user confirmation)**
 
-Ask the user: "Ready to publish sharex-mac publicly on GitHub?" If yes:
+Ask the user: "Ready to publish lumeshot publicly on GitHub?" If yes:
 
 ```bash
-gh repo create sharex-mac --public --source /home/bseitz/git/sharex-mac --push
+gh repo create lumeshot --public --source /home/bseitz/git/lumeshot --push
 ```
 
 Expected: repo URL printed; CI goes green on the first push. If the user declines or `gh` is unauthenticated, skip — publishing is not an M1 exit criterion.

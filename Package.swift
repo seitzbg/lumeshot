@@ -34,5 +34,6 @@ let package = Package(
         .testTarget(name: "LumeshotAnnotateTests", dependencies: ["LumeshotAnnotate"],
                     resources: [.copy("Fixtures")]),
         .testTarget(name: "LumeshotRecordTests", dependencies: ["LumeshotRecord"]),
+        .testTarget(name: "LumeshotAppTests", dependencies: ["LumeshotApp"]),
     ]
 )

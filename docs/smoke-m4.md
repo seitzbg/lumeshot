@@ -1,6 +1,6 @@
 # M4 manual smoke checklist (recording)
 
-Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/ShareX-Mac.log`
+Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumeshot.log`
 (same log the M1/M2a checklists use — tail it while exercising this list). All boxes must
 pass to call M4 done; Task 15 (optional ffmpeg palettegen branch) is skippable and does not
 block this checklist.
@@ -18,7 +18,7 @@ block this checklist.
         `startCapture()` — do not silently work around it elsewhere.
 - [ ] **Stop via menu:** Click the menu-bar icon → **Stop Recording**. Confirm the icon
       returns to the camera glyph, the elapsed label clears, and (if **Save to disk** is on) an
-      `.mp4` lands in `~/Pictures/ShareX` with a filename matching the configured template.
+      `.mp4` lands in `~/Pictures/Lumeshot` with a filename matching the configured template.
 - [ ] **Stop via hotkey (record hotkey toggle):** Start a region recording (⌥⇧6), then press
       ⌥⇧6 again to stop. Confirm it stops (not a second recording starting).
 - [ ] **Window recording:** Start Recording ▸ Window; the picker overlay behaves like window
@@ -33,7 +33,7 @@ block this checklist.
       `recording.systemAudio`). Record with it on while audio is playing; confirm the mp4 has
       an audio track. Confirm no microphone permission prompt ever appears (system audio rides
       the existing Screen Recording TCC grant — no new entitlement was added in Task 14).
-- [ ] **Codec setting:** Hand-edit `~/Library/Application Support/ShareX-Mac/settings.json`'s
+- [ ] **Codec setting:** Hand-edit `~/Library/Application Support/Lumeshot/settings.json`'s
       `recording.videoCodec` to `"hevc"`, relaunch, record a clip; confirm the output plays
       (HEVC) and `ffprobe`/QuickTime report the expected codec. Set back to `"h264"` (the
       default) afterward.

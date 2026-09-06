@@ -79,7 +79,7 @@ Recommendation: implement `encode(to:)` so an intentional nil is represented dis
 
 ### M4. Valid response-only `.sxcu` configurations fail with `emptyURL`
 
-`CustomUploaderEngine.parseResult` only succeeds if `config.url` exists and resolves nonempty ([`CustomUploaderEngine.swift:45-57`](Sources/LumeshotCore/Upload/CustomUploaderEngine.swift#L45-L57)). ShareX's custom-uploader documentation explicitly permits leaving URL empty when the response body is already the full URL. Such configurations are therefore valid ShareX files but fail in Lumeshot, despite the advertised `.sxcu` compatibility. See the [official ShareX custom-uploader documentation](https://github.com/ShareX/sharex.github.io/blob/master/docs/custom-uploader.md#url).
+`CustomUploaderEngine.parseResult` only succeeds if `config.url` exists and resolves nonempty ([`CustomUploaderEngine.swift:45-57`](Sources/LumeshotCore/Upload/CustomUploaderEngine.swift#L45-L57)). The `.sxcu` format explicitly permits leaving URL empty when the response body is already the full URL. Such configurations are therefore valid `.sxcu` files but fail in Lumeshot, despite the advertised `.sxcu` compatibility.
 
 Recommendation: when the URL template is absent/empty, use the trimmed response body as the result URL, then validate its scheme/structure. Add fixtures for response-only uploaders and for whitespace-only/invalid responses.
 

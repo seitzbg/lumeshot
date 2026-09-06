@@ -1,7 +1,7 @@
 # M1 manual smoke checklist
 
 Run on the Mac after `scripts/remote.sh run`. All boxes must pass to call M1
-done. If a step behaves unexpectedly, check `~/Library/Logs/ShareX-Mac.log`
+done. If a step behaves unexpectedly, check `~/Library/Logs/Lumeshot.log`
 first — the app tees every capture-path log line there (as well as to the
 unified log via `NSLog`) specifically because a menu-bar app launched from
 Finder has no visible stderr; `tail -f` it on the Mac while exercising this
@@ -9,7 +9,7 @@ checklist.
 
 - [ ] Menu-bar camera icon (`camera.viewfinder`) appears; menu lists Capture Region / Capture Window / Capture Full Screen / Open Captures Folder / Quit Lumeshot
 - [ ] First capture attempt without permission shows the onboarding window (Screen Recording explanation, "Open System Settings", "Relaunch"); System Settings deep-link opens Privacy & Security → Screen Recording; Relaunch quits and relaunches the app
-- [ ] ⌥⇧3 (fullscreen) captures all displays → one PNG per display in `~/Pictures/ShareX`, image on clipboard (⌘V into Preview — on multi-display, the last display captured wins the clipboard), notification appears per display
+- [ ] ⌥⇧3 (fullscreen) captures all displays → one PNG per display in `~/Pictures/Lumeshot`, image on clipboard (⌘V into Preview — on multi-display, the last display captured wins the clipboard), notification appears per display
 - [ ] Notification click reveals the corresponding file in Finder
 - [ ] ⌥⇧4 (region) shows a frozen, dimmed overlay: crosshair follows the cursor, an 8x loupe shows pixel coordinates, dragging shows live selection dimensions in px and un-dims the selected area; release saves+copies+notifies. The ~1s pause between hotkey press and the overlay appearing is the display freeze-capture completing — expected, not a bug
 - [ ] ⌥⇧4 then Esc cancels; no file written, overlay gone. A stray click (< 4px drag) does *not* dismiss the overlay — only Esc cancels

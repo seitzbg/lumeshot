@@ -18,7 +18,7 @@ private func candidate(id: UInt32 = 1, title: String? = "Doc", app: String? = "S
 
     @Test func dropsOwnAppMenuBarLayersOffscreenAndTiny() {
         let windows = [
-            candidate(id: 1, bundle: "org.sharexmac.app"),                     // own app
+            candidate(id: 1, bundle: "org.lumeshot.app"),                     // own app
             candidate(id: 2, layer: 25),                                       // status bar layer
             candidate(id: 3, onScreen: false),                                 // hidden
             candidate(id: 4, frame: CGRect(x: 0, y: 0, width: 30, height: 20)),// tiny
@@ -26,7 +26,7 @@ private func candidate(id: UInt32 = 1, title: String? = "Doc", app: String? = "S
             candidate(id: 6),                                                  // keeper
         ]
         let result = WindowFilter.selectable(from: windows,
-                                             excludingBundleID: "org.sharexmac.app")
+                                             excludingBundleID: "org.lumeshot.app")
         #expect(result.map(\.windowID) == [6])
     }
 

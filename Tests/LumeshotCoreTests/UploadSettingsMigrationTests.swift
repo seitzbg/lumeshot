@@ -20,7 +20,7 @@ private func tempFile() -> URL {
                                                 withIntermediateDirectories: true)
         // A settings.json written by M1 (schemaVersion 1, no `upload`).
         let v1 = """
-        {"schemaVersion":1,"captureSavePath":"~/Pictures/ShareX",
+        {"schemaVersion":1,"captureSavePath":"~/Pictures/Lumeshot",
          "filenameTemplate":"Screenshot_%y","saveToDisk":true,"copyToClipboard":true,
          "showNotification":true,
          "hotkeys":{"fullscreen":{"keyCode":20,"modifiers":2560},
@@ -31,7 +31,7 @@ private func tempFile() -> URL {
         let (settings, issue) = SettingsStore(fileURL: url).loadOrDefault()
         #expect(issue == nil)                              // migration is not an error
         #expect(settings.schemaVersion == 2)
-        #expect(settings.captureSavePath == "~/Pictures/ShareX")   // preserved
+        #expect(settings.captureSavePath == "~/Pictures/Lumeshot")   // preserved
         #expect(settings.upload == UploadSettings.disabled)        // injected
     }
 
@@ -66,26 +66,15 @@ private func tempFile() -> URL {
     }
 }
 
-@Suite struct AfterUploadClipboardTests {
-    /// The key did not exist before; every settings.json in the wild lacks it.
-    /// A decode failure here would reset the user's destinations to nothing.
-    @Test func legacyJSONWithoutTheKeyDecodesToURL() throws {
-        let json = #"{"uploadAfterCapture":true,"activeDestinationID":"d1","destinations":[]}"#
-        let s = try JSONDecoder().decode(UploadSettings.self, from: Data(json.utf8))
-        #expect(s.afterUploadClipboard == .url)
-        #expect(s.uploadAfterCapture == true)
-        #expect(s.activeDestinationID == "d1")
-    }
-
-    @Test func imageChoiceRoundTrips() throws {
-        let s = UploadSettings(uploadAfterCapture: true, activeDestinationID: nil,
-                               destinations: [], afterUploadClipboard: .image)
-        let decoded = try JSONDecoder().decode(UploadSettings.self, from: JSONEncoder().encode(s))
-        #expect(decoded == s)
-        #expect(decoded.afterUploadClipboard == .image)
-    }
-
-    @Test func defaultPreservesTheOldBehavior() {
-        #expect(UploadSettings.disabled.afterUploadClipboard == .url)
+@Suite struct UploadClipboardSettingsTests {
+    @Test func obsoleteClipboardChoiceIsIgnoredWithoutLosingDestinations() throws {
+        let json = #"{"uploadAfterCapture":true,"activeDestinationID":"d1","destinations":[{"id":"d1","name":"Test","kind":"imgur","imgurClientID":"cid"}],"afterUploadClipboard":"image"}"#
+        let settings = try JSONDecoder().decode(UploadSettings.self, from: Data(json.utf8))
+        #expect(settings.uploadAfterCapture)
+        #expect(settings.activeDestination?.name == "Test")
+        let encoded = try JSONEncoder().encode(settings)
+        let object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        #expect(object["afterUploadClipboard"] == nil)
+        #expect(try JSONDecoder().decode(UploadSettings.self, from: encoded) == settings)
     }
 }

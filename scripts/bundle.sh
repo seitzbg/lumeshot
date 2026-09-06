@@ -10,7 +10,7 @@ ENTITLEMENTS="Resources/Lumeshot.entitlements"
 #
 #   1. $CODESIGN_ID              — explicit override (CI passes the imported
 #                                  Developer ID hash here).
-#   2. the dev signing keychain  — the self-signed `sharex-mac-dev` identity
+#   2. the dev signing keychain  — the self-signed `lumeshot-dev` identity
 #                                  from scripts/setup-signing.sh.
 #   3. ad-hoc ("-")              — last resort.
 #
@@ -21,8 +21,8 @@ ENTITLEMENTS="Resources/Lumeshot.entitlements"
 # non-interactive ssh sessions ("User interaction is not allowed") and codesign
 # can't reach its keys. Sign by SHA-1 hash, not name, to avoid ambiguity with
 # any same-named cert in other keychains.
-SIGN_KC="$HOME/Library/Keychains/sharex-signing.keychain-db"
-SIGN_PW_FILE="$HOME/.config/sharex-mac/signing.pw"
+SIGN_KC="$HOME/Library/Keychains/lumeshot-signing.keychain-db"
+SIGN_PW_FILE="$HOME/.config/lumeshot/signing.pw"
 CODESIGN_ID="${CODESIGN_ID:-}"
 SIGN_KC_ARGS=()
 
@@ -58,7 +58,7 @@ sed "s/@VERSION@/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 # restrictions the shipped app will run under instead of discovering a library
 # validation failure at notarization time.
 codesign --force --sign "$CODESIGN_ID" \
-    --identifier org.sharexmac.app \
+    --identifier org.lumeshot.app \
     --options runtime \
     --entitlements "$ENTITLEMENTS" \
     "${TIMESTAMP_ARG[@]}" \

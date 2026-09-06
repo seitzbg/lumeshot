@@ -64,11 +64,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         handleCLIArguments()
     }
 
-    /// A menu-bar-only app hides the menu bar, but AppKit still routes ⌘X/⌘C/⌘V/
-    /// ⌘A/⌘Z through `NSApp.mainMenu`'s Edit items. Without one, every text
-    /// field in Preferences is paste-dead — which made entering an API key a
-    /// character-at-a-time exercise. The menu is never drawn (LSUIElement); it
-    /// exists purely so the key equivalents resolve to the first responder.
+    /// Settings temporarily gives the app a Dock icon and a visible main menu.
+    /// The Edit menu also routes text shortcuts while running as an accessory.
     ///
     /// No Quit item on purpose: ⌘Q from a focused Preferences window would kill
     /// the whole app, and the status-bar menu already offers Quit deliberately.
@@ -76,7 +73,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let main = NSMenu()
 
         let appItem = NSMenuItem()
-        appItem.submenu = NSMenu(title: "Lumeshot")
+        let appMenu = NSMenu(title: "Lumeshot")
+        let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(showPreferences),
+                                      keyEquivalent: ",")
+        settings.target = self
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Hide Lumeshot", action: #selector(NSApplication.hide(_:)),
+                        keyEquivalent: "h")
+        let hideOthers = appMenu.addItem(withTitle: "Hide Others",
+                                        action: #selector(NSApplication.hideOtherApplications(_:)),
+                                        keyEquivalent: "h")
+        hideOthers.keyEquivalentModifierMask = [.command, .option]
+        appMenu.addItem(withTitle: "Show All", action: #selector(NSApplication.unhideAllApplications(_:)),
+                        keyEquivalent: "")
+        appItem.submenu = appMenu
         main.addItem(appItem)
 
         let fileItem = NSMenuItem()
@@ -102,6 +112,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         main.addItem(editItem)
 
         NSApp.mainMenu = main
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        // A Dock click should recover Settings even when it was minimized or hidden.
+        guard preferencesWindow?.isOpen == true else { return true }
+        preferencesWindow?.show()
+        return false
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -364,8 +381,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let credentials = KeychainCredentialStore()
             let destination = try SxcuImporter.makeDestination(
                 from: data, id: id, credentials: credentials)
-            settings.upload.destinations.append(destination)
-            settings.upload.activeDestinationID = id      // make the freshly imported one active
+            settings.upload = settings.upload.addingOrUpdating(destination)
             do {
                 try store.save(settings)
             } catch {
@@ -378,7 +394,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             AppLog.log("Imported .sxcu destination '\(destination.name)' (id \(id))")
             effects.notify(title: "Uploader imported",
-                           body: "\(destination.name) is now the active destination.",
+                           body: settings.upload.activeDestinationID == id
+                               ? "\(destination.name) is now the active uploader."
+                               : "\(destination.name) was added. Select the active uploader in Preferences → Uploads.",
                            fileURL: nil)
             rebuildMenu()
         } catch {
@@ -390,7 +408,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func toggleUploadAfterCapture() {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
         var (settings, _) = store.loadOrDefault()
-        settings.upload.uploadAfterCapture.toggle()
+        if !settings.upload.uploadAfterCapture && settings.upload.activeDestination == nil {
+            effects.notify(title: "Choose an active uploader",
+                           body: "Add and select an uploader in Preferences → Uploads first.", fileURL: nil)
+            return
+        }
+        settings.upload = settings.upload.settingUploadAfterCapture(!settings.upload.uploadAfterCapture)
         do {
             try store.save(settings)
             AppLog.log("Upload after capture: \(settings.upload.uploadAfterCapture)")

@@ -3,7 +3,7 @@ import Foundation
 /// Which URL a Picsur upload copies to the clipboard.
 public enum PicsurLinkStyle: String, Codable, Sendable, CaseIterable {
     /// `<host>/i/<id>.<format>` — a direct image URL that embeds inline in
-    /// Slack/Discord/GitHub. This is what Picsur's own ShareX generator emits.
+    /// Slack/Discord/GitHub. This is what Picsur's own custom-uploader generator emits.
     case directImage
     /// `<host>/view/<id>` — the Picsur web viewer page.
     case viewerPage
@@ -72,7 +72,7 @@ public struct PicsurConfig: Codable, Equatable, Sendable {
 
     // MARK: - URL construction
     //
-    // These mirror Picsur's own ShareX generator (frontend/.../sharex-builder.ts),
+    // These mirror Picsur's own custom-uploader generator,
     // so a native Picsur destination and an imported Picsur .sxcu agree.
 
     public var uploadURL: String { "\(host)/api/image/upload" }

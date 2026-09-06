@@ -2,6 +2,8 @@ import Foundation
 
 @MainActor
 public protocol PipelineEffects {
+    /// Changes whenever any app replaces the clipboard contents.
+    var clipboardChangeCount: Int { get }
     func fileExists(at url: URL) -> Bool
     func writeFile(_ data: Data, to url: URL) throws
     func copyImageToClipboard(_ pngData: Data)
@@ -48,14 +50,13 @@ public struct AfterCapturePipeline {
             try effects.writeFile(artifact.pngData, to: url)   // disk first: local-first invariant
             savedURL = url
         }
-        if settings.copyToClipboard {
-            effects.copyImageToClipboard(artifact.pngData)
-        }
+        // Keep the image available until a successful upload replaces it with its URL.
+        effects.copyImageToClipboard(artifact.pngData)
         if settings.showNotification {
             let what = savedURL?.lastPathComponent ?? "\(artifact.width)×\(artifact.height) capture"
             effects.notify(title: "Capture complete", body: what, fileURL: savedURL)
         }
-        return PipelineResult(savedURL: savedURL, copiedToClipboard: settings.copyToClipboard)
+        return PipelineResult(savedURL: savedURL, copiedToClipboard: true)
     }
 
     private func resolveCollisions(in dir: URL, artifact: CaptureArtifact) -> URL {

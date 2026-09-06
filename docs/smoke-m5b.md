@@ -1,7 +1,7 @@
 # M5b manual smoke checklist (release dmg + robustness/UI polish)
 
 Run on the Mac after `scripts/remote.sh run` (for the UI items) and via `scripts/remote.sh ssh`
-(for the dmg packaging item). Diagnostics: `~/Library/Logs/ShareX-Mac.log`. B1 (atomic Keychain
+(for the dmg packaging item). Diagnostics: `~/Library/Logs/Lumeshot.log`. B1 (atomic Keychain
 store), B2 (FTP stall abort), and B3 (recorder re-entrancy guard) are covered by their
 SXCoreTests/SXRecordTests unit tests plus the existing SFTP/FTP live-upload smoke in
 `docs/smoke-m5a.md` — not re-verified here.

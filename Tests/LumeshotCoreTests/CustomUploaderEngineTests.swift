@@ -100,7 +100,7 @@ private let png = FilePart(fieldName: "IGNORED", filename: "shot.png",
     }
 
     @Test func absentURLTemplateUsesTheResponseBody() throws {
-        // ShareX permits an empty URL: the body is already the link.
+        // Lumeshot permits an empty URL: the body is already the link.
         #expect(try parse(url: nil, body: "https://i.example.net/a.png").url
                 == "https://i.example.net/a.png")
     }

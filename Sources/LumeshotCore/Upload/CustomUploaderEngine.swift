@@ -72,7 +72,7 @@ public enum CustomUploaderEngine {
             let value = ResponseURLParser.resolve(template, context: context)
             return value.isEmpty ? nil : value
         }
-        // ShareX documents an absent/empty URL template as "the response body is
+        // An absent/empty .sxcu URL template means "the response body is
         // already the URL", so a response-only uploader is a valid .sxcu. Fall
         // back to the trimmed body, but only when it really parses as an http(s)
         // URL -- otherwise an HTML error page would be copied to the clipboard.

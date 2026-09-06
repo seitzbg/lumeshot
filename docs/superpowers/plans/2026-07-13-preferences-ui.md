@@ -10,17 +10,17 @@
 
 ## Global Constraints
 
-*Every task's requirements implicitly include this section. Values are copied verbatim from the ratified architecture contract (`/tmp/prefs-contract.md`) and cross-checked live against `/home/bseitz/git/sharex-mac` @ branch `preferences-ui` (exploration report: `.superpowers/sdd/prefs-exploration.md`).*
+*Every task's requirements implicitly include this section. Values are copied verbatim from the ratified architecture contract (`/tmp/prefs-contract.md`) and cross-checked live against `/home/bseitz/git/lumeshot` @ branch `preferences-ui` (exploration report: `.superpowers/sdd/prefs-exploration.md`).*
 
 - Swift 6.0 strict concurrency is the CI gate. All UI is `@MainActor`. No settings-schema bump — every field this plan exposes already exists in `AppSettings`/`HotkeySettings`/`RecordingSettings`/`UploadSettings`; this is additive UI only.
 - Secrets stay in the Keychain. The Uploads tab reuses `DestinationsModel`'s existing Keychain-first add/remove/purge flow (`Sources/SXApp/DestinationsView.swift`) completely unchanged — do not move a secret into `settings.json` or regress the invariant.
 - Local-first/fail-loud unchanged. No AI-attribution anywhere (commits, docs, comments). No emoji beyond UI glyphs (SF Symbols in `Label(...)`/`Image(systemName:)` are fine; they are not text emoji).
-- Reuse existing patterns; do not rename `SX*` targets or touch the bundle ID `org.sharexmac.app` (`Resources/Info.plist`: `CFBundleExecutable SXApp`, `CFBundleIdentifier org.sharexmac.app`, `CFBundleName`/`CFBundleDisplayName` `Lumeshot`).
+- Reuse existing patterns; do not rename `SX*` targets or touch the bundle ID `org.lumeshot.app` (`Resources/Info.plist`: `CFBundleExecutable SXApp`, `CFBundleIdentifier org.lumeshot.app`, `CFBundleName`/`CFBundleDisplayName` `Lumeshot`).
 - **NO `SXAppTests` target** (established precedent — see `Package.swift`: `SXApp` is `.executableTarget(name: "SXApp", ...)` with `Sources/SXApp/main.swift`, which a test target cannot `@testable import`). Tasks 1–5 and 7 (all in `SXApp`) are therefore **build-only + Mac smoke**: their steps run `scripts/remote.sh build` then `scripts/remote.sh test` (the full existing suite — no new tests, no `Tests/SXAppTests/` files, no invented UI unit tests) plus a smoke note pointing at `docs/smoke-prefs.md` (written in Task 8). The **only** CI-unit-tested task is **Task 6** (`Sources/SXCore/HotkeyFormatting.swift` / `Tests/SXCoreTests/HotkeyFormattingTests.swift`).
 - **Build/test loop (`scripts/remote.sh`, verified live):** `build` → `ssh $MAC_HOST "cd $MAC_DIR && swift build"`; `test` → `... && swift test`; `run` → release build + `scripts/bundle.sh` + relaunch `dist/Lumeshot.app`; `ssh '<cmd>'` runs an arbitrary command in the synced tree. `build`/`test` do not bundle or relaunch the app.
 - **Current-state facts (ground truth, verified live):**
-  - `SettingsStore` (`Sources/SXCore/SettingsStore.swift`) is a plain `struct SettingsStore: Sendable { public let fileURL: URL }` — no cached in-memory `AppSettings`, no `ObservableObject`. `loadOrDefault() -> (AppSettings, SettingsLoadIssue?)` and `save(_ settings: AppSettings) throws` (JSON, `[.prettyPrinted, .sortedKeys]`, atomic write). `SettingsStore.defaultFileURL` = `~/Library/Application Support/ShareX-Mac/settings.json`.
-  - `AppSettings.default` (`Sources/SXCore/AppSettings.swift:103-119`): `hotkeys: HotkeySettings(fullscreen: HotkeyCombo(keyCode: 20, modifiers: 2560), region: HotkeyCombo(keyCode: 21, modifiers: 2560), window: HotkeyCombo(keyCode: 23, modifiers: 2560), record: HotkeyCombo(keyCode: 22, modifiers: 2560))` — Carbon `optionKey(2048) | shiftKey(512) = 2560`; `kVK_ANSI_3=20, _4=21, _5=23, _6=22` (comment already in source). `captureSavePath = "~/Pictures/ShareX"`, `filenameTemplate = "Screenshot_%y-%mo-%d_%h-%mi-%s"`, `saveToDisk/copyToClipboard/showNotification = true`.
+  - `SettingsStore` (`Sources/SXCore/SettingsStore.swift`) is a plain `struct SettingsStore: Sendable { public let fileURL: URL }` — no cached in-memory `AppSettings`, no `ObservableObject`. `loadOrDefault() -> (AppSettings, SettingsLoadIssue?)` and `save(_ settings: AppSettings) throws` (JSON, `[.prettyPrinted, .sortedKeys]`, atomic write). `SettingsStore.defaultFileURL` = `~/Library/Application Support/Lumeshot/settings.json`.
+  - `AppSettings.default` (`Sources/SXCore/AppSettings.swift:103-119`): `hotkeys: HotkeySettings(fullscreen: HotkeyCombo(keyCode: 20, modifiers: 2560), region: HotkeyCombo(keyCode: 21, modifiers: 2560), window: HotkeyCombo(keyCode: 23, modifiers: 2560), record: HotkeyCombo(keyCode: 22, modifiers: 2560))` — Carbon `optionKey(2048) | shiftKey(512) = 2560`; `kVK_ANSI_3=20, _4=21, _5=23, _6=22` (comment already in source). `captureSavePath = "~/Pictures/Lumeshot"`, `filenameTemplate = "Screenshot_%y-%mo-%d_%h-%mi-%s"`, `saveToDisk/copyToClipboard/showNotification = true`.
   - `RecordingSettings` (`Sources/SXCore/RecordingSettings.swift`): `systemAudio: Bool = false`, `videoCodec: VideoCodec = .h264` (`enum VideoCodec: String, Codable, Equatable, Sendable { case h264, hevc }` — **not** `Hashable`), `gifFPS: Int = 15`, `gifMaxWidth: Int? = 640`.
   - `UploadSettings` (`Sources/SXCore/Upload/UploadSettings.swift`): `uploadAfterCapture: Bool`, `activeDestinationID: String?`, `destinations: [UploadDestination]`.
   - `DestinationsModel` (`Sources/SXApp/DestinationsView.swift:5-150`): `@MainActor final class: ObservableObject { @Published var settings: UploadSettings }`, `init(store: SettingsStore, credentials: CredentialStore, onChange: @escaping () -> Void)`, private `persist(_ mutate: (inout AppSettings) -> Void) -> Bool` (load-mutate-save-refresh-notify), `reloadFromDisk()`.
@@ -409,7 +409,7 @@ Expected: `Build complete!`
 Run: `scripts/remote.sh test`
 Expected: PASS — every pre-existing suite unchanged. `SettingsStore`'s own round-trip/persistence behavior is already covered by `Tests/SXCoreTests/SettingsStoreTests.swift`; this task adds no new SXCore surface.
 
-Manual smoke (deferred to Task 8): toggle each of the 4 General switches; confirm `~/Library/Application Support/ShareX-Mac/settings.json` reflects the change immediately (`cat` it over `scripts/remote.sh ssh`), and that the matching status-bar checkmark ("Upload After Capture" is unaffected; "Annotate Before Sharing" should flip) updates on the very next menu open.
+Manual smoke (deferred to Task 8): toggle each of the 4 General switches; confirm `~/Library/Application Support/Lumeshot/settings.json` reflects the change immediately (`cat` it over `scripts/remote.sh ssh`), and that the matching status-bar checkmark ("Upload After Capture" is unaffected; "Annotate Before Sharing" should flip) updates on the very next menu open.
 
 - [ ] **Step 5: Commit**
 
@@ -505,7 +505,7 @@ Expected: `Build complete!`
 Run: `scripts/remote.sh test`
 Expected: PASS — every pre-existing suite unchanged.
 
-Manual smoke (deferred to Task 8): open Capture tab, confirm the Save Folder field shows `~/Pictures/ShareX` (the default, abbreviated); click **Choose…**, pick a different folder; confirm the field updates and a capture (⌥⇧3) lands in the new folder. Edit the filename template; confirm the next capture's filename reflects it.
+Manual smoke (deferred to Task 8): open Capture tab, confirm the Save Folder field shows `~/Pictures/Lumeshot` (the default, abbreviated); click **Choose…**, pick a different folder; confirm the field updates and a capture (⌥⇧3) lands in the new folder. Edit the filename template; confirm the next capture's filename reflects it.
 
 - [ ] **Step 4: Commit**
 
@@ -1083,7 +1083,7 @@ Create `docs/smoke-prefs.md`:
 ```markdown
 # Preferences window manual smoke checklist
 
-Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/ShareX-Mac.log`.
+Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumeshot.log`.
 Covers the tabbed Preferences window (Tasks 1–5, 7) end to end; Task 6's hotkey
 formatting/mapping is covered by `Tests/SXCoreTests/HotkeyFormattingTests.swift`, not
 re-verified here.
@@ -1097,7 +1097,7 @@ re-verified here.
       to Disk, Copy to Clipboard, Show Notification, Annotate Before Sharing). Confirm
       `settings.json` reflects each change immediately and the "Annotate Before Sharing"
       status-bar checkmark follows the last one.
-- [ ] **Capture tab (Task 3):** Confirm the Save Folder field shows `~/Pictures/ShareX`
+- [ ] **Capture tab (Task 3):** Confirm the Save Folder field shows `~/Pictures/Lumeshot`
       abbreviated with `~`. Click **Choose…**, pick a new folder; capture (⌥⇧3) and confirm
       the file lands there. Edit the filename template; confirm the next capture's name
       matches it.

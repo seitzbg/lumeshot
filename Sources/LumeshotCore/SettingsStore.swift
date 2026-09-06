@@ -15,7 +15,7 @@ public struct SettingsStore: Sendable {
 
     public static var defaultFileURL: URL {
         FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("ShareX-Mac/settings.json")
+            .appendingPathComponent("Lumeshot/settings.json")
     }
 
     public func loadOrDefault() -> (AppSettings, SettingsLoadIssue?) {

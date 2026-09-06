@@ -57,7 +57,7 @@ public struct CustomUploaderConfig: Codable, Equatable, Sendable {
         self.version = version
     }
 
-    // ShareX .sxcu keys are PascalCase.
+    // .sxcu keys are PascalCase.
     private enum CodingKeys: String, CodingKey {
         case version = "Version"
         case name = "Name"

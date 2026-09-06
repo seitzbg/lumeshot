@@ -16,7 +16,7 @@ struct PreferencesView: View {
             HotkeysTab(model: model)
                 .tabItem { Label("Hotkeys", systemImage: "keyboard") }
                 .tag(PreferencesTab.hotkeys)
-            UploadsTab(model: model)
+            UploadsTab(model: model.destinations)
                 .tabItem { Label("Uploads", systemImage: "arrow.up.circle") }
                 .tag(PreferencesTab.uploads)
             RecordingTab(model: model)
@@ -35,10 +35,6 @@ private struct GeneralTab: View {
             Toggle("Save screenshots to disk", isOn: Binding(
                 get: { model.settings.saveToDisk },
                 set: { newValue in model.update { $0.saveToDisk = newValue } }
-            ))
-            Toggle("Copy to clipboard", isOn: Binding(
-                get: { model.settings.copyToClipboard },
-                set: { newValue in model.update { $0.copyToClipboard = newValue } }
             ))
             Toggle("Show notification", isOn: Binding(
                 get: { model.settings.showNotification },
@@ -125,28 +121,30 @@ private struct HotkeyRow: View {
 }
 
 private struct UploadsTab: View {
-    @ObservedObject var model: PreferencesModel
+    @ObservedObject var model: DestinationsModel
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             Toggle("Upload after capture", isOn: Binding(
-                get: { model.destinations.settings.uploadAfterCapture },
-                set: { newValue in model.destinations.setUploadAfterCapture(newValue) }
+                get: { model.settings.uploadAfterCapture },
+                set: { newValue in model.setUploadAfterCapture(newValue) }
             ))
+            // Older or hand-edited settings may enable upload without a valid
+            // destination. Allow turning it off, while still gating enablement.
+            .disabled(model.settings.activeDestination == nil && !model.settings.uploadAfterCapture)
             .padding([.horizontal, .top])
-            Picker("After upload, clipboard holds", selection: Binding(
-                get: { model.destinations.settings.afterUploadClipboard },
-                set: { newValue in model.destinations.setAfterUploadClipboard(newValue) }
-            )) {
-                Text("the URL").tag(AfterUploadClipboard.url)
-                Text("the image").tag(AfterUploadClipboard.image)
+            Text("Upload on: copy the uploaded image URL. Upload off: copy the image.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .padding(.horizontal)
+            if model.settings.activeDestination == nil {
+                Text("Add and select an active uploader to enable uploading.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .padding(.horizontal)
             }
-            .pickerStyle(.radioGroup)
-            .horizontalRadioGroupLayout()
-            .padding(.horizontal)
-            .disabled(!model.destinations.settings.uploadAfterCapture)
             Divider()
-            DestinationsView(model: model.destinations)
+            DestinationsView(model: model)
         }
     }
 }

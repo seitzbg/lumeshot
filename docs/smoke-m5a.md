@@ -1,6 +1,6 @@
 # M5a manual smoke checklist (SFTP + FTP uploaders)
 
-Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/ShareX-Mac.log`
+Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumeshot.log`
 (same log the M1/M2a/M4 checklists use — tail it while exercising this list). You'll need a
 real SFTP server (password auth + a key-based account) and a real FTP/FTPS server reachable
 from the Mac — a local Docker container (e.g. `atmoz/sftp`, `stilliard/pure-ftpd`) is fine.
@@ -38,15 +38,15 @@ from the Mac — a local Docker container (e.g. `atmoz/sftp`, `stilliard/pure-ft
       password; capture; confirm the local file + History row remain (`uploadFailed`), and an
       "Upload failed… Local file kept" notification appears.
 - [ ] **Secrets invariant — settings.json:** After adding one SFTP and one FTP destination,
-      inspect `~/Library/Application Support/ShareX-Mac/settings.json`. Confirm the SFTP/FTP
+      inspect `~/Library/Application Support/Lumeshot/settings.json`. Confirm the SFTP/FTP
       destination entries contain ONLY `host`/`port`/`username`/`remoteDirectory`/
       `publicURLBase`/`useTLS` — no `password`, no key material, no passphrase, anywhere in the
-      file (`grep -i "password\|BEGIN.*PRIVATE KEY\|passphrase" ~/Library/Application\ Support/ShareX-Mac/settings.json`
+      file (`grep -i "password\|BEGIN.*PRIVATE KEY\|passphrase" ~/Library/Application\ Support/Lumeshot/settings.json`
       must return nothing for these destinations).
 - [ ] **Secrets invariant — Keychain purge on remove:** Note the SFTP destination's id (visible
       via its row, or by grepping `settings.json` before removing). Remove it from
       Destinations. Confirm the Keychain items are gone:
-      `security find-generic-password -a "<id>/sftp/password" -s org.sharexmac.app` and the
+      `security find-generic-password -a "<id>/sftp/password" -s org.lumeshot.app` and the
       `/sftp/privateKey` and `/sftp/passphrase` variants all fail with "item could not be
       found" (exit non-zero). Repeat for the FTP destination's `<id>/ftp/password`.
 - [ ] **Add-sheet validation:** In both Add sheets, confirm Add stays disabled with any

@@ -48,6 +48,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
 
     // MARK: PipelineEffects
 
+    var clipboardChangeCount: Int { NSPasteboard.general.changeCount }
+
     func fileExists(at url: URL) -> Bool {
         FileManager.default.fileExists(atPath: url.path)
     }

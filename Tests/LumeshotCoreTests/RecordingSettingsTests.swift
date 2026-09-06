@@ -32,7 +32,7 @@ import Foundation
         // (not nil), otherwise upgraded users silently lose the record
         // shortcut — see HotkeySettingsTests for dedicated coverage.
         let json = """
-        {"schemaVersion":2,"captureSavePath":"~/Pictures/ShareX","filenameTemplate":"x",
+        {"schemaVersion":2,"captureSavePath":"~/Pictures/Lumeshot","filenameTemplate":"x",
          "saveToDisk":true,"copyToClipboard":true,"showNotification":true,
          "hotkeys":{"fullscreen":null,"region":null,"window":null}}
         """

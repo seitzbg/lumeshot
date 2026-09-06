@@ -65,7 +65,7 @@ final class HistoryModel: ObservableObject {
     /// holds the *only* copy of the deletion token, so removing it first made a
     /// failed deletion permanently unretryable and left the object online.
     ///
-    /// GET is correct here rather than an assumption — a ShareX `DeletionURL`
+    /// GET is correct here rather than an assumption — a custom uploader `DeletionURL`
     /// is by convention a link you can open in a browser, which is what Imgur,
     /// Picsur and custom uploaders all emit.
     ///

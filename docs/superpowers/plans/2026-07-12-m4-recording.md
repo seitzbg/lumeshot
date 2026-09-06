@@ -89,7 +89,7 @@ import Foundation
         // A settings JSON that predates the recording field (and the record
         // hotkey) must still decode — same v2-no-bump treatment as `editor`.
         let json = """
-        {"schemaVersion":2,"captureSavePath":"~/Pictures/ShareX","filenameTemplate":"x",
+        {"schemaVersion":2,"captureSavePath":"~/Pictures/Lumeshot","filenameTemplate":"x",
          "saveToDisk":true,"copyToClipboard":true,"showNotification":true,
          "hotkeys":{"fullscreen":null,"region":null,"window":null}}
         """
@@ -232,7 +232,7 @@ public struct AppSettings: Codable, Equatable, Sendable {
     // Carbon: optionKey(2048) | shiftKey(512) = 2560; kVK_ANSI_3=20, _4=21, _5=23, _6=22
     public static let `default` = AppSettings(
         schemaVersion: 2,
-        captureSavePath: "~/Pictures/ShareX",
+        captureSavePath: "~/Pictures/Lumeshot",
         filenameTemplate: "Screenshot_%y-%mo-%d_%h-%mi-%s",
         saveToDisk: true,
         copyToClipboard: true,
@@ -286,7 +286,7 @@ In `Package.swift`, replace the whole file with:
 import PackageDescription
 
 let package = Package(
-    name: "sharex-mac",
+    name: "lumeshot",
     platforms: [.macOS(.v15)],
     targets: [
         .executableTarget(name: "SXApp", dependencies: ["SXCore", "SXCapture", "SXUpload", "SXAnnotate", "SXRecord"]),
@@ -2016,7 +2016,7 @@ final class StatusItemController {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "camera.viewfinder",
-                                   accessibilityDescription: "ShareX for Mac")
+                                   accessibilityDescription: "Lumeshot")
         }
         statusItem.menu = menu
     }
@@ -2036,7 +2036,7 @@ final class StatusItemController {
                 .withSymbolConfiguration(config)
         } else {
             button.image = NSImage(systemSymbolName: "camera.viewfinder",
-                                   accessibilityDescription: "ShareX for Mac")
+                                   accessibilityDescription: "Lumeshot")
             button.title = ""
         }
     }
@@ -2106,7 +2106,7 @@ Replace `buildMenu()` (the whole method) with:
         menu.addItem(.separator())
         menu.addItem(menuItem("History…", #selector(showHistory)))
         menu.addItem(.separator())
-        menu.addItem(NSMenuItem(title: "Quit ShareX for Mac",
+        menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
         return menu
@@ -2771,20 +2771,20 @@ In `Resources/Info.plist`, add two entries to the `CFBundleDocumentTypes` array 
 
 ```xml
         <dict>
-            <key>CFBundleTypeName</key><string>ShareX Recording</string>
+            <key>CFBundleTypeName</key><string>Lumeshot Recording</string>
             <key>CFBundleTypeExtensions</key><array><string>mp4</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>
         </dict>
         <dict>
-            <key>CFBundleTypeName</key><string>ShareX Animated GIF</string>
+            <key>CFBundleTypeName</key><string>Lumeshot Animated GIF</string>
             <key>CFBundleTypeExtensions</key><array><string>gif</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>
         </dict>
 ```
 
-`LSHandlerRank: Alternate` (matching the existing `.sxcu` entry) means ShareX for Mac never becomes the *default* handler for video/GIF files — it just appears as an option. This is a nice-to-have, not required for save/upload/export to work; `scripts/bundle.sh`'s entitlements are unaffected (system-audio recording rides on the existing Screen Recording TCC grant — no new entitlement or `NSMicrophoneUsageDescription`, per spec §3.4).
+`LSHandlerRank: Alternate` (matching the existing `.sxcu` entry) means Lumeshot never becomes the *default* handler for video/GIF files — it just appears as an option. This is a nice-to-have, not required for save/upload/export to work; `scripts/bundle.sh`'s entitlements are unaffected (system-audio recording rides on the existing Screen Recording TCC grant — no new entitlement or `NSMicrophoneUsageDescription`, per spec §3.4).
 
 - [ ] **Step 3: Verify it builds**
 
@@ -2950,12 +2950,12 @@ git commit -m "Add optional ffmpeg palettegen branch to GifConverter"
 Deploy with `scripts/remote.sh run`, then:
 
 1. **Region recording:** Menu bar → Start Recording ▸ Region (or ⌥⇧6). The region overlay appears identically to a region *capture*; drag a selection. Confirm the menu-bar icon switches to the red stop-circle and an elapsed-time label starts counting up next to it.
-2. **Stop via menu:** Click the menu-bar icon → **Stop Recording**. Confirm the icon returns to the camera glyph, the elapsed label clears, and (if **Save to disk** is on) an `.mp4` lands in `~/Pictures/ShareX` with a filename matching the configured template.
+2. **Stop via menu:** Click the menu-bar icon → **Stop Recording**. Confirm the icon returns to the camera glyph, the elapsed label clears, and (if **Save to disk** is on) an `.mp4` lands in `~/Pictures/Lumeshot` with a filename matching the configured template.
 3. **Stop via hotkey:** Start a region recording (⌥⇧6), then press ⌥⇧6 again to stop. Confirm it stops (not a second recording starting).
 4. **Window recording:** Start Recording ▸ Window; the picker overlay behaves like window *capture* (hover-highlight, click to pick). Record a few seconds of a window with visible motion (e.g. scroll some text); confirm the output mp4 is cropped to that window's content only.
 5. **Display recording:** Start Recording ▸ Display with the mouse over a specific monitor (multi-display setups only, otherwise this is equivalent to the single display); confirm the display *under the mouse* is the one recorded.
 6. **System Audio toggle:** Menu bar → System Audio (checkbox toggles); confirm the checkmark persists across a menu reopen and across app relaunch (`settings.json`'s `recording.systemAudio`). Record with it on while audio is playing; confirm the mp4 has an audio track. Confirm no microphone permission prompt ever appears (system audio rides the existing Screen Recording TCC grant).
-7. **Codec setting:** Hand-edit `~/Library/Application Support/ShareX-Mac/settings.json`'s `recording.videoCodec` to `"hevc"`, relaunch, record a clip; confirm the output plays (HEVC) and `ffprobe`/QuickTime report the expected codec. Set back to `"h264"` (the default) afterward.
+7. **Codec setting:** Hand-edit `~/Library/Application Support/Lumeshot/settings.json`'s `recording.videoCodec` to `"hevc"`, relaunch, record a clip; confirm the output plays (HEVC) and `ffprobe`/QuickTime report the expected codec. Set back to `"h264"` (the default) afterward.
 8. **Local-first / upload:** With an active upload destination and **Upload After Capture** on, record a clip; confirm the mp4 is written to disk **before** the URL lands on the clipboard (the file exists even if you kill network mid-upload), and the History row shows the destination + URL once the upload completes.
 9. **Upload failure:** Temporarily point the active destination at an unreachable URL (or disconnect network), record a clip; confirm the mp4 + its History row remain (`uploadFailed` shown in the row), and a "Upload failed… Local file kept" notification appears.
 10. **History video row:** Open History (⌘, or menu → History…). Confirm mp4 rows show a film-icon placeholder (not a broken image), while PNG rows still show real thumbnails.

@@ -4,7 +4,7 @@ import LumeshotCore
 
 struct KeychainCredentialStore: CredentialStore {
     private let service: String
-    init(service: String = "org.sharexmac.app") { self.service = service }
+    init(service: String = "org.lumeshot.app") { self.service = service }
 
     private func query(_ account: String) -> [String: Any] {
         [kSecClass as String: kSecClassGenericPassword,

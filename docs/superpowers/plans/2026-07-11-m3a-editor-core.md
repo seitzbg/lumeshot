@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Add an "annotate before share" image editor to sharex-mac with a non-destructive document model and the five vector-shape tools (rectangle, ellipse, line, arrow, freehand), select/move/resize, unlimited undo/redo, and integration into the after-capture pipeline.
+**Goal:** Add an "annotate before share" image editor to lumeshot with a non-destructive document model and the five vector-shape tools (rectangle, ellipse, line, arrow, freehand), select/move/resize, unlimited undo/redo, and integration into the after-capture pipeline.
 
 **Architecture:** A new dependency-light `SXAnnotate` library target holds the pure model (value-type `Annotation` + `AnnotationShape` enum), geometry (bounds, hit-testing, handles, move/resize), value-snapshot undo history, a single `AnnotationRenderer` used for both live display and export, and the `@MainActor` `EditorModel` interaction state machine — all unit-tested with swift-testing. The interactive shell (an AppKit `NSView` canvas, a SwiftUI toolbar/inspector window, and the pipeline gate) lives in `SXApp` and is smoke-tested, matching the existing executable-target convention. The editor inserts as an injected `EditorPresenting` gate at the top of `CaptureCoordinator.deliver`; when enabled it transforms the captured `CGImage` before the existing save→clipboard→upload chain runs, so the local-first invariant is preserved for the edited artifact.
 
@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-*Every task's requirements implicitly include this section. Values are copied verbatim from the approved spec `docs/superpowers/specs/2026-07-10-sharex-mac-design.md` and the project's standing rules.*
+*Every task's requirements implicitly include this section. Values are copied verbatim from the approved spec `docs/superpowers/specs/2026-07-10-lumeshot-design.md` and the project's standing rules.*
 
 - **No new runtime dependencies.** SXAnnotate imports only `Foundation` + `CoreGraphics` (plus `Combine` for `ObservableObject`); the app stays dependency-free (spec §2).
 - **Swift 6 strict concurrency.** Model types are `Sendable` value types; mutable editor state lives in one `@MainActor` class. No data races, no `@unchecked` without justification.
@@ -73,7 +73,7 @@ Edit `Package.swift` to this exact content:
 import PackageDescription
 
 let package = Package(
-    name: "sharex-mac",
+    name: "lumeshot",
     platforms: [.macOS(.v15)],
     targets: [
         .executableTarget(name: "SXApp", dependencies: ["SXCore", "SXCapture", "SXUpload", "SXAnnotate"]),
@@ -161,7 +161,7 @@ public struct RGBAColor: Codable, Sendable, Equatable {
         self.r = r; self.g = g; self.b = b; self.a = a
     }
 
-    /// ShareX's default annotation stroke, #ef4444.
+    /// upstream's default annotation stroke, #ef4444.
     public static let red = RGBAColor(r: 0.937, g: 0.267, b: 0.267, a: 1)
     public static let clear = RGBAColor(r: 0, g: 0, b: 0, a: 0)
 
@@ -390,7 +390,7 @@ public extension Annotation {
     }
 
     /// Whether `point` selects this annotation. Box shapes use inflated bounds
-    /// (matching ShareX); ellipse uses the normalized-radius test; line/arrow and
+    /// (matching upstream); ellipse uses the normalized-radius test; line/arrow and
     /// freehand use point-to-segment distance.
     func hitTest(_ point: CGPoint, tolerance: CGFloat) -> Bool {
         switch shape {
@@ -2041,7 +2041,7 @@ import Foundation
     @Test func legacyFileWithoutEditorKeyDefaultsIt() throws {
         // A settings JSON that predates the editor field must still decode.
         let json = """
-        {"schemaVersion":2,"captureSavePath":"~/Pictures/ShareX","filenameTemplate":"x",
+        {"schemaVersion":2,"captureSavePath":"~/Pictures/Lumeshot","filenameTemplate":"x",
          "saveToDisk":true,"copyToClipboard":true,"showNotification":true,
          "hotkeys":{"fullscreen":null,"region":null,"window":null}}
         """
@@ -2272,7 +2272,7 @@ git commit -m "Gate capture pipeline through editor when annotate-before-sharing
 
 - [ ] **Step 1: Add the SXAnnotate section to the porting map**
 
-Append to `docs/porting-map.md` a new section mapping the M3a Swift types to their ShareX counterparts. Use the existing table format in that file. Include rows for: `SXAnnotate/Model/Annotation` → ShareX `Core/Annotations/Base/Annotation.cs` (value-type model vs. class hierarchy; z-order = list order); `SXAnnotate/Model/AnnotationShape` → the concrete `RectangleAnnotation`/`EllipseAnnotation`/`LineAnnotation`/`ArrowAnnotation`/`FreehandAnnotation` shapes (closed enum, single classic arrow style, straight segments in v1); `SXAnnotate/Geometry/Annotation+Geometry` → per-shape `HitTest`/`GetBounds`; `SXAnnotate/Geometry/Annotation+Handles` → `EditorCore` handle enumeration + resize; `SXAnnotate/History/AnnotationHistory` → `Core/History/EditorHistory.cs` (value snapshots vs. mementos; annotation-only, no canvas snapshots in M3a); `SXAnnotate/Rendering/AnnotationRenderer` → the unified CG render replacing ShareX's Avalonia per-control + `RenderTargetBitmap` hybrid; `SXAnnotate/Editor/EditorModel` → `Core/Editor/EditorCore.cs` pointer dispatch; `SXApp/EditorWindowController` + gate → ShareX `AfterCaptureTasks` "AnnotateImage". Note explicitly that rotation, curved segments, multiple arrow styles, shadows, and crop/text/effects/step-badges are deferred (crop/text/effects/badges to M3b).
+Append to `docs/porting-map.md` a new section mapping the M3a Swift types to their upstream counterparts. Use the existing table format in that file. Include rows for: `SXAnnotate/Model/Annotation` → upstream `Core/Annotations/Base/Annotation.cs` (value-type model vs. class hierarchy; z-order = list order); `SXAnnotate/Model/AnnotationShape` → the concrete `RectangleAnnotation`/`EllipseAnnotation`/`LineAnnotation`/`ArrowAnnotation`/`FreehandAnnotation` shapes (closed enum, single classic arrow style, straight segments in v1); `SXAnnotate/Geometry/Annotation+Geometry` → per-shape `HitTest`/`GetBounds`; `SXAnnotate/Geometry/Annotation+Handles` → `EditorCore` handle enumeration + resize; `SXAnnotate/History/AnnotationHistory` → `Core/History/EditorHistory.cs` (value snapshots vs. mementos; annotation-only, no canvas snapshots in M3a); `SXAnnotate/Rendering/AnnotationRenderer` → the unified CG render replacing upstream's Avalonia per-control + `RenderTargetBitmap` hybrid; `SXAnnotate/Editor/EditorModel` → `Core/Editor/EditorCore.cs` pointer dispatch; `SXApp/EditorWindowController` + gate → upstream `AfterCaptureTasks` "AnnotateImage". Note explicitly that rotation, curved segments, multiple arrow styles, shadows, and crop/text/effects/step-badges are deferred (crop/text/effects/badges to M3b).
 
 - [ ] **Step 2: Update the README status and features**
 
@@ -2297,9 +2297,9 @@ git commit -m "Document M3a editor in porting map and README"
 **1. Spec coverage (§3.2 Editor):**
 - "Non-destructive document: base image + ordered annotation list; export flattens via CoreGraphics" → Tasks 1 (model), 5 (`flatten`). ✅
 - v1 toolset "select/move, rectangle, ellipse, line, arrow, freehand" → Tasks 3, 8 (interaction), 9–10 (UI). ✅ (crop, text, highlighter, blur, pixelate, step-number badges → **deferred to M3b** — stated in Global Constraints and the milestone split.)
-- "unlimited undo/redo" → Task 4 (bounded to 50 mementos, matching ShareX's `MaxAnnotationMementos`; "unlimited" in the spec is contrasted with none — the 50-cap is the established ShareX behavior and is documented). ⚠️ Note the cap divergence for the reviewer.
+- "unlimited undo/redo" → Task 4 (bounded to 50 mementos, matching upstream's `MaxAnnotationMementos`; "unlimited" in the spec is contrasted with none — the 50-cap is the established upstream behavior and is documented). ⚠️ Note the cap divergence for the reviewer.
 - "Canvas: AppKit NSView + CoreGraphics (precise hit-testing, Retina rendering); SwiftUI inspector" → Tasks 5, 7, 9 (NSView + CG + fit transform), 10 (SwiftUI toolbar/inspector). ✅
-- "ShareX's shape geometry/hit-test math ports nearly 1:1" → Tasks 2–3 mirror the per-shape math. ✅
+- "upstream's shape geometry/hit-test math ports nearly 1:1" → Tasks 2–3 mirror the per-shape math. ✅
 - "Editor actions (Copy / Save / Upload) feed back into the pipeline" → M3a wires a single **Done** that flattens and runs the existing save→clipboard→upload chain via the gate; the **Copy/Save/Upload action split is deferred to M3b**. ⚠️ Partial — flagged for the reviewer and the milestone note.
 - Spec §6 "Snapshot tests → pixel-diff against goldens" → Task 6. ✅
 - Spec §2 local-first invariant → Task 12 (`finish` saves before upload; cancel discards before save). ✅
@@ -2308,7 +2308,7 @@ git commit -m "Document M3a editor in porting map and README"
 
 **3. Type consistency:** Verified names across tasks — `AnnotationShape` cases (`.rectangle(rect:)`, `.ellipse(rect:)`, `.line(start:end:)`, `.arrow(start:end:)`, `.freehand(points:)`) used identically in Tasks 1, 2, 3, 5, 8; `HandleKind` cases match between Tasks 3, 8, 9; `EditorModel` published names (`annotations`, `activeTool`, `strokeColor`, `strokeWidth`, `selectedID`, `canUndo`, `canRedo`, `selectedAnnotation`, `displayAnnotations`) match their uses in Tasks 9–10; `EditorPresenting.present(image:completion:)` matches between Tasks 11 and 12; `AnnotationRenderer.drawAnnotations`/`flatten` match Tasks 5, 9. ✅
 
-**Two items to surface to the human before/at review** (both are M3a-vs-spec scope calls, already reflected in the M3a/M3b split): the undo cap (50, per ShareX) and the Copy/Save/Upload action split (M3a ships a single Done; the three-way split lands in M3b). Neither blocks M3a shipping as independently useful software.
+**Two items to surface to the human before/at review** (both are M3a-vs-spec scope calls, already reflected in the M3a/M3b split): the undo cap (50, per upstream) and the Copy/Save/Upload action split (M3a ships a single Done; the three-way split lands in M3b). Neither blocks M3a shipping as independently useful software.
 
 ## Mac Smoke Checklist (run after the final review, before finishing the branch)
 
@@ -2320,6 +2320,6 @@ Deploy with `scripts/remote.sh run`, then:
 5. Switch to **Select**; click a shape (selection outline + handles appear); drag to move; drag a handle to resize.
 6. **Undo** repeatedly back to the empty image; **Redo** forward. Confirm the buttons enable/disable correctly.
 7. Select a shape and **Delete**; confirm it disappears and Undo restores it.
-8. Click **Done** → confirm the annotated image is saved to `~/Pictures/ShareX`, copied to the clipboard, and (if an upload destination is active) uploaded with the URL on the clipboard.
+8. Click **Done** → confirm the annotated image is saved to `~/Pictures/Lumeshot`, copied to the clipboard, and (if an upload destination is active) uploaded with the URL on the clipboard.
 9. Capture again and click **Cancel** (and separately, close via the red button) → confirm nothing is saved (intentional discard) and a log line records the cancel.
 10. Turn **Annotate Before Sharing** off → capture → confirm the editor does not open and the capture flows straight through as before.

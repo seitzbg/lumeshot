@@ -1,6 +1,6 @@
 # Preferences window manual smoke checklist
 
-Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/ShareX-Mac.log`.
+Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumeshot.log`.
 Covers the tabbed Preferences window (Tasks 1–5, 7) end to end; Task 6's hotkey
 formatting/mapping is covered by `Tests/LumeshotCoreTests/HotkeyFormattingTests.swift`, not
 re-verified here.
@@ -10,11 +10,16 @@ re-verified here.
       "Lumeshot Settings" appears with 5 tabs: General, Capture, Hotkeys, Uploads, Recording.
       Close it and reopen via the menu; confirm it's the same window (position/selected tab
       persist within the app session), not a second window stacking on top.
-- [ ] **General tab persists + live-applies (Task 2):** Toggle each of the 4 switches (Save
-      to Disk, Copy to Clipboard, Show Notification, Annotate Before Sharing). Confirm
+- [ ] **App switcher:** Open Settings and confirm Lumeshot appears in the Dock and
+      ⌘Tab (and AltTab, if installed). Switch away and back. Minimize Settings,
+      then click Lumeshot in the Dock to restore it. Hide with ⌘H and switch back.
+      Close Settings with the red button or ⌘W: the Dock entry disappears while
+      the menu-bar icon and capture hotkeys remain. Reopen Settings and repeat.
+- [ ] **General tab persists + live-applies (Task 2):** Toggle each of the 3 switches (Save
+      to Disk, Show Notification, Annotate Before Sharing). Confirm
       `settings.json` reflects each change immediately and the "Annotate Before Sharing"
       status-bar checkmark follows the last one.
-- [ ] **Capture tab (Task 3):** Confirm the Save Folder field shows `~/Pictures/ShareX`
+- [ ] **Capture tab (Task 3):** Confirm the Save Folder field shows `~/Pictures/Lumeshot`
       abbreviated with `~`. Click **Choose…**, pick a new folder; capture (⌥⇧3) and confirm
       the file lands there. Edit the filename template; confirm the next capture's name
       matches it.
@@ -27,6 +32,15 @@ re-verified here.
       destination and then remove it; confirm no regression in the Keychain-first
       store/purge flow (same behavior as before this feature — see `docs/smoke-m5a.md` for
       the detailed SFTP/FTP Keychain checklist).
+- [ ] **Active uploader:** Add two uploaders. The first becomes active; adding the second
+      preserves the first selection. Choose the second with **Active uploader**, reopen
+      Settings, and confirm the choice persists. Only the selected uploader receives captures.
+- [ ] **Clipboard:** With upload off, capture and paste an image. With upload on, wait for
+      success and paste the uploaded URL. Simulate a failed upload; the captured image stays
+      on the clipboard. Removing the active uploader turns upload off until another is selected.
+- [ ] **Delayed upload:** While an upload is pending, copy text in another app or turn
+      upload off and capture again. The old upload must not replace the newer clipboard
+      contents; its URL should still appear in history.
 - [ ] **Hotkeys tab: live recorder + re-register (Task 7):** Click the Fullscreen recorder,
       press a new combo (e.g. ⌃⌥⇧2); the field updates immediately. Without relaunching,
       confirm the NEW combo triggers a fullscreen capture and the OLD combo (⌥⇧3) no longer

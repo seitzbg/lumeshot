@@ -67,7 +67,7 @@ unsigned nested binary.
 > copy last asked. A self-signed dev build in `/tmp` beside the notarized app in
 > `/Applications` re-points that entry on every launch: System Settings shows the toggle
 > ON, the running copy is denied, and the onboarding window loops forever. Recovery is
-> `tccutil reset ScreenCapture org.sharexmac.app` with only one copy present, then one
+> `tccutil reset ScreenCapture org.lumeshot.app` with only one copy present, then one
 > clean grant. For UI-only testing that needs no capture, this is survivable; for anything
 > else, cut a real release.
 
