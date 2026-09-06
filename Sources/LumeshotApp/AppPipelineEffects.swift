@@ -9,11 +9,29 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
 
     func setUpNotifications() {
         guard notificationsAvailable else {
-            NSLog("Notifications unavailable (not running from a bundle)")
+            AppLog.log("Notifications unavailable (not running from a bundle)")
             return
         }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
+        // Report the *decision*, not just that we asked. On a machine where the
+        // unified log is unreadable (non-admin ssh), the file log is the only
+        // channel, and "did the user allow notifications" is the first thing a
+        // "nothing appeared" report needs answered.
+        center.getNotificationSettings { @Sendable settings in
+            let status: String
+            switch settings.authorizationStatus {
+            case .notDetermined: status = "notDetermined (prompt pending or never shown)"
+            case .denied:        status = "denied"
+            case .authorized:    status = "authorized"
+            case .provisional:   status = "provisional"
+            case .ephemeral:     status = "ephemeral"
+            @unknown default:    status = "unknown(\(settings.authorizationStatus.rawValue))"
+            }
+            AppLog.log("Notification Center: authorization=\(status) "
+                       + "alerts=\(settings.alertSetting.rawValue) "
+                       + "banners=\(settings.alertStyle.rawValue)")
+        }
         // @Sendable is load-bearing, not decoration. This type is @MainActor, so a
         // bare closure here inherits main-actor isolation — but UserNotifications
         // invokes it on its own queue (UNUserNotificationServiceConnection.call-out).
@@ -23,8 +41,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         // The closure captures nothing and NSLog is thread-safe, so making it
         // non-isolated is sufficient and needs no hop.
         center.requestAuthorization(options: [.alert, .sound]) { @Sendable granted, error in
-            if let error { NSLog("Notification auth error: \(error)") }
-            else { NSLog("Notification auth granted: \(granted)") }
+            if let error { AppLog.log("Notification auth error: \(error)") }
+            else { AppLog.log("Notification auth granted: \(granted)") }
         }
     }
 
@@ -60,7 +78,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         // main actor. This one would fire on the first notification posted rather
         // than at launch.
         UNUserNotificationCenter.current().add(request) { @Sendable error in
-            if let error { NSLog("Notification error: \(error)") }
+            if let error { AppLog.log("Notification post failed: \(error)") }
+            else { AppLog.log("Notification posted: \(title)") }
         }
     }
 
@@ -82,7 +101,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
                                             content: content, trigger: nil)
         // @Sendable for the same reason as setUpNotifications() — see there.
         UNUserNotificationCenter.current().add(request) { @Sendable error in
-            if let error { NSLog("Notification error: \(error)") }
+            if let error { AppLog.log("Notification post failed: \(error)") }
+            else { AppLog.log("Notification posted: \(title)") }
         }
     }
 
