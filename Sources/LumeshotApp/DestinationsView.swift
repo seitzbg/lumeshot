@@ -59,6 +59,8 @@ final class DestinationsModel: ObservableObject {
                 try S3Credentials.purge(id: destination.id, from: credentials)
             case .imgur:
                 break
+            case .picsur:
+                try PicsurCredentials.purge(id: destination.id, from: credentials)
             case .ftp:
                 try FTPCredentials.purge(id: destination.id, from: credentials)
             case .sftp:
@@ -144,10 +146,28 @@ final class DestinationsModel: ObservableObject {
         }
     }
 
+    func addPicsur(name: String, host: String, apiKey: String,
+                  imageFormat: String, linkStyle: PicsurLinkStyle) {
+        let id = UUID().uuidString
+        do {
+            try PicsurCredentials.store(apiKey: apiKey, id: id, into: credentials)
+        } catch {
+            AppLog.log("Destinations: storing Picsur credentials failed: \(error)")
+            return
+        }
+        let config = PicsurConfig(host: host, imageFormat: imageFormat, linkStyle: linkStyle)
+        let dest = UploadDestination(id: id, name: name.isEmpty ? "Picsur" : name,
+                                     kind: .picsur, picsurConfig: config)
+        if !persist({ $0.upload = $0.upload.addingOrUpdating(dest).settingActive(id: id) }) {
+            try? PicsurCredentials.purge(id: id, from: credentials)
+        }
+    }
+
     func kindLabel(_ kind: UploadDestinationKind) -> String {
         switch kind {
         case .customUploader: return "Custom (.sxcu)"
         case .imgur: return "Imgur"
+        case .picsur: return "Picsur"
         case .s3: return "S3"
         case .sftp: return "SFTP"
         case .ftp: return "FTP"
@@ -161,6 +181,7 @@ struct DestinationsView: View {
     @State private var showAddImgur = false
     @State private var showAddSFTP = false
     @State private var showAddFTP = false
+    @State private var showAddPicsur = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -199,6 +220,7 @@ struct DestinationsView: View {
                 Button("Add Imgur…") { showAddImgur = true }
                 Button("Add SFTP…") { showAddSFTP = true }
                 Button("Add FTP…") { showAddFTP = true }
+                Button("Add Picsur…") { showAddPicsur = true }
                 Spacer()
             }
         }
@@ -207,6 +229,7 @@ struct DestinationsView: View {
         .sheet(isPresented: $showAddImgur) { AddImgurSheet(model: model, isPresented: $showAddImgur) }
         .sheet(isPresented: $showAddSFTP) { AddSFTPSheet(model: model, isPresented: $showAddSFTP) }
         .sheet(isPresented: $showAddFTP) { AddFTPSheet(model: model, isPresented: $showAddFTP) }
+        .sheet(isPresented: $showAddPicsur) { AddPicsurSheet(model: model, isPresented: $showAddPicsur) }
     }
 }
 
@@ -380,6 +403,62 @@ private struct AddFTPSheet: View {
                     model.addFTP(name: name, host: host, port: portValue, username: username,
                                  remoteDirectory: remoteDirectory, publicURLBase: publicURLBase,
                                  password: password, useTLS: useTLS)
+                    isPresented = false
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(!isValid)
+            }
+        }
+        .padding()
+        .frame(width: 420)
+    }
+}
+
+private struct AddPicsurSheet: View {
+    @ObservedObject var model: DestinationsModel
+    @Binding var isPresented: Bool
+    @State private var name = ""
+    @State private var host = ""
+    @State private var apiKey = ""
+    @State private var imageFormat = "png"
+    @State private var linkStyle: PicsurLinkStyle = .directImage
+
+    /// Picsur converts on the fly, so these are serving formats, not source formats.
+    private let formats = ["png", "jpg", "webp", "avif", "gif", "bmp", "tiff", "qoi"]
+
+    private var isValid: Bool {
+        PicsurConfig.isValidHost(PicsurConfig.normalizeHost(host)) && !apiKey.isEmpty
+    }
+
+    var body: some View {
+        VStack(alignment: .leading) {
+            Text("Add Picsur Destination").font(.headline)
+            Form {
+                TextField("Name", text: $name)
+                TextField("Host", text: $host, prompt: Text("https://pic.example.net"))
+                SecureField("API key", text: $apiKey)
+                Picker("Image format", selection: $imageFormat) {
+                    ForEach(formats, id: \.self) { Text(".\($0)").tag($0) }
+                }
+                Picker("Copied link", selection: $linkStyle) {
+                    Text("Direct image").tag(PicsurLinkStyle.directImage)
+                    Text("Viewer page").tag(PicsurLinkStyle.viewerPage)
+                }
+                .pickerStyle(.radioGroup)
+            }
+            if PicsurConfig(host: host, imageFormat: imageFormat).isInsecureTransport {
+                Label("Plain http — the API key and your captures are sent in cleartext.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption).foregroundStyle(.orange)
+            }
+            Text("Create the API key in Picsur under Settings → API keys.")
+                .font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("Cancel") { isPresented = false }
+                Button("Add") {
+                    model.addPicsur(name: name, host: host, apiKey: apiKey,
+                                    imageFormat: imageFormat, linkStyle: linkStyle)
                     isPresented = false
                 }
                 .keyboardShortcut(.defaultAction)

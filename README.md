@@ -25,6 +25,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 **Uploaders**
 - **Custom `.sxcu`** — ShareX JSON configs; request templating + regex/JSON response-URL extraction
 - **Imgur** — anonymous upload (share URL + deletion URL)
+- **Picsur** — self-hosted image host; API-key auth, choice of serving format and direct-image vs viewer-page links
 - **S3-compatible** — hand-rolled SigV4 (AWS / Cloudflare R2 / MinIO / Backblaze B2); path + virtual-host addressing; optional ACL; custom result-URL domain
 - **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH)
 - **FTP / FTPS** — libcurl
@@ -32,7 +33,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 **Preferences window** (⌘,)
 - Tabbed Settings: General · Capture · Hotkeys · Uploads · Recording
 - Live hotkey recorder (click, press a combo — re-registers instantly, no relaunch)
-- Destination management (add/remove/select S3/SFTP/FTP/Imgur, import `.sxcu`) folded into the Uploads tab
+- Destination management (add/remove/select S3/SFTP/FTP/Imgur/Picsur, import `.sxcu`) folded into the Uploads tab
 
 **History browser**
 - Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (local + remote cleanup)
@@ -42,7 +43,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 ## Security
 
-Secrets (API keys, S3 keys, SFTP/FTP passwords and private keys, `.sxcu` header/param secrets) are stored **only in the login Keychain** (`org.sharexmac.app`), never in `settings.json`.
+Secrets (API keys, Picsur API keys, S3 keys, SFTP/FTP passwords and private keys, `.sxcu` header/param secrets) are stored **only in the login Keychain** (`org.sharexmac.app`), never in `settings.json`.
 
 ## Not affiliated
 
