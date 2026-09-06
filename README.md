@@ -27,7 +27,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - **Imgur** — anonymous upload (share URL + deletion URL)
 - **Picsur** — self-hosted image host; API-key auth, choice of serving format and direct-image vs viewer-page links
 - **S3-compatible** — hand-rolled SigV4 (AWS / Cloudflare R2 / MinIO / Backblaze B2); path + virtual-host addressing; optional ACL; custom result-URL domain
-- **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH)
+- **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH); host key pinned on first connection and verified thereafter
 - **FTP / FTPS** — libcurl
 
 **Preferences window** (⌘,)

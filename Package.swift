@@ -8,6 +8,9 @@ let package = Package(
         .package(url: "https://github.com/orlandos-nl/Citadel", from: "0.12.1"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.81.0"),
         .package(url: "https://github.com/apple/swift-crypto.git", from: "3.12.3"),
+        // Citadel already depends on this fork; naming it here lets the TOFU
+        // host-key validator import NIOSSH directly.
+        .package(url: "https://github.com/Wellz26/swift-nio-ssh.git", from: "0.3.4"),
     ],
     targets: [
         .executableTarget(name: "LumeshotApp", dependencies: ["LumeshotCore", "LumeshotCapture", "LumeshotUpload", "LumeshotAnnotate", "LumeshotRecord"]),
@@ -19,6 +22,7 @@ let package = Package(
             "Clibcurl",
             .product(name: "Citadel", package: "Citadel"),
             .product(name: "NIOCore", package: "swift-nio"),
+            .product(name: "NIOSSH", package: "swift-nio-ssh"),
             .product(name: "Crypto", package: "swift-crypto"),
         ]),
         .target(name: "LumeshotAnnotate"),

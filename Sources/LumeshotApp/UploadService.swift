@@ -5,10 +5,15 @@ import LumeshotUpload
 struct UploadService {
     private let http: HTTPClient
     private let credentials: CredentialStore
+    /// Where a trust-on-first-use SSH host key gets pinned. Optional so tests
+    /// and non-app callers can skip persistence entirely.
+    private let settingsStore: SettingsStore?
 
-    init(http: HTTPClient = URLSessionHTTPClient(), credentials: CredentialStore) {
+    init(http: HTTPClient = URLSessionHTTPClient(), credentials: CredentialStore,
+        settingsStore: SettingsStore? = nil) {
         self.http = http
         self.credentials = credentials
+        self.settingsStore = settingsStore
     }
 
     static func filePart(pngData: Data, filename: String) -> FilePart {
@@ -66,7 +71,31 @@ struct UploadService {
                 throw UploadError.unsupported("Destination has no SFTP config")
             }
             let secret = try SFTPCredentials.load(id: destination.id, from: credentials)
-            return SFTPUploader(config: cfg, secret: secret)
+            return SFTPUploader(config: cfg, secret: secret,
+                                rememberHostKey: hostKeyPinner(for: destination.id))
+        }
+    }
+
+    /// Persists a first-seen SSH host key against the destination, so every
+    /// later connection is checked against it instead of trusting anything.
+    /// Re-reads settings at call time because the pin arrives mid-upload, well
+    /// after any snapshot we might have taken.
+    private func hostKeyPinner(for destinationID: String) -> @Sendable (String) -> Void {
+        guard let settingsStore else { return { _ in } }
+        return { fingerprint in
+            var (settings, _) = settingsStore.loadOrDefault()
+            guard let index = settings.upload.destinations
+                .firstIndex(where: { $0.id == destinationID }),
+                  settings.upload.destinations[index].sftpConfig?.knownHostKey == nil
+            else { return }
+            settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
+            do {
+                try settingsStore.save(settings)
+                AppLog.log("SFTP: pinned host key for \(destinationID): \(fingerprint)")
+            } catch {
+                // Not fatal: the upload proceeds, we simply re-learn next time.
+                AppLog.log("SFTP: could not pin host key for \(destinationID): \(error)")
+            }
         }
     }
 

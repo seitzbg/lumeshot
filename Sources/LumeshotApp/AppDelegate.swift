@@ -37,7 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .appendingPathComponent("history.sqlite"))
         if historyStore == nil { AppLog.log("History store unavailable; captures won't be recorded") }
         self.historyStore = historyStore
-        let uploadService = UploadService(credentials: KeychainCredentialStore())
+        let uploadService = UploadService(credentials: KeychainCredentialStore(),
+                                          settingsStore: SettingsStore(fileURL: SettingsStore.defaultFileURL))
         let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
                                              uploadService: uploadService,
                                              historyStore: historyStore,

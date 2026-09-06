@@ -1,8 +1,54 @@
 @preconcurrency import Citadel
 import NIOCore
+import NIOSSH
 import Crypto
 import Foundation
 import LumeshotCore
+
+/// Trust-on-first-use host-key validator.
+///
+/// Citadel only ships `.acceptAnything()` and `.trustedKeys(Set<NIOSSHPublicKey>)`;
+/// neither can express "pin whatever we saw the first time". `.custom` can, and
+/// fingerprints (rather than key objects) are what we can persist and show the
+/// user. Verification runs on a NIO event loop thread, so the outcome is handed
+/// back through a lock-guarded box rather than shared mutable state.
+final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
+    private let knownHostKey: String?
+    private let remember: @Sendable (String) -> Void
+    private let lock = NSLock()
+    private var _mismatch: (saved: String, presented: String)?
+
+    /// Set when the connection was refused because the key changed, so the
+    /// caller can report which fingerprints were involved instead of a generic
+    /// handshake failure.
+    var mismatch: (saved: String, presented: String)? {
+        lock.lock(); defer { lock.unlock() }
+        return _mismatch
+    }
+
+    init(knownHostKey: String?, remember: @escaping @Sendable (String) -> Void) {
+        self.knownHostKey = knownHostKey
+        self.remember = remember
+    }
+
+    func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
+        var buffer = ByteBufferAllocator().buffer(capacity: 256)
+        _ = hostKey.write(to: &buffer)
+        let blob = Array(buffer.readableBytesView)
+        let presented = HostKeyTrust.fingerprint(sha256Digest: Array(SHA256.hash(data: blob)))
+
+        switch HostKeyTrust.decide(saved: knownHostKey, presented: presented) {
+        case .match:
+            validationCompletePromise.succeed(())
+        case .trustOnFirstUse(let fingerprint):
+            remember(fingerprint)
+            validationCompletePromise.succeed(())
+        case .mismatch(let saved, let presented):
+            lock.lock(); _mismatch = (saved, presented); lock.unlock()
+            validationCompletePromise.fail(UploadError.hostKeyMismatch(presented))
+        }
+    }
+}
 
 /// Real SFTP transport over Citadel (SwiftNIO-SSH). `SSHClient` is NOT
 /// Sendable, so it is created, used, and closed entirely within this one
@@ -11,7 +57,9 @@ public struct CitadelSFTPTransport: SFTPTransport {
     public init() {}
 
     public func upload(_ data: Data, to remotePath: String, host: String, port: Int,
-                       username: String, secret: SFTPSecret) async throws {
+                       username: String, secret: SFTPSecret,
+                       knownHostKey: String?,
+                       rememberHostKey: @escaping @Sendable (String) -> Void) async throws {
         let auth: SSHAuthenticationMethod
         if let pem = secret.privateKeyPEM {
             let dk = secret.passphrase.map { Data($0.utf8) }
@@ -46,11 +94,21 @@ public struct CitadelSFTPTransport: SFTPTransport {
             throw UploadError.missingCredential("SFTP destination has neither password nor private key")
         }
 
+        let validator = TOFUHostKeyValidator(knownHostKey: knownHostKey,
+                                             remember: rememberHostKey)
         let client: SSHClient
         do {
             client = try await SSHClient.connect(host: host, port: port,
-                authenticationMethod: auth, hostKeyValidator: .acceptAnything(), reconnect: .never)
+                authenticationMethod: auth, hostKeyValidator: .custom(validator),
+                reconnect: .never)
         } catch {
+            // A refused key surfaces here as an opaque handshake failure, so
+            // recover the specific reason from the validator and fail closed
+            // with both fingerprints.
+            if let (saved, presented) = validator.mismatch {
+                throw UploadError.hostKeyMismatch(
+                    HostKeyTrust.mismatchMessage(host: host, saved: saved, presented: presented))
+            }
             throw UploadError.transport("SFTP connect failed: \(error)")
         }
         do {
