@@ -19,11 +19,11 @@ credentials. All five pages were inspected at normal and minimum sizes in light
 and dark appearance; all five provider forms and the empty Uploads state were
 also rendered. These are layout checks, not end-to-end upload or Keychain tests.
 
-![General settings](images/settings-general.png)
+![General settings](images/settings-general-dark-cf88ec70.png)
 
-![Uploads in dark appearance](images/settings-uploads-dark.png)
+![Uploads in dark appearance](images/settings-uploads-dark-2988c8fe.png)
 
-![Picsur configuration](images/settings-uploader.png)
+![Picsur configuration](images/settings-uploader-dark-f0dbb7a2.png)
 
 ## Validation
 
