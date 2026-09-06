@@ -161,9 +161,12 @@ final class CaptureCoordinator {
                 case .some(let r):
                     switch r.action {
                     case .save:
-                        onOutcome?(self.finishPersist(image: r.image, appName: appName, upload: false))
+                        // Explicit command: write regardless of the automatic-save setting.
+                        onOutcome?(self.finishPersist(image: r.image, appName: appName,
+                                                      upload: false, savePolicy: .require))
                     case .upload:
-                        onOutcome?(self.finishPersist(image: r.image, appName: appName, upload: true))
+                        onOutcome?(self.finishPersist(image: r.image, appName: appName,
+                                                      upload: true, savePolicy: .followSettings))
                     case .copy:
                         self.copyImageToClipboard(r.image)
                         AppLog.log("Editor copy: image on clipboard, not persisted")
@@ -175,15 +178,20 @@ final class CaptureCoordinator {
         }
         // Passthrough (annotate off): preserve M3a behavior — upload iff configured.
         onOutcome?(finishPersist(image: image, appName: appName,
-                                 upload: settings.upload.uploadAfterCapture))
+                                 upload: settings.upload.uploadAfterCapture,
+                                 savePolicy: .followSettings))
     }
 
     /// Persists the (possibly edited) image: encodes PNG, saves to disk, records a
     /// history row, and — only when `upload` is true — uploads and puts the URL on the
-    /// clipboard. Local-first invariant: the disk save precedes any upload. Returns
-    /// true when the image was persisted (disk save succeeded).
+    /// clipboard. When a file is written the disk save precedes any upload (local-first).
+    ///
+    /// Returns true only when a file actually landed on disk. Callers count files with
+    /// it, so returning true for a clipboard-only or upload-only delivery would make
+    /// `--capture fullscreen` report files it never wrote.
     @discardableResult
-    private func finishPersist(image: CGImage, appName: String?, upload: Bool) -> Bool {
+    private func finishPersist(image: CGImage, appName: String?, upload: Bool,
+                               savePolicy: SavePolicy) -> Bool {
         guard let png = ImageEncoder.png(from: image) else {
             reportFailure(DeliveryError.pngEncodingFailed)
             return false
@@ -196,11 +204,11 @@ final class CaptureCoordinator {
         let (settings, _) = settingsStore.loadOrDefault()
         do {
             let result = try AfterCapturePipeline(settings: settings, effects: effects)
-                .process(artifact)
+                .process(artifact, savePolicy: savePolicy)
             AppLog.log("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
             recordAndMaybeUpload(settings: settings, savedURL: result.savedURL,
                                  pngData: png, capturedAt: artifact.capturedAt, upload: upload)
-            return true
+            return result.savedURL != nil
         } catch {
             reportFailure(error)
             return false
@@ -246,13 +254,21 @@ final class CaptureCoordinator {
                 let result = try await uploader.upload(file)
                 AppLog.log("Upload succeeded: \(result.url)")
                 effects.copyTextToClipboard(result.url)
-                effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+                // Success is routine, so it honors "Show notification"; a failure
+                // always surfaces (fail-loud) — silently losing a capture is worse
+                // than an unwanted notification.
+                if settings.showNotification {
+                    effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+                }
                 updateHistory(id: entryID, url: result.url, deletionURL: result.deletionURL,
                               failed: false)
             } catch {
                 AppLog.log("Upload failed: \(error)")
+                let fate = savedURL != nil
+                    ? "Local file kept."
+                    : "No local copy was saved."   // don't claim a file we never wrote
                 effects.notify(title: "Upload failed",
-                               body: "\(error). Local file kept.", fileURL: savedURL)
+                               body: "\(error) \(fate)", fileURL: savedURL)
                 updateHistory(id: entryID, url: nil, deletionURL: nil, failed: true)
             }
         }
@@ -294,10 +310,9 @@ final class CaptureCoordinator {
                 mime: mime,
                 history: historyStore,
                 effects: effects,
-                upload: { data, filename, mime in
+                upload: { part, filename in
                     guard let destination else { throw UploadError.unsupported("No active destination") }
-                    let result = try await service.upload(data: data, filename: filename,
-                                                          mime: mime, destination: destination)
+                    let result = try await service.upload(part: part, destination: destination)
                     return DeliveredUpload(url: result.url, deletionURL: result.deletionURL)
                 })
         }

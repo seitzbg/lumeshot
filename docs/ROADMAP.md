@@ -36,6 +36,7 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **M5b** — release + polish | Ad-hoc `.dmg` release: `scripts/dmg.sh` + `.github/workflows/release.yml` (push a `v*` tag → build → dmg → GitHub Release). Robustness: atomic Keychain store (no orphan secrets), FTP stall-abort, recorder re-entrancy CI seam. UI polish: elapsed-timer flash fix, GIF-export spinner, inspector keyed on selection. |
 | **Preferences window** | Dedicated tabbed Settings (⌘,): General / Capture / Hotkeys / Uploads / Recording; live hotkey recorder (re-registers instantly); Destinations folded into the Uploads tab. |
 | **Picsur destination** | Native `.picsur` destination kind for self-hosted [Picsur](https://github.com/CaramelFur/Picsur) instances: `PicsurUploader` synthesizes the same custom-uploader template Picsur's own ShareX generator emits (multipart `image`, `Authorization: Api-Key`), API key → Keychain (`<id>/picsur/apiKey`), Add-Picsur sheet with host / serving format / link-style. |
+| **Code-review remediation** | All 18 findings of `docs/code-review-2026-09-06.md` fixed. Highlights: SSH host keys pinned on first use and verified after (was `.acceptAnything()`); explicit editor Save no longer gated by the automatic-save preference; recorder start/stop given a real `.starting`/`.stopping` lifecycle with a session token; recordings streamed to uploaders instead of read into memory on the main actor; Keychain/settings mutations made compensable; `.sxcu` RequestURL protected; SFTP/FTP URLs percent-encoded. |
 | **Rebrand + rename** | ShareX-for-Mac → **Lumeshot** (repo, app display name, `.app`/dmg); `SX*` modules → `Lumeshot*`; working dir → `~/git/lumeshot`. Bundle ID + signing cert kept (TCC grant preserved). |
 
 ## Pending — needs you (live Mac smoke)
@@ -56,11 +57,11 @@ Run these when convenient (each is a checklist):
 - Auto-update mechanism (none today).
 
 **Uploaders**
-- Imgur **OAuth / authenticated albums** (anonymous-only today).
-- Custom-uploader `ErrorMessage` (`{json:data.message}`) is parsed into `CustomUploaderConfig` but never applied — failures surface as the raw `.http(status:body:)` instead of the service's own message. Affects Picsur and any `.sxcu`.
-- SFTP **host-key pinning** (currently `.acceptAnything()`).
-- Supply-chain: Citadel rides a stale personal fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh` 0.3.4) — watch for an upstream path.
+- Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied — failures still surface as the raw `.http(status:body:)`. Affects Picsur and any `.sxcu`.
+- SFTP/FTP transports still start from a complete `Data`, so a large recording is resident for those two destinations (bounded now, but not streamed). Streaming needs a chunked transport API on both.
 - Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
+- Imgur **OAuth / authenticated albums** (anonymous-only today).
+- Supply-chain: Citadel rides a stale personal fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh` 0.3.4) — watch for an upstream path.
 
 **Editor**
 - Effects don't **stack** (each samples the pristine base — fine for redaction, limiting for layered edits); no `bakeEffects`/geometry caching (recompute per repaint).
@@ -71,9 +72,11 @@ Run these when convenient (each is a checklist):
 - Live SCK paths are build + smoke-only (the test binary can't inherit the app's TCC grant). Smoke must confirm the start path and the GIF-export error alert (see `docs/smoke-m4.md`).
 - `ffmpeg` palettegen GIF path skipped (native AVFoundation path shipped).
 
+**Testing**
+- `CaptureCoordinator` has no tests: `LumeshotApp` is an executable target, so there is no test target for it. The save/upload policy split is covered at the `AfterCapturePipeline` layer only. Extracting the coordinator into a library target would close this.
+
 **Preferences**
 - No mutual-exclusion between two simultaneously-"recording" hotkey fields (self-heals on next keystroke/tab-switch/close).
-- `updateHotkeys` reapplies even if the settings save throws (benign — reapplies a valid config).
 
 **Naming cleanup (cosmetic; deferred to avoid migrating existing user data)**
 - Capture save default is still `~/Pictures/ShareX`; app-support dir is `~/Library/Application Support/ShareX-Mac/` (settings + history). Renaming these to Lumeshot would strand existing files/settings — do it with a migration if ever.
@@ -84,7 +87,7 @@ Rough priority order — revisit when picking up again:
 
 1. **Developer ID signing + notarization** — the highest-leverage item; unblocks notifications, Gatekeeper, and a shareable release. Likely its own spec (Apple Developer account, signing/notary CI secrets, entitlements).
 2. **Editor polish pass** — effect stacking + caching, text-font fidelity, stroke inspector commit.
-3. **Uploader auth** — Imgur OAuth; SFTP host-key pinning.
+3. **Uploader auth** — Imgur OAuth (SFTP host-key pinning shipped).
 4. **App-data rename + migration** — move `~/Pictures/ShareX` / `ShareX-Mac` app-support to Lumeshot with a one-time migration.
 5. **Distribution polish** — auto-update, a real app icon, first-run/onboarding refinement.
 

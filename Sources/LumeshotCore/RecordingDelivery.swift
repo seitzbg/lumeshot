@@ -19,8 +19,13 @@ public struct DeliveredUpload: Sendable {
 /// and an injected `upload` closure.
 public enum RecordingDelivery {
     /// Records the history row FIRST (the file is already on disk = local-first
-    /// satisfied), then — only when `shouldUpload` — reads the file and awaits
-    /// `upload`, finalizing the row with the result. On upload failure the row
+    /// satisfied), then — only when `shouldUpload` — hands the *file* to
+    /// `upload` and finalizes the row with the result.
+    ///
+    /// The file is passed by URL, not bytes. This used to do a synchronous
+    /// `Data(contentsOf:)` here on the main actor, which froze the menu bar for
+    /// the length of the read and made a long recording a memory-pressure kill
+    /// before the upload even started. On upload failure the row
     /// REMAINS with `uploadFailed = true` and the file is never touched.
     /// `async` (awaits the upload inline) so callers/tests can await completion
     /// deterministically instead of racing a detached Task.
@@ -34,7 +39,7 @@ public enum RecordingDelivery {
         mime: String,
         history: HistoryStore?,
         effects: any PipelineEffects,
-        upload: @escaping (Data, String, String) async throws -> DeliveredUpload
+        upload: @escaping (FilePart, String) async throws -> DeliveredUpload
     ) async {
         let entryID = UUID().uuidString
         // History row first: the artifact is already on disk, so recording the
@@ -57,10 +62,16 @@ public enum RecordingDelivery {
         }
 
         do {
-            let data = try Data(contentsOf: fileURL)
-            let result = try await upload(data, fileURL.lastPathComponent, mime)
+            let part = try FilePart.file(fieldName: "file",
+                                         filename: fileURL.lastPathComponent,
+                                         mimeType: mime, url: fileURL)
+            let result = try await upload(part, fileURL.lastPathComponent)
             effects.copyTextToClipboard(result.url)
-            effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+            // Matches the still-image path: success honors the preference,
+            // failure below always surfaces (fail-loud).
+            if showNotification {
+                effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
+            }
             try? history?.setURL(id: entryID, url: result.url, deletionURL: result.deletionURL, failed: false)
         } catch {
             // Fail-loud: surface the failure; the row + file remain (local-first).

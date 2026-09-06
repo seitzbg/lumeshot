@@ -27,7 +27,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - **Imgur** — anonymous upload (share URL + deletion URL)
 - **Picsur** — self-hosted image host; API-key auth, choice of serving format and direct-image vs viewer-page links
 - **S3-compatible** — hand-rolled SigV4 (AWS / Cloudflare R2 / MinIO / Backblaze B2); path + virtual-host addressing; optional ACL; custom result-URL domain
-- **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH)
+- **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH); host key pinned on first connection and verified thereafter
 - **FTP / FTPS** — libcurl
 
 **Preferences window** (⌘,)
@@ -36,14 +36,16 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 - Destination management (add/remove/select S3/SFTP/FTP/Imgur/Picsur, import `.sxcu`) folded into the Uploads tab
 
 **History browser**
-- Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (local + remote cleanup)
+- Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (removes the history row and, when the uploader gave one, the remote copy; the local file is left on disk)
 
 **Distribution**
 - Ad-hoc-signed `.dmg` built by a `v*`-tag-triggered GitHub Actions release (no Apple Developer account yet — see `docs/RELEASING.md`)
 
 ## Security
 
-Secrets (API keys, Picsur API keys, S3 keys, SFTP/FTP passwords and private keys, `.sxcu` header/param secrets) are stored **only in the login Keychain** (`org.sharexmac.app`), never in `settings.json`.
+Secrets (API keys, Picsur API keys, S3 keys, SFTP/FTP passwords and private keys) are stored **only in the login Keychain** (`org.sharexmac.app`), never in `settings.json`.
+
+For imported `.sxcu` custom uploaders the guarantee is narrower, because the format lets a credential sit anywhere. Two surfaces are protected unconditionally — the JSON body template, and a `RequestURL` carrying a query string or user-info, both stored in full. Headers, arguments and query parameters are matched against a key-name heuristic (`authorization`, `token`, `api_key`, `signature`, …). That heuristic is deliberately over-eager, but a secret under a genuinely innocuous key can still reach `settings.json` — treat an untrusted `.sxcu` accordingly.
 
 ## Not affiliated
 

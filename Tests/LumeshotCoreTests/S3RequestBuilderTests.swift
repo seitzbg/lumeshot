@@ -28,12 +28,12 @@ import Testing
 
         #expect(req.method == .put)
         #expect(req.url == "https://shots.s3.us-east-1.amazonaws.com/screens/shot.png")
-        #expect(req.body == file.data)
+        #expect(req.body == (try file.readData()))
         #expect(req.contentType == "image/png")
         #expect(req.headers["host"] == nil)          // URLSession sets Host from the URL
         #expect(req.headers["Authorization"]?.hasPrefix("AWS4-HMAC-SHA256 ") == true)
         #expect(req.headers["x-amz-date"] == "20150830T123600Z")
-        let expectedHash = SHA256.hash(data: file.data).map { String(format: "%02x", $0) }.joined()
+        let expectedHash = SHA256.hash(data: try file.readData()).map { String(format: "%02x", $0) }.joined()
         #expect(req.headers["x-amz-content-sha256"] == expectedHash)
         #expect(req.headers["x-amz-acl"] == nil)     // no ACL configured
     }
@@ -71,5 +71,52 @@ import Testing
         #expect(throws: UploadError.self) {
             _ = try S3RequestBuilder.build(config: config, credentials: creds, file: png(), now: now)
         }
+    }
+}
+
+@Suite struct S3StreamingPayloadTests {
+    private let config = S3Config(region: "us-east-1", endpoint: "s3.example.com",
+                                  bucket: "bkt", objectPrefix: "", addressingStyle: .path,
+                                  acl: nil, customDomain: nil)
+    private let creds = SigV4Credentials(accessKeyID: "AK", secretAccessKey: "SK")
+
+    /// Hashing the file in chunks must give the same signature as hashing it in
+    /// one piece, or every large upload would be rejected as unsigned.
+    @Test func aFileBackedPartSignsIdenticallyToADataBackedOne() throws {
+        let bytes = Data((0..<300_000).map { UInt8($0 % 251) })
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".bin")
+        try bytes.write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let now = Date(timeIntervalSince1970: 1_700_000_000)
+        let fromData = try S3RequestBuilder.build(
+            config: config, credentials: creds,
+            file: FilePart(fieldName: "f", filename: "a.bin", mimeType: "application/octet-stream",
+                           data: bytes),
+            now: now)
+        let fromFile = try S3RequestBuilder.build(
+            config: config, credentials: creds,
+            file: FilePart.file(fieldName: "f", filename: "a.bin",
+                                mimeType: "application/octet-stream", url: url),
+            now: now)
+
+        #expect(fromData.headers["x-amz-content-sha256"]
+                == fromFile.headers["x-amz-content-sha256"])
+        #expect(fromData.headers["Authorization"] == fromFile.headers["Authorization"])
+    }
+
+    /// A file-backed object is streamed, not buffered into the request.
+    @Test func aFileBackedPartIsSentFromDiskNotMemory() throws {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString + ".bin")
+        try Data([1, 2, 3]).write(to: url)
+        defer { try? FileManager.default.removeItem(at: url) }
+        let request = try S3RequestBuilder.build(
+            config: config, credentials: creds,
+            file: FilePart.file(fieldName: "f", filename: "a.bin", mimeType: "x", url: url),
+            now: Date())
+        #expect(request.bodyFileURL == url)
+        #expect(request.body == nil)
     }
 }

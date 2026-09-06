@@ -17,6 +17,10 @@ final class HistoryWindowController {
     func show() {
         if let window {
             model?.reload()   // pick up captures recorded since the window was last shown
+            // Settings were snapshotted when the model was first built, so GIF
+            // FPS / max width edited in Preferences would not reach the export
+            // sheet until the app restarted.
+            model?.recordingSettings = settingsStore.loadOrDefault().0.recording
             NSApp.activate(ignoringOtherApps: true)
             window.makeKeyAndOrderFront(nil)
             return

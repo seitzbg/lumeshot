@@ -37,7 +37,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 .appendingPathComponent("history.sqlite"))
         if historyStore == nil { AppLog.log("History store unavailable; captures won't be recorded") }
         self.historyStore = historyStore
-        let uploadService = UploadService(credentials: KeychainCredentialStore())
+        let uploadService = UploadService(credentials: KeychainCredentialStore(),
+                                          settingsStore: SettingsStore(fileURL: SettingsStore.defaultFileURL))
         let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
                                              uploadService: uploadService,
                                              historyStore: historyStore,
@@ -319,11 +320,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
             var (settings, _) = store.loadOrDefault()
             let id = UUID().uuidString
+            let credentials = KeychainCredentialStore()
             let destination = try SxcuImporter.makeDestination(
-                from: data, id: id, credentials: KeychainCredentialStore())
+                from: data, id: id, credentials: credentials)
             settings.upload.destinations.append(destination)
             settings.upload.activeDestinationID = id      // make the freshly imported one active
-            try store.save(settings)
+            do {
+                try store.save(settings)
+            } catch {
+                // The Keychain writes already happened inside makeDestination.
+                // Without this the secrets would linger with no destination
+                // referencing them, invisible and unreachable.
+                _ = CredentialTransaction.purgeRestorable(destination.secretAccounts,
+                                                          in: credentials)
+                throw error
+            }
             AppLog.log("Imported .sxcu destination '\(destination.name)' (id \(id))")
             effects.notify(title: "Uploader imported",
                            body: "\(destination.name) is now the active destination.",

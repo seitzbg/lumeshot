@@ -26,8 +26,16 @@ final class RecordingDelegateShim: NSObject, SCStreamDelegate, SCRecordingOutput
 
 @MainActor
 public final class ScreenRecorder {
-    public enum State: Equatable { case idle, recording }
+    /// The full lifecycle, not just the endpoints. `starting` and `stopping`
+    /// exist so every transition happens *synchronously before* an await:
+    /// @MainActor gives mutual exclusion only between suspension points, so a
+    /// guard on a variable mutated after an await is no guard at all.
+    public enum State: Equatable { case idle, starting, recording, stopping }
     public private(set) var state: State = .idle
+
+    /// True from the moment a start is claimed until the session is fully torn
+    /// down. Callers must gate on this, not on `state == .recording`.
+    public var isBusy: Bool { state != .idle }
 
     private var stream: SCStream?
     private var recordingOutput: SCRecordingOutput?
@@ -35,6 +43,10 @@ public final class ScreenRecorder {
     private var outputURL: URL?
     private var onFinish: ((Result<URL, RecordingError>) -> Void)?
     private var didDeliver = false   // fire onFinish exactly once per session
+    /// Incremented per session so a late delegate callback from a previous
+    /// stream can be recognized and dropped instead of being attributed to the
+    /// current one.
+    private var sessionID: UInt64 = 0
 
     public init() {}
 
@@ -46,7 +58,7 @@ public final class ScreenRecorder {
                       codec: AVVideoCodecType,
                       outputURL url: URL,
                       onFinish: @escaping (Result<URL, RecordingError>) -> Void) async throws {
-        guard state == .idle else { throw RecordingError.alreadyRecording }
+        let session = try beginSession()
 
         let config = SCStreamConfiguration()
         config.width = dimensions.width
@@ -63,11 +75,16 @@ public final class ScreenRecorder {
         recConfig.videoCodecType = codec
 
         let shim = RecordingDelegateShim { [weak self] event in
-            Task { @MainActor in self?.handle(event) }
+            Task { @MainActor in self?.handle(event, session: session) }
         }
         let output = SCRecordingOutput(configuration: recConfig, delegate: shim)
         let stream = SCStream(filter: filter, configuration: config, delegate: shim)
-        try stream.addRecordingOutput(output)   // VERIFY on Mac: if startCapture requires a stream output, add a no-op SCStreamOutput on a bg queue.
+        do {
+            try stream.addRecordingOutput(output)   // VERIFY on Mac: if startCapture requires a stream output, add a no-op SCStreamOutput on a bg queue.
+        } catch {
+            reset()   // we already claimed .starting; release it
+            throw error
+        }
 
         self.stream = stream
         self.recordingOutput = output
@@ -79,15 +96,39 @@ public final class ScreenRecorder {
         do {
             try await stream.startCapture()
         } catch {
-            reset()
+            // Only tear down if this session still owns the recorder.
+            if sessionID == session { reset() }
             throw RecordingError.startFailed(error.localizedDescription)
         }
+        // Both conditions matter. The session id alone is not enough: a `.failed`
+        // delegate event arriving during the handshake delivers and resets to
+        // .idle *without* bumping the id, so committing .recording here would
+        // relatch the recorder with a nil stream — the same stuck state the
+        // .starting claim exists to prevent.
+        guard sessionID == session, state == .starting else { return }
         state = .recording
+    }
+
+    /// Synchronously claim the recorder for a new session. Called before any
+    /// await in `start`, so a second start during the SCK handshake is rejected
+    /// rather than silently overwriting the first session's stream and callback.
+    private func beginSession() throws -> UInt64 {
+        guard state == .idle else { throw RecordingError.alreadyRecording }
+        state = .starting
+        sessionID &+= 1
+        didDeliver = false
+        return sessionID
     }
 
     /// Stop; the file is delivered via the delegate `finished` event (do NOT deliver here).
     public func stop() async {
+        // Claim the stop synchronously. Without a `.stopping` state a second
+        // stop passed the guard while the first was suspended, called
+        // stopCapture() on an already-stopped stream, and turned the resulting
+        // throw into a spurious "Recording failed" that raced — and could beat —
+        // the genuine finished event.
         guard state == .recording, let stream else { return }
+        state = .stopping
         do { try await stream.stopCapture() }
         catch { deliver(.failure(.recordingFailed(error.localizedDescription))); return }
         // success delivered by recordingOutputDidFinishRecording
@@ -102,16 +143,28 @@ public final class ScreenRecorder {
         self.outputURL = outputURL
         self.onFinish = onFinish
         self.didDeliver = false
+        self.sessionID &+= 1
         state = .recording
     }
 
-    /// Test-only: mirrors start()'s re-entrancy guard without constructing an SCContentFilter
-    /// (which needs the Screen Recording TCC grant). Lets CI verify the guard fires.
-    func _assertIdleForTesting() throws {
-        guard state == .idle else { throw RecordingError.alreadyRecording }
+    /// Test-only: the real synchronous claim from `start()`, without an
+    /// SCContentFilter (which needs the Screen Recording TCC grant). Lets CI
+    /// exercise the exact window a second start would race into.
+    @discardableResult
+    func _beginSessionForTesting() throws -> UInt64 { try beginSession() }
+
+    /// Test-only: the real synchronous claim from `stop()`.
+    func _beginStopForTesting() -> Bool {
+        guard state == .recording else { return false }
+        state = .stopping
+        return true
     }
 
-    func handle(_ event: RecordingEvent) {
+    func _currentSessionForTesting() -> UInt64 { sessionID }
+
+    func handle(_ event: RecordingEvent, session: UInt64) {
+        // A stream from a superseded session can still be delivering callbacks.
+        guard session == sessionID else { return }
         switch event {
         case .started: break
         case .finished:

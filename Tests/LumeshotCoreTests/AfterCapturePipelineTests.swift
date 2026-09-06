@@ -94,3 +94,48 @@ private func settings() -> AppSettings {
         #expect(!result.savedURL!.path.contains("~"))
     }
 }
+
+@Suite @MainActor struct SavePolicyTests {
+    private func run(saveToDisk: Bool, policy: SavePolicy) throws -> (PipelineResult, MockEffects) {
+        var settings = AppSettings.default
+        settings.saveToDisk = saveToDisk
+        settings.copyToClipboard = false
+        settings.showNotification = false
+        let effects = MockEffects()
+        let artifact = CaptureArtifact(pngData: Data([1]), width: 2, height: 2,
+                                       capturedAt: Date(), appName: nil)
+        let result = try AfterCapturePipeline(settings: settings, effects: effects)
+            .process(artifact, savePolicy: policy)
+        return (result, effects)
+    }
+
+    /// The editor's "Save to disk" button must write a file even when the
+    /// automatic after-capture save is switched off.
+    @Test func requireWritesEvenWhenTheSettingIsOff() throws {
+        let (result, effects) = try run(saveToDisk: false, policy: .require)
+        #expect(result.savedURL != nil)
+        #expect(effects.written.count == 1)
+    }
+
+    @Test func followSettingsStillSkipsWhenTheSettingIsOff() throws {
+        let (result, effects) = try run(saveToDisk: false, policy: .followSettings)
+        #expect(result.savedURL == nil)
+        #expect(effects.written.isEmpty)
+    }
+
+    @Test func bothPoliciesWriteWhenTheSettingIsOn() throws {
+        #expect(try run(saveToDisk: true, policy: .followSettings).0.savedURL != nil)
+        #expect(try run(saveToDisk: true, policy: .require).0.savedURL != nil)
+    }
+
+    @Test func defaultPolicyIsFollowSettings() throws {
+        var settings = AppSettings.default
+        settings.saveToDisk = false
+        settings.copyToClipboard = false
+        settings.showNotification = false
+        let result = try AfterCapturePipeline(settings: settings, effects: MockEffects())
+            .process(CaptureArtifact(pngData: Data([1]), width: 2, height: 2,
+                                     capturedAt: Date(), appName: nil))
+        #expect(result.savedURL == nil)
+    }
+}

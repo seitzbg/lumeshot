@@ -39,9 +39,20 @@ public enum GifConverter {
         let times = frameTimes(duration: duration, fps: options.fps)
             .map { CMTime(seconds: $0, preferredTimescale: 600) }
 
+        // Render to a unique temporary sibling and move into place only after
+        // finalization. Writing straight to gifURL left a truncated file behind
+        // on any failure, which then occupied the name so the next export
+        // silently became "_1.gif" next to a broken artifact.
+        let stagingURL = gifURL.deletingLastPathComponent()
+            .appendingPathComponent(".\(UUID().uuidString).gif.partial")
+        func discardStaging() { try? FileManager.default.removeItem(at: stagingURL) }
+
         guard let destination = CGImageDestinationCreateWithURL(
-            gifURL as CFURL, UTType.gif.identifier as CFString, times.count, nil)
-        else { throw RecordingError.conversionFailed("Could not create GIF destination at \(gifURL.path)") }
+            stagingURL as CFURL, UTType.gif.identifier as CFString, times.count, nil)
+        else {
+            discardStaging()
+            throw RecordingError.conversionFailed("Could not create GIF destination at \(gifURL.path)")
+        }
 
         let gifProperties = [kCGImagePropertyGIFDictionary: [kCGImagePropertyGIFLoopCount: 0]] as CFDictionary
         CGImageDestinationSetProperties(destination, gifProperties)
@@ -55,6 +66,7 @@ public enum GifConverter {
             do {
                 cgImage = try await generator.image(at: time).image
             } catch {
+                discardStaging()
                 throw RecordingError.conversionFailed(
                     "Frame generation failed at \(time.seconds)s: \(error.localizedDescription)")
             }
@@ -62,7 +74,15 @@ public enum GifConverter {
         }
 
         guard CGImageDestinationFinalize(destination) else {
+            discardStaging()
             throw RecordingError.conversionFailed("Could not finalize GIF at \(gifURL.path)")
+        }
+        do {
+            try FileManager.default.moveItem(at: stagingURL, to: gifURL)
+        } catch {
+            discardStaging()
+            throw RecordingError.conversionFailed(
+                "Could not move the finished GIF into place: \(error.localizedDescription)")
         }
     }
 }

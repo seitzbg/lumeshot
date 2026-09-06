@@ -10,6 +10,19 @@ public protocol PipelineEffects {
     func notifyURL(title: String, body: String, url: String)
 }
 
+/// Whether the disk write is governed by the user's automatic-capture
+/// preference or demanded by an explicit command.
+///
+/// `saveToDisk` is an *after-capture automation* setting. Routing explicit
+/// editor actions through it made the editor's "Save to disk" button write
+/// nothing whenever that automation was switched off.
+public enum SavePolicy: Equatable, Sendable {
+    /// Honor `settings.saveToDisk` — the automatic path after a capture.
+    case followSettings
+    /// Always write, whatever the setting says — the user asked for a file.
+    case require
+}
+
 public struct PipelineResult: Equatable, Sendable {
     public let savedURL: URL?
     public let copiedToClipboard: Bool
@@ -25,10 +38,11 @@ public struct AfterCapturePipeline {
         self.effects = effects
     }
 
-    public func process(_ artifact: CaptureArtifact) throws -> PipelineResult {
+    public func process(_ artifact: CaptureArtifact,
+                        savePolicy: SavePolicy = .followSettings) throws -> PipelineResult {
         var savedURL: URL?
 
-        if settings.saveToDisk {
+        if settings.saveToDisk || savePolicy == .require {
             let dir = URL(fileURLWithPath: (settings.captureSavePath as NSString).expandingTildeInPath)
             let url = resolveCollisions(in: dir, artifact: artifact)
             try effects.writeFile(artifact.pngData, to: url)   // disk first: local-first invariant

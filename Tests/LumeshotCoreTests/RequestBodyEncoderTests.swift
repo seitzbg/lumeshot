@@ -5,10 +5,10 @@ import Testing
 @Suite struct RequestBodyEncoderTests {
     private func str(_ data: Data?) -> String { String(data: data ?? Data(), encoding: .utf8) ?? "" }
 
-    @Test func multipartEncodesFieldsAndFileWithBoundary() {
+    @Test func multipartEncodesFieldsAndFileWithBoundary() throws {
         let file = FilePart(fieldName: "file", filename: "a.png", mimeType: "image/png",
                             data: Data([0xDE, 0xAD]))
-        let (body, ct) = RequestBodyEncoder.encode(
+        let (body, ct) = try RequestBodyEncoder.encode(
             .multipart(fields: [("k", "v")], file: file), boundary: "BND")
         #expect(ct == "multipart/form-data; boundary=BND")
         let s = str(body)
@@ -19,30 +19,30 @@ import Testing
         #expect(s.hasSuffix("--BND--\r\n"))
     }
 
-    @Test func formURLEncodedEscapesReservedCharacters() {
-        let (body, ct) = RequestBodyEncoder.encode(
+    @Test func formURLEncodedEscapesReservedCharacters() throws {
+        let (body, ct) = try RequestBodyEncoder.encode(
             .formURLEncoded([("a b", "c&d"), ("x", "y")]), boundary: "BND")
         #expect(ct == "application/x-www-form-urlencoded")
         #expect(str(body) == "a%20b=c%26d&x=y")
     }
 
-    @Test func jsonPassesThroughWithContentType() {
+    @Test func jsonPassesThroughWithContentType() throws {
         let payload = Data(#"{"z":1}"#.utf8)
-        let (body, ct) = RequestBodyEncoder.encode(.json(payload), boundary: "BND")
+        let (body, ct) = try RequestBodyEncoder.encode(.json(payload), boundary: "BND")
         #expect(ct == "application/json")
         #expect(body == payload)
     }
 
-    @Test func binarySetsFileMimeAndRawBytes() {
+    @Test func binarySetsFileMimeAndRawBytes() throws {
         let file = FilePart(fieldName: "", filename: "a.png", mimeType: "image/png",
                             data: Data([1, 2, 3]))
-        let (body, ct) = RequestBodyEncoder.encode(.binary(file), boundary: "BND")
+        let (body, ct) = try RequestBodyEncoder.encode(.binary(file), boundary: "BND")
         #expect(ct == "image/png")
         #expect(body == Data([1, 2, 3]))
     }
 
-    @Test func noneYieldsNilBody() {
-        let (body, ct) = RequestBodyEncoder.encode(.none, boundary: "BND")
+    @Test func noneYieldsNilBody() throws {
+        let (body, ct) = try RequestBodyEncoder.encode(.none, boundary: "BND")
         #expect(body == nil)
         #expect(ct == nil)
     }

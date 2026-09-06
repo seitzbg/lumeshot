@@ -22,8 +22,31 @@ public final class EditorModel: ObservableObject {
     @Published public private(set) var canUndo = false
     @Published public private(set) var canRedo = false
 
-    public let hitTolerance: CGFloat = 8
-    public let handleTolerance: CGFloat = 9
+    /// Interaction tolerances are authored in *view points* — the units the
+    /// cursor actually moves in — and divided by the canvas scale before
+    /// hit-testing in image space.
+    ///
+    /// They used to be fixed image-pixel values while the selection handles
+    /// were always drawn 8×8 view points. On a 4K image fitted into a 900-point
+    /// window (scale ≈ 0.22) a 9-pixel tolerance is about 2 view points, so a
+    /// handle four times that size on screen was nearly unclickable, and thin
+    /// lines were worse.
+    public static let hitTolerancePoints: CGFloat = 8
+    public static let handleTolerancePoints: CGFloat = 9
+
+    /// Current image-pixels-per-view-point, pushed in by the canvas whenever
+    /// its geometry changes. 1 means "no scaling" — the safe default for
+    /// headless use and tests.
+    @Published public var canvasScale: CGFloat = 1
+
+    /// Guarded against zero/NaN: a canvas can momentarily report an empty size
+    /// during layout, and dividing by it would make every hit test match.
+    private var pointsToImage: CGFloat {
+        canvasScale.isFinite && canvasScale > 0.0001 ? 1 / canvasScale : 1
+    }
+
+    public var hitTolerance: CGFloat { Self.hitTolerancePoints * pointsToImage }
+    public var handleTolerance: CGFloat { Self.handleTolerancePoints * pointsToImage }
 
     private var history = AnnotationHistory()
 

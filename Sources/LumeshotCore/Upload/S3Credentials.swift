@@ -26,8 +26,12 @@ public enum S3Credentials {
         return SigV4Credentials(accessKeyID: ak, secretAccessKey: sk)
     }
 
+    /// Every account this destination may occupy.
+    public static func accounts(id: String) -> [String] {
+        [account(id, "accessKeyID"), account(id, "secretAccessKey")]
+    }
+
     public static func purge(id: String, from credentials: CredentialStore) throws {
-        try credentials.deleteSecret(for: account(id, "accessKeyID"))
-        try credentials.deleteSecret(for: account(id, "secretAccessKey"))
+        try CredentialTransaction.purge(accounts(id: id), in: credentials)
     }
 }

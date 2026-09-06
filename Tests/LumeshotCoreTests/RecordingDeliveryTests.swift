@@ -25,7 +25,7 @@ private struct Boom: Error {}
             fileURL: fileURL, capturedAt: Date(), destinationName: "Imgur",
             shouldUpload: true, showNotification: true, mime: "video/mp4",
             history: history, effects: effects,
-            upload: { _, _, _ in
+            upload: { _, _ in
                 // The upload runs AFTER the row is inserted (local-first ordering).
                 rowPresentWhenUploadRan = ((try? history.recent(limit: 1))?.isEmpty == false)
                 return DeliveredUpload(url: "https://i/x.mp4", deletionURL: "https://i/del")
@@ -41,7 +41,7 @@ private struct Boom: Error {}
             fileURL: fileURL, capturedAt: Date(), destinationName: "Imgur",
             shouldUpload: true, showNotification: true, mime: "video/mp4",
             history: history, effects: effects,
-            upload: { _, _, _ in DeliveredUpload(url: "https://i/x.mp4", deletionURL: "https://i/del") })
+            upload: { _, _ in DeliveredUpload(url: "https://i/x.mp4", deletionURL: "https://i/del") })
         let rows = try history.recent(limit: 1)
         #expect(rows.first?.url == "https://i/x.mp4")
         #expect(rows.first?.deletionURL == "https://i/del")
@@ -61,7 +61,7 @@ private struct Boom: Error {}
             fileURL: fileURL, capturedAt: Date(), destinationName: "Imgur",
             shouldUpload: true, showNotification: true, mime: "video/mp4",
             history: history, effects: effects,
-            upload: { _, _, _ in throw Boom() })
+            upload: { _, _ in throw Boom() })
         let rows = try history.recent(limit: 1)
         #expect(rows.first?.filePath == fileURL.path)     // row remains
         #expect(rows.first?.uploadFailed == true)
@@ -80,7 +80,7 @@ private struct Boom: Error {}
             fileURL: fileURL, capturedAt: Date(), destinationName: nil,
             shouldUpload: false, showNotification: true, mime: "video/mp4",
             history: history, effects: effects,
-            upload: { _, _, _ in uploadRan = true; return DeliveredUpload(url: "x", deletionURL: nil) })
+            upload: { _, _ in uploadRan = true; return DeliveredUpload(url: "x", deletionURL: nil) })
         #expect(!uploadRan)
         #expect(effects.callOrder == ["notify"])
         #expect(effects.notifications.first?.0 == fileURL.lastPathComponent)

@@ -11,9 +11,15 @@ private final class FakeSFTPTransport: SFTPTransport, @unchecked Sendable {
     var receivedUsername: String?
     var receivedSecret: SFTPSecret?
     var errorToThrow: Error?
+    var receivedKnownHostKey: String?
+    var hostKeyToRemember: String?
 
     func upload(_ data: Data, to remotePath: String, host: String, port: Int,
-               username: String, secret: SFTPSecret) async throws {
+               username: String, secret: SFTPSecret,
+               knownHostKey: String?,
+               rememberHostKey: @escaping @Sendable (String) -> Void) async throws {
+        receivedKnownHostKey = knownHostKey
+        if let hostKeyToRemember { rememberHostKey(hostKeyToRemember) }
         receivedData = data
         receivedRemotePath = remotePath
         receivedHost = host
@@ -84,5 +90,64 @@ private final class FakeSFTPTransport: SFTPTransport, @unchecked Sendable {
         await #expect(throws: UploadError.self) {
             _ = try await uploader.upload(png())
         }
+    }
+}
+
+@Suite struct SFTPHostKeyPinningTests {
+    private func config(knownHostKey: String?) -> SFTPConfig {
+        SFTPConfig(host: "sftp.example.com", port: 22, username: "bob",
+                   remoteDirectory: "/up", publicURLBase: "https://cdn.example.com/up",
+                   knownHostKey: knownHostKey)
+    }
+    private let file = FilePart(fieldName: "file", filename: "a.png",
+                                mimeType: "image/png", data: Data([1]))
+
+    @Test func thePinnedKeyIsHandedToTheTransport() async throws {
+        let transport = FakeSFTPTransport()
+        _ = try await SFTPUploader(config: config(knownHostKey: "SHA256:pinned"),
+                                   secret: SFTPSecret(password: "pw"),
+                                   transport: transport).upload(file)
+        #expect(transport.receivedKnownHostKey == "SHA256:pinned")
+    }
+
+    @Test func anUnpinnedDestinationPassesNilSoTheTransportTrustsOnFirstUse() async throws {
+        let transport = FakeSFTPTransport()
+        _ = try await SFTPUploader(config: config(knownHostKey: nil),
+                                   secret: SFTPSecret(password: "pw"),
+                                   transport: transport).upload(file)
+        #expect(transport.receivedKnownHostKey == nil)
+    }
+
+    @Test func aFirstSeenKeyIsReportedBackForPinning() async throws {
+        let transport = FakeSFTPTransport()
+        transport.hostKeyToRemember = "SHA256:learned"
+        let box = LockedBox()
+        _ = try await SFTPUploader(config: config(knownHostKey: nil),
+                                   secret: SFTPSecret(password: "pw"),
+                                   transport: transport,
+                                   rememberHostKey: { box.value = $0 }).upload(file)
+        #expect(box.value == "SHA256:learned")
+    }
+
+    @Test func knownHostKeySurvivesACodableRoundTrip() throws {
+        let decoded = try JSONDecoder().decode(
+            SFTPConfig.self, from: JSONEncoder().encode(config(knownHostKey: "SHA256:x")))
+        #expect(decoded.knownHostKey == "SHA256:x")
+    }
+
+    /// Pre-pinning settings.json has no `knownHostKey` key at all.
+    @Test func aLegacyConfigDecodesAsUnpinned() throws {
+        let json = #"{"host":"h","port":22,"username":"u","remoteDirectory":"/d","publicURLBase":"https://x"}"#
+        let decoded = try JSONDecoder().decode(SFTPConfig.self, from: Data(json.utf8))
+        #expect(decoded.knownHostKey == nil)
+    }
+}
+
+private final class LockedBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _value: String?
+    var value: String? {
+        get { lock.lock(); defer { lock.unlock() }; return _value }
+        set { lock.lock(); _value = newValue; lock.unlock() }
     }
 }

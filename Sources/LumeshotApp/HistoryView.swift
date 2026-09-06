@@ -12,9 +12,15 @@ final class HistoryModel: ObservableObject {
     @Published var loadError: String?
     @Published var exportingEntry: HistoryEntry?
     @Published var exportError: String?
+    @Published var deleteError: String?
+    /// Entries with a remote deletion already in flight. Without this a
+    /// second click schedules a second request, and a late failure from it
+    /// would report an error for a row the first request already removed.
+    private var deletionsInFlight: Set<String> = []
     private let store: HistoryStore
     private let http: HTTPClient
-    private let recordingSettings: RecordingSettings
+    /// Re-read when the window is shown, not just when it is created.
+    var recordingSettings: RecordingSettings
 
     init(store: HistoryStore, http: HTTPClient = URLSessionHTTPClient(),
         recordingSettings: RecordingSettings = .default) {
@@ -54,16 +60,53 @@ final class HistoryModel: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
+    /// Deletes the history row and, when the entry carries one, the remote
+    /// object. The row is dropped only after the remote deletion succeeds: it
+    /// holds the *only* copy of the deletion token, so removing it first made a
+    /// failed deletion permanently unretryable and left the object online.
+    ///
+    /// GET is correct here rather than an assumption — a ShareX `DeletionURL`
+    /// is by convention a link you can open in a browser, which is what Imgur,
+    /// Picsur and custom uploaders all emit.
+    ///
+    /// The local file is deliberately left on disk; this deletes the history
+    /// record and the remote copy, not the user's screenshot.
     func delete(_ entry: HistoryEntry) {
-        do { try store.delete(id: entry.id) }
-        catch { AppLog.log("History: delete failed for \(entry.id): \(error)") }
-        // Best-effort remote deletion; local removal already succeeded.
-        if let del = entry.deletionURL, let url = URL(string: del) {
-            let http = self.http
-            Task {
-                do { _ = try await http.send(PreparedRequest(method: .get, url: url.absoluteString)) }
-                catch { AppLog.log("History: remote deletion failed for \(entry.id): \(error)") }
+        guard let deletionURL = entry.deletionURL, let url = URL(string: deletionURL) else {
+            if entry.deletionURL != nil {
+                AppLog.log("History: unusable deletion URL for \(entry.id); removing row only")
             }
+            removeRow(entry)
+            return
+        }
+        guard !deletionsInFlight.contains(entry.id) else { return }
+        deletionsInFlight.insert(entry.id)
+        let http = self.http
+        Task { @MainActor in
+            defer { deletionsInFlight.remove(entry.id) }
+            do {
+                let response = try await http.send(PreparedRequest(method: .get,
+                                                                   url: url.absoluteString))
+                guard (200..<300).contains(response.status) else {
+                    AppLog.log("History: remote deletion for \(entry.id) returned HTTP \(response.status)")
+                    deleteError = "The host refused the deletion (HTTP \(response.status)). "
+                        + "The entry was kept so you can try again."
+                    return
+                }
+                removeRow(entry)
+            } catch {
+                AppLog.log("History: remote deletion failed for \(entry.id): \(error)")
+                deleteError = "Couldn’t reach the host to delete the upload. "
+                    + "The entry was kept so you can try again."
+            }
+        }
+    }
+
+    private func removeRow(_ entry: HistoryEntry) {
+        do { try store.delete(id: entry.id) }
+        catch {
+            AppLog.log("History: delete failed for \(entry.id): \(error)")
+            deleteError = "Couldn’t remove the history entry."
         }
         reload()
     }
@@ -126,6 +169,9 @@ struct HistoryView: View {
         .sheet(item: $model.exportingEntry) { entry in
             GifExportSheet(entry: entry, model: model)
         }
+        .alert("Delete Failed", isPresented: .constant(model.deleteError != nil), presenting: model.deleteError) { _ in
+            Button("OK") { model.deleteError = nil }
+        } message: { Text($0) }
         .alert("Export Failed", isPresented: .constant(model.exportError != nil), presenting: model.exportError) { _ in
             Button("OK") { model.exportError = nil }
         } message: { message in

@@ -9,7 +9,10 @@ public struct URLSessionHTTPClient: HTTPClient {
 
     public func send(_ request: PreparedRequest) async throws -> HTTPResponse {
         guard let url = URL(string: request.url) else {
-            throw UploadError.transport("Invalid URL: \(request.url)")
+            // Deliberately not interpolated: by this point the URL has been
+            // injected with any Keychain-held credential, and this string
+            // reaches the log and a user-visible notification.
+            throw UploadError.transport("The uploader's request URL is not a valid URL.")
         }
         var urlRequest = URLRequest(url: url)
         urlRequest.httpMethod = request.method.rawValue
@@ -19,12 +22,16 @@ public struct URLSessionHTTPClient: HTTPClient {
         if let contentType = request.contentType {
             urlRequest.setValue(contentType, forHTTPHeaderField: "Content-Type")
         }
-        urlRequest.httpBody = request.body
-
         let data: Data
         let response: URLResponse
         do {
-            (data, response) = try await session.data(for: urlRequest)
+            if let fileURL = request.bodyFileURL {
+                // Streams from disk: the payload is never held in memory here.
+                (data, response) = try await session.upload(for: urlRequest, fromFile: fileURL)
+            } else {
+                urlRequest.httpBody = request.body
+                (data, response) = try await session.data(for: urlRequest)
+            }
         } catch {
             throw UploadError.transport(error.localizedDescription)
         }

@@ -18,4 +18,5 @@ public enum UploadError: Error, Equatable, Sendable {
     case missingCredential(String)
     case transport(String)
     case badResponse(String)
+    case hostKeyMismatch(String)
 }
