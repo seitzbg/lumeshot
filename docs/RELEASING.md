@@ -61,6 +61,14 @@ Notarization uses an App Store Connect API key rather than an Apple ID and app-s
 password: it is independently revocable, survives password changes, and needs no 2FA
 interaction on a runner.
 
+**Back up the `.p12` before letting the wizard clean up.** GitHub secrets are write-only —
+once `DEVELOPER_ID_P12` is set, nothing can read it back, so the working copy is the only
+one you can still reach. Apple will not re-issue the private key; losing it means revoking
+the certificate and using another Developer ID slot. Published releases are unaffected
+(they are notarized, stapled and timestamped), so this costs a re-issue, not a broken
+release. Recovering the key out of the secret via a workflow artifact is **not** an option
+on a public repo: artifacts are downloadable by anyone who can view the run.
+
 **Signing is opt-in.** The workflow enables it only when both `DEVELOPER_ID_P12` and
 `ASC_KEY_P8` exist. Without them the release still builds and publishes — ad-hoc signed and
 unnotarized, with a `::warning::` in the log — so a fork or a secret-less repo is not a
