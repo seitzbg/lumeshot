@@ -66,15 +66,14 @@ public enum S3RequestBuilder {
         }
     }
 
-    // AWS URI-encode: unreserved kept verbatim, everything else %XX (uppercase hex).
+    // AWS URI-encode: unreserved kept verbatim, everything else %XX.
+    // Shared with the SFTP/FTP public-URL builder so both spell a given
+    // filename identically.
     private static func encodeSegment(_ s: String) -> String {
-        let allowed = CharacterSet(charactersIn:
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.~")
-        return s.addingPercentEncoding(withAllowedCharacters: allowed) ?? s
+        RemotePathURLMapper.encodeSegment(s)
     }
     private static func encodePath(_ path: String) -> String {
-        path.split(separator: "/", omittingEmptySubsequences: false)
-            .map { encodeSegment(String($0)) }.joined(separator: "/")
+        RemotePathURLMapper.encodePath(path)
     }
     private static func hex<S: Sequence>(_ bytes: S) -> String where S.Element == UInt8 {
         bytes.map { String(format: "%02x", $0) }.joined()

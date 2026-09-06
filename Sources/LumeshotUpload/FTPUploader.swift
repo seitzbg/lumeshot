@@ -18,7 +18,11 @@ public struct FTPUploader: Uploader {
     public func upload(_ file: FilePart) async throws -> UploadResult {
         let remotePath = RemotePathURLMapper.remotePath(directory: config.remoteDirectory,
                                                          filename: file.filename)
-        let url = "ftp://\(config.host):\(config.port)\(remotePath.hasPrefix("/") ? remotePath : "/" + remotePath)"
+        // libcurl parses this as a URL, so the path must be percent-encoded:
+        // a filename with a space or "#" otherwise produces an invalid URL or
+        // silently truncates at the fragment.
+        let absolute = remotePath.hasPrefix("/") ? remotePath : "/" + remotePath
+        let url = "ftp://\(config.host):\(config.port)\(RemotePathURLMapper.encodePath(absolute))"
         try await transport.upload(file.data, to: url, username: config.username,
                                    password: secret.password, useTLS: config.useTLS)
         return UploadResult(url: RemotePathURLMapper.resultURL(publicURLBase: config.publicURLBase,
