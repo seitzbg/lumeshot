@@ -14,7 +14,15 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        center.requestAuthorization(options: [.alert, .sound]) { granted, error in
+        // @Sendable is load-bearing, not decoration. This type is @MainActor, so a
+        // bare closure here inherits main-actor isolation — but UserNotifications
+        // invokes it on its own queue (UNUserNotificationServiceConnection.call-out).
+        // The Swift runtime then checks the executor on entry and traps with
+        // EXC_BREAKPOINT before the body runs. macOS 15's runtime tolerated it;
+        // macOS 26's does not, so the app died on launch there.
+        // The closure captures nothing and NSLog is thread-safe, so making it
+        // non-isolated is sufficient and needs no hop.
+        center.requestAuthorization(options: [.alert, .sound]) { @Sendable granted, error in
             if let error { NSLog("Notification auth error: \(error)") }
             else { NSLog("Notification auth granted: \(granted)") }
         }
@@ -48,7 +56,10 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         if let fileURL { content.userInfo = ["path": fileURL.path] }
         let request = UNNotificationRequest(identifier: UUID().uuidString,
                                             content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
+        // Same isolation trap as setUpNotifications(): add(_:) calls back off the
+        // main actor. This one would fire on the first notification posted rather
+        // than at launch.
+        UNUserNotificationCenter.current().add(request) { @Sendable error in
             if let error { NSLog("Notification error: \(error)") }
         }
     }
@@ -69,7 +80,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         content.userInfo = ["url": url]
         let request = UNNotificationRequest(identifier: UUID().uuidString,
                                             content: content, trigger: nil)
-        UNUserNotificationCenter.current().add(request) { error in
+        // @Sendable for the same reason as setUpNotifications() — see there.
+        UNUserNotificationCenter.current().add(request) { @Sendable error in
             if let error { NSLog("Notification error: \(error)") }
         }
     }
