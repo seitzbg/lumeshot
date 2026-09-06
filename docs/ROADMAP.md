@@ -37,6 +37,7 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **Preferences window** | Dedicated tabbed Settings (⌘,): General / Capture / Hotkeys / Uploads / Recording; live hotkey recorder (re-registers instantly); Destinations folded into the Uploads tab. |
 | **Picsur destination** | Native `.picsur` destination kind for self-hosted [Picsur](https://github.com/CaramelFur/Picsur) instances: `PicsurUploader` synthesizes the same custom-uploader template Picsur's own ShareX generator emits (multipart `image`, `Authorization: Api-Key`), API key → Keychain (`<id>/picsur/apiKey`), Add-Picsur sheet with host / serving format / link-style. |
 | **Code-review remediation** | All 18 findings of `docs/code-review-2026-09-06.md` fixed. Highlights: SSH host keys pinned on first use and verified after (was `.acceptAnything()`); explicit editor Save no longer gated by the automatic-save preference; recorder start/stop given a real `.starting`/`.stopping` lifecycle with a session token; recordings streamed to uploaders instead of read into memory on the main actor; Keychain/settings mutations made compensable; `.sxcu` RequestURL protected; SFTP/FTP URLs percent-encoded. |
+| **Developer ID signing** | Hardened runtime + `Resources/Lumeshot.entitlements` (deliberately empty) + secure timestamp; release workflow imports a Developer ID cert into a throwaway keychain, asserts the signature's team, signs the dmg, notarizes via `scripts/notarize.sh` (App Store Connect API key) and staples. Signing is opt-in on secret presence, so a secret-less repo still publishes. `scripts/setup-developer-id.sh` walks the one-time Apple-portal setup. |
 | **Rebrand + rename** | ShareX-for-Mac → **Lumeshot** (repo, app display name, `.app`/dmg); `SX*` modules → `Lumeshot*`; working dir → `~/git/lumeshot`. Bundle ID + signing cert kept (TCC grant preserved). |
 
 ## Pending — needs you (live Mac smoke)
@@ -48,13 +49,14 @@ Run these when convenient (each is a checklist):
 - [ ] **M5a SFTP/FTP** — `docs/smoke-m5a.md` (real password + key SFTP, plain FTP, FTPS; result URL reachable; secrets purged on remove).
 - [ ] **M5b dmg + polish** — `docs/smoke-m5b.md` (dmg mounts + drag-installs; elapsed timer; GIF spinner; inspector-on-select).
 - [ ] **Picsur** — `docs/smoke-picsur.md` (real upload to a live instance; direct-image link resolves; deletion URL works; bad key surfaces an error).
+- [ ] **Signing + notarization** — `docs/smoke-signing.md` (cut a signed release; verify Gatekeeper accepts the dmg on a clean Mac, the ticket validates offline, and **notifications finally fire**).
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Proper **Developer ID signing + notarization** — would fix (a) user notifications not firing (the self-signed dev app isn't registered with Notification Center) and (b) the Gatekeeper right-click→Open dance on the ad-hoc dmg. This is the biggest single quality unlock and gates a real public release.
 - Auto-update mechanism (none today).
+- The release is signed + notarized, but **unverified end to end**: no signed release has been cut yet. `docs/smoke-signing.md` is the gate, and the notification fix in particular is a hypothesis until a notarized build runs on a clean Mac.
 
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied — failures still surface as the raw `.http(status:body:)`. Affects Picsur and any `.sxcu`.
@@ -85,7 +87,7 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Developer ID signing + notarization** — the highest-leverage item; unblocks notifications, Gatekeeper, and a shareable release. Likely its own spec (Apple Developer account, signing/notary CI secrets, entitlements).
+1. **Cut the first signed release** and work `docs/smoke-signing.md` — the pipeline exists but has never run against Apple's notary service.
 2. **Editor polish pass** — effect stacking + caching, text-font fidelity, stroke inspector commit.
 3. **Uploader auth** — Imgur OAuth (SFTP host-key pinning shipped).
 4. **App-data rename + migration** — move `~/Pictures/ShareX` / `ShareX-Mac` app-support to Lumeshot with a one-time migration.
