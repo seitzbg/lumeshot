@@ -18,9 +18,10 @@ private func tempFile() -> URL {
         let url = tempFile()
         try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
-        // A settings.json written by M1 (schemaVersion 1, no `upload`).
+        // Schema version 1 without `upload`, using a custom path distinct from
+        // the current default to verify that migration preserves user choices.
         let v1 = """
-        {"schemaVersion":1,"captureSavePath":"~/Pictures/Lumeshot",
+        {"schemaVersion":1,"captureSavePath":"~/Pictures/My Captures",
          "filenameTemplate":"Screenshot_%y","saveToDisk":true,"copyToClipboard":true,
          "showNotification":true,
          "hotkeys":{"fullscreen":{"keyCode":20,"modifiers":2560},
@@ -31,7 +32,7 @@ private func tempFile() -> URL {
         let (settings, issue) = SettingsStore(fileURL: url).loadOrDefault()
         #expect(issue == nil)                              // migration is not an error
         #expect(settings.schemaVersion == 2)
-        #expect(settings.captureSavePath == "~/Pictures/Lumeshot")   // preserved
+        #expect(settings.captureSavePath == "~/Pictures/My Captures") // preserved
         #expect(settings.upload == UploadSettings.disabled)        // injected
     }
 

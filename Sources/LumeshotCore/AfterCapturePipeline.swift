@@ -2,7 +2,8 @@ import Foundation
 
 @MainActor
 public protocol PipelineEffects {
-    /// Changes whenever any app replaces the clipboard contents.
+    /// Pasteboard ownership generation, used to detect copies during an upload.
+    /// Checking this and writing are separate operations, not an atomic transaction.
     var clipboardChangeCount: Int { get }
     func fileExists(at url: URL) -> Bool
     func writeFile(_ data: Data, to url: URL) throws

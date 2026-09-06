@@ -65,6 +65,9 @@ public enum RecordingDelivery {
                                          mimeType: mime, url: fileURL)
             let clipboardChangeCount = effects.clipboardChangeCount
             let result = try await upload(part, fileURL.lastPathComponent)
+            // Match still-image delivery: detect copies during the upload.
+            // Best effort across apps; NSPasteboard cannot atomically compare
+            // the ownership generation and replace its contents.
             if copyURLToClipboard && effects.clipboardChangeCount == clipboardChangeCount {
                 effects.copyTextToClipboard(result.url)
             }

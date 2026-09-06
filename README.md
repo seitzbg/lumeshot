@@ -8,7 +8,7 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 **Capture** (menu-bar resident, hotkey-driven)
 - Fullscreen (all displays), Region (drag-to-select), Window (hover-to-highlight)
-- After-capture pipeline: save to disk → copy image → optional upload → history. Upload success replaces the clipboard image with the uploaded URL unless you have copied something newer; upload failure keeps the image available.
+- After-capture pipeline: save to disk → copy image → optional upload → history. Upload success copies the uploaded URL, skipping replacement when it detects a newer copy; upload failure leaves the current clipboard intact. Preservation across apps is best effort.
 - Permission gating for the TCC Screen Recording grant on first run
 
 **Editor** (opt-in via "Annotate Before Sharing")

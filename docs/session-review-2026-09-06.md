@@ -26,8 +26,8 @@ in the reviewed changes after the fixes below.
 - Persistence runs independently of the optional outcome callback for direct
   delivery and editor Save/Upload. The original regression failed all three
   callback-free cases before the fix and passed all six cases afterward.
-- Captures copy the image; successful uploads copy the URL only if the clipboard
-  has not changed. Failed uploads preserve the current clipboard.
+- Captures copy the image; successful uploads copy the URL when the clipboard
+  ownership generation still matches. Failed uploads preserve the current clipboard.
 - Multiple uploader configurations retain one active selection. Adding another
   configuration preserves it; removing or clearing the active selection turns
   automatic uploading off. Tests verify that only the selected uploader is used.
@@ -49,6 +49,13 @@ in the reviewed changes after the fixes below.
   branding; the release executable was also checked.
 
 ## Remaining manual checks
+
+Clipboard preservation across applications is best effort. The main actor
+serializes Lumeshot's own copies, but another app can write between the ownership
+check and replacement. NSPasteboard exposes no atomic compare-and-replace API.
+Automatic URL copying remains intentional; disabling it would remove the
+requested upload workflow. Apple's [changeCount documentation](https://developer.apple.com/documentation/appkit/nspasteboard/changecount)
+describes comparing ownership generations to detect intervening copies.
 
 The automated delivery tests use synthetic images, temporary files, fake HTTP,
 and simulated clipboard effects. They do not establish live ScreenCaptureKit

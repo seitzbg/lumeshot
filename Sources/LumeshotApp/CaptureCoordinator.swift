@@ -270,8 +270,9 @@ final class CaptureCoordinator {
                 let file = UploadService.filePart(pngData: pngData, filename: filename)
                 let result = try await uploader.upload(file)
                 AppLog.log("Upload succeeded: \(result.url)")
-                // A slow upload must not replace a newer capture or something
-                // the user copied elsewhere while the request was in flight.
+                // Skip replacement if another copy occurred during the upload.
+                // MainActor serializes our own copies. Across apps this is best
+                // effort: NSPasteboard has no atomic compare-and-replace API.
                 if effects.clipboardChangeCount == clipboardChangeCount {
                     effects.copyTextToClipboard(result.url)
                 }

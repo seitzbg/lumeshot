@@ -1,6 +1,7 @@
 # Local Mac development
 
-From the repository root:
+From the repository root with Xcode selected (for Command Line Tools alone,
+replace `swift test` with the required command in the next section):
 
 ```sh
 swift build
