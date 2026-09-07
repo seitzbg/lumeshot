@@ -31,6 +31,7 @@ public enum RecordingDelivery {
         fileURL: URL,
         capturedAt: Date,
         destinationName: String?,
+        destinationID: String? = nil,
         shouldUpload: Bool,
         showNotification: Bool,
         copyURLToClipboard: Bool = true,
@@ -48,7 +49,7 @@ public enum RecordingDelivery {
             let entry = HistoryEntry(id: entryID, capturedAt: capturedAt,
                                      filePath: fileURL.path, url: nil, deletionURL: nil,
                                      destinationName: shouldUpload ? destinationName : nil,
-                                     uploadFailed: false)
+                                     uploadFailed: false, destinationID: shouldUpload ? destinationID : nil)
             try? history.insert(entry)
         }
 
@@ -79,7 +80,7 @@ public enum RecordingDelivery {
             try? history?.setURL(id: entryID, url: result.url, deletionURL: result.deletionURL, failed: false)
         } catch {
             // Fail-loud: surface the failure; the row + file remain (local-first).
-            effects.notify(title: "Upload failed", body: "\(error). Local file kept.", fileURL: fileURL)
+            effects.notify(title: "Upload failed", body: "\(UploadFeedback.message(for: error)) Local file kept.", fileURL: fileURL)
             try? history?.setURL(id: entryID, url: nil, deletionURL: nil, failed: true)
         }
     }

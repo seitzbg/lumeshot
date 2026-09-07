@@ -38,6 +38,7 @@ extension PreferencesTab: Identifiable {
 
 struct PreferencesView: View {
     @ObservedObject var model: PreferencesModel
+    let showAbout: () -> Void
 
     var body: some View {
         HStack(spacing: 0) {
@@ -64,8 +65,13 @@ struct PreferencesView: View {
                     }
                 }
                 .listStyle(.sidebar).scrollContentBackground(.hidden)
-                Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development")")
-                    .font(.caption).foregroundStyle(.tertiary).padding(20)
+                VStack(alignment: .leading, spacing: 8) {
+                    Button("About Lumeshot", action: showAbout)
+                        .buttonStyle(.link)
+                    Text("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Development")")
+                        .font(.caption).foregroundStyle(.tertiary)
+                }
+                .padding(20)
             }
             .frame(width: 190).background(.regularMaterial)
             Divider()

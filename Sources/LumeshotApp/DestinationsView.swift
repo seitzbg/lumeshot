@@ -38,6 +38,13 @@ final class DestinationsModel: ObservableObject {
         settings = store.loadOrDefault().0.upload
     }
 
+    func testModel(for destination: UploadDestination) -> UploaderTestModel {
+        let service = UploadService(credentials: credentials, settingsStore: store, activity: .shared)
+        return UploaderTestModel(destination: destination, credentials: credentials) { part, destination in
+            try await service.upload(part: part, destination: destination)
+        }
+    }
+
     /// Persisted binding for the Uploads tab's "Upload after capture" toggle
     /// — goes through the same persist() as every other Destinations edit.
     func setUploadAfterCapture(_ newValue: Bool) {
@@ -227,23 +234,32 @@ struct DestinationsView: View {
     @ObservedObject var model: DestinationsModel
     @State private var adding: UploadDestinationKind?
     @State private var editing: UploadDestination?
+    @State private var choosingUploader = false
+    @State private var testing: UploadDestination?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack {
                 Text("Uploaders").font(.headline)
                 Spacer()
-                Menu {
-                    Button("Picsur…") { adding = .picsur }
-                    Button("Imgur…") { adding = .imgur }
-                    Divider()
-                    Button("Amazon S3…") { adding = .s3 }
-                    Button("SFTP…") { adding = .sftp }
-                    Button("FTP / FTPS…") { adding = .ftp }
-                } label: {
+                Button { choosingUploader = true } label: {
                     Label("Add uploader", systemImage: "plus")
                 }
+                .buttonStyle(.borderedProminent)
                 .fixedSize()
+                .popover(isPresented: $choosingUploader, arrowEdge: .bottom) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Add an uploader").font(.headline).padding(.bottom, 6)
+                        uploaderOption(.picsur, title: "Picsur", detail: "Your self-hosted image library", symbol: "photo.on.rectangle")
+                        uploaderOption(.imgur, title: "Imgur", detail: "Share images with a public link", symbol: "photo")
+                        Divider().padding(.vertical, 4)
+                        uploaderOption(.s3, title: "S3-compatible storage", detail: "Amazon S3, Cloudflare R2, MinIO, and Backblaze B2", symbol: "externaldrive.badge.icloud")
+                        uploaderOption(.sftp, title: "SFTP", detail: "Secure file transfer over SSH", symbol: "lock.shield")
+                        uploaderOption(.ftp, title: "FTP / FTPS", detail: "File transfer with optional TLS", symbol: "network")
+                    }
+                    .padding(18)
+                    .frame(width: 360)
+                }
             }
             if model.settings.destinations.isEmpty {
                 VStack(spacing: 12) {
@@ -258,38 +274,45 @@ struct DestinationsView: View {
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
             } else {
                 VStack(spacing: 0) {
-                    HStack {
-                    Text("Active uploader")
-                    Spacer()
-                    Picker("Active uploader", selection: Binding(
-                        get: { model.settings.activeDestination?.id },
-                        set: { model.setActive($0) }
-                    )) {
-                        Text("None").tag(String?.none)
-                        ForEach(model.settings.destinations) { dest in
-                            Text(dest.name).tag(Optional(dest.id))
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Choose your active uploader").font(.subheadline.weight(.medium))
+                        Text("Captures upload to the selected destination.")
+                            .font(.callout).foregroundStyle(.secondary)
+                        Button { model.setActive(nil) } label: {
+                            Label("None — keep captures local", systemImage: model.settings.activeDestination == nil ? "largecircle.fill.circle" : "circle")
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .contentShape(Rectangle())
                         }
+                        .buttonStyle(.plain)
+                        .accessibilityAddTraits(model.settings.activeDestination == nil ? .isSelected : [])
                     }
-                    .labelsHidden()
-                    .frame(maxWidth: 240)
-                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(16)
                     ForEach(model.settings.destinations) { dest in
                         Divider().padding(.horizontal, 16)
                         HStack(spacing: 12) {
-                            Image(systemName: "externaldrive")
-                                .font(.title3).foregroundStyle(.secondary).frame(width: 28)
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(dest.name).fontWeight(.medium).lineLimit(1).help(dest.name)
-                                Text(model.kindLabel(dest.kind)).font(.caption).foregroundStyle(.secondary)
+                            Button { model.setActive(dest.id) } label: {
+                                HStack(alignment: .top, spacing: 12) {
+                                    Image(systemName: model.settings.activeDestinationID == dest.id ? "largecircle.fill.circle" : "circle")
+                                        .font(.title3).foregroundStyle(model.settings.activeDestinationID == dest.id ? Color.accentColor : .secondary)
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(dest.name).fontWeight(.medium)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Text(model.kindLabel(dest.kind)).font(.caption).foregroundStyle(.secondary)
+                                    }
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .contentShape(Rectangle())
                             }
-                            Spacer(minLength: 4)
-                            if model.settings.activeDestinationID == dest.id {
-                                Text("Active").font(.caption.weight(.medium))
-                                    .foregroundStyle(.tint).padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(Color.accentColor.opacity(0.1), in: Capsule())
-                            }
-                            Button("Edit…") { editing = dest }
+                            .buttonStyle(.plain)
+                            .accessibilityLabel("Use \(dest.name)")
+                            .accessibilityAddTraits(model.settings.activeDestinationID == dest.id ? .isSelected : [])
+                            Button("Test…") { testing = dest }
+                                .help("Test this uploader with a generated image")
+                            Button { editing = dest } label: { Image(systemName: "pencil") }
+                                .buttonStyle(.borderless)
+                                .help("Edit \(dest.name)")
                                 .accessibilityLabel("Edit \(dest.name)")
                             Button(role: .destructive) { model.remove(dest) } label: {
                                 Image(systemName: "trash")
@@ -322,6 +345,33 @@ struct DestinationsView: View {
         .sheet(item: $editing) { dest in
             sheet(for: dest.kind, existing: dest) { editing = nil }
         }
+        .sheet(item: $testing) { dest in
+            UploaderTestSheet(model: model.testModel(for: dest))
+        }
+    }
+
+    private func uploaderOption(_ kind: UploadDestinationKind, title: String, detail: String,
+                                symbol: String) -> some View {
+        Button {
+            choosingUploader = false
+            adding = kind
+        } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: symbol).font(.title3).foregroundStyle(.tint).frame(width: 24)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(title).fontWeight(.medium)
+                    Text(detail).font(.callout).foregroundStyle(.secondary)
+                }
+                .fixedSize(horizontal: false, vertical: true)
+                Spacer(minLength: 0)
+                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(10)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
     }
 
     /// One form per kind, used for both add and edit.

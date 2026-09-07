@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import LumeshotCore
 import LumeshotRecord
 import UniformTypeIdentifiers
@@ -6,9 +7,11 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: StatusItemController?
+    private var uploadActivitySubscription: AnyCancellable?
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
     private var preferencesWindow: PreferencesWindowController?
+    private let aboutWindow = AboutWindowController()
     private var historyStore: HistoryStore?
     private var historyWindow: HistoryWindowController?
     private let editorWindow = EditorWindowController()
@@ -39,7 +42,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if historyStore == nil { AppLog.log("History store unavailable; captures won't be recorded") }
         self.historyStore = historyStore
         let uploadService = UploadService(credentials: KeychainCredentialStore(),
-                                          settingsStore: SettingsStore(fileURL: SettingsStore.defaultFileURL))
+                                          settingsStore: SettingsStore(fileURL: SettingsStore.defaultFileURL),
+                                          activity: .shared)
         let coordinator = CaptureCoordinator(settingsStore: store, effects: effects,
                                              uploadService: uploadService,
                                              historyStore: historyStore,
@@ -56,8 +60,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         preferencesWindow = PreferencesWindowController(
             store: store, credentials: KeychainCredentialStore(),
             onChange: { [weak self] in self?.rebuildMenu() },
-            applyHotkeys: { [weak self] config in self?.reapplyHotkeys(config) })
+            applyHotkeys: { [weak self] config in self?.reapplyHotkeys(config) },
+            showAbout: { [weak self] in self?.aboutWindow.show() })
         statusItem = StatusItemController(menu: buildMenu())
+        uploadActivitySubscription = Publishers.CombineLatest(UploadActivity.shared.$running, UploadActivity.shared.$latest)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _ in
+                self?.statusItem?.setUploadActivity(UploadActivity.shared)
+                self?.rebuildMenu()
+            }
         registerHotkeys(settings.hotkeys)
         AppLog.log("Launched (bundle: \(Bundle.main.bundleIdentifier ?? "none"), screenRecording=\(PermissionOnboardingController.isGranted()))")
 
@@ -74,6 +85,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let appItem = NSMenuItem()
         let appMenu = NSMenu(title: "Lumeshot")
+        let about = appMenu.addItem(withTitle: "About Lumeshot", action: #selector(showAbout), keyEquivalent: "")
+        about.target = self
+        appMenu.addItem(.separator())
         let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(showPreferences),
                                       keyEquivalent: ",")
         settings.target = self
@@ -91,6 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let fileItem = NSMenuItem()
         let file = NSMenu(title: "File")
+        let history = file.addItem(withTitle: "History…", action: #selector(showHistory), keyEquivalent: "")
+        history.target = self
+        file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)),
                      keyEquivalent: "w")
         fileItem.submenu = file
@@ -115,8 +132,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        // A Dock click should recover Settings even when it was minimized or hidden.
-        guard preferencesWindow?.isOpen == true else { return true }
+        // Reopening from Finder should also give a menu-bar app a visible window.
+        // A Dock click recovers Settings even when it was minimized or hidden.
+        guard preferencesWindow?.isOpen == true || !flag else { return true }
         preferencesWindow?.show()
         return false
     }
@@ -207,6 +225,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     func buildMenu() -> NSMenu {
         let menu = NSMenu()
+        if let summary = UploadActivity.shared.summary {
+            menu.addItem(menuItem(summary + " — History…", #selector(showHistory)))
+            if UploadActivity.shared.latest?.url != nil {
+                menu.addItem(menuItem("Copy Last Upload Link", #selector(copyLastUploadLink)))
+            }
+            menu.addItem(.separator())
+        }
         menu.addItem(menuItem("Capture Region", #selector(menuCaptureRegion)))
         menu.addItem(menuItem("Capture Window", #selector(menuCaptureWindow)))
         menu.addItem(menuItem("Capture Full Screen", #selector(menuCaptureFullscreen)))
@@ -230,6 +255,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                                       keyEquivalent: ",")
         settingsItem.target = self
         menu.addItem(settingsItem)
+        menu.addItem(menuItem("About Lumeshot", #selector(showAbout)))
         menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
@@ -339,6 +365,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func manageDestinations() { preferencesWindow?.show(selecting: .uploads) }
 
     @objc private func showPreferences() { preferencesWindow?.show() }
+
+    @objc private func showAbout() { aboutWindow.show() }
+
+    @objc private func copyLastUploadLink() { UploadActivity.shared.copyLatestLink() }
 
     @objc private func showHistory() {
         guard let store = historyStore else {

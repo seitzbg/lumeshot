@@ -49,9 +49,17 @@ Uploader configuration uses grouped fields and a dedicated action bar.
 - Configure multiple uploaders (S3/SFTP/FTP/Imgur/Picsur or imported `.sxcu`), then choose one **Active uploader** on the Uploads page. Adding another uploader preserves your selection.
 
 **History browser**
-- Thumbnails, search by filename/URL; Copy URL, Open, Reveal in Finder, Delete (removes the history row and, when the uploader gave one, the remote copy; the local file is left on disk)
+- Larger thumbnails, search, image/video/failed-upload filters, and Space-bar previews
+- Copy image or link, open links, reveal files, and retry or upload a saved capture to a chosen destination
+- Separate, explicitly confirmed actions to remove a history entry or delete its remote upload; local files are retained
+
+**Upload feedback and testing**
+- Menu-bar upload status and a live status banner in History, including whether the link was copied
+- Friendly connection/authentication errors and retries that preserve newer clipboard contents
+- A **Test…** action for each saved uploader sends a generated PNG only after you choose **Upload test image**; no screen content is used. Test uploads remain on the server unless you delete them.
 
 **Distribution**
+- Compact About window with GitHub and release links, plus bundled open source credits; also accessible from Settings
 - Developer ID signed, notarized and stapled `.dmg`, built by a `v*`-tag-triggered GitHub Actions release; hardened runtime with no entitlement exceptions. Signing is opt-in on secret presence, so a fork without credentials still publishes an (ad-hoc) dmg. One-time setup: `scripts/setup-developer-id.sh` — see `docs/RELEASING.md`
 
 ## Security
