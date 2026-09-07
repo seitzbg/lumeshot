@@ -427,4 +427,103 @@ import CoreGraphics
         }
         #expect(radius == 20)
     }
+
+    // MARK: Stroke push from the toolbar
+
+    private let blue = RGBAColor(r: 0, g: 0, b: 1, a: 1)
+    private let green = RGBAColor(r: 0, g: 1, b: 0, a: 1)
+
+    /// Draws one rectangle and leaves it selected, with the inspector in sync.
+    private func modelWithSelectedRectangle() -> EditorModel {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.rectangle)
+        m.pointerDown(at: CGPoint(x: 10, y: 10))
+        m.pointerDragged(to: CGPoint(x: 60, y: 40))
+        m.pointerUp(at: CGPoint(x: 60, y: 40))
+        return m
+    }
+
+    private func strokeColor(_ m: EditorModel) -> RGBAColor { m.annotations[0].style.strokeColor }
+
+    @Test func strokeStyleAppliesToTheSelectedAnnotation() {
+        let m = modelWithSelectedRectangle()
+        m.strokeColor = blue
+        m.strokeWidth = 11
+        m.applyStrokeStyleToSelection()
+        #expect(strokeColor(m) == blue)
+        #expect(m.annotations[0].style.strokeWidth == 11)
+    }
+
+    @Test func strokeStyleDoesNothingWithoutASelection() {
+        let m = modelWithSelectedRectangle()
+        let before = m.annotations[0].style
+        m.setTool(.line)                  // leaving .select clears the selection
+        #expect(m.selectedID == nil)
+        m.strokeColor = blue
+        m.applyStrokeStyleToSelection()
+        #expect(m.annotations[0].style == before)
+    }
+
+    /// A ColorPicker drag arrives as many separate changes with no release event.
+    /// They must collapse into ONE undo entry: a single undo returns to the colour
+    /// the run started from, not to the second-to-last intermediate value.
+    @Test func aRunOfColourChangesCoalescesIntoOneUndoEntry() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        for step in 1...5 {
+            m.strokeColor = RGBAColor(r: Double(step) / 5, g: 0, b: 0, a: 1)
+            m.applyStrokeStyleToSelection()
+        }
+        #expect(strokeColor(m) == RGBAColor(r: 1, g: 0, b: 0, a: 1))
+        m.undo()
+        #expect(strokeColor(m) == original)
+    }
+
+    /// Changing the selection ends the run, so the next colour edit is its own entry
+    /// and undo steps back through them one at a time.
+    @Test func aNewRunStartsAfterTheSelectionChanges() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        m.strokeColor = blue
+        m.applyStrokeStyleToSelection()
+
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 90, y: 90))    // click empty canvas
+        m.pointerUp(at: CGPoint(x: 90, y: 90))
+        #expect(m.selectedID == nil)                // the deselect really happened
+        m.pointerDown(at: CGPoint(x: 30, y: 25))    // reselect the rectangle
+        m.pointerUp(at: CGPoint(x: 30, y: 25))
+        #expect(m.selectedID == m.annotations[0].id)
+
+        m.strokeColor = green
+        m.applyStrokeStyleToSelection()
+        #expect(strokeColor(m) == green)
+        m.undo()
+        #expect(strokeColor(m) == blue)             // separate entry, not merged
+        m.undo()
+        #expect(strokeColor(m) == original)
+    }
+
+    /// The stroke-width slider has a real release event, so it closes the run and the
+    /// following colour change cannot merge backwards into it.
+    @Test func endingTheRunStartsAFreshUndoEntry() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        m.strokeWidth = 20
+        m.applyStrokeStyleToSelection(endingRun: true)
+        m.strokeColor = green
+        m.applyStrokeStyleToSelection()
+        m.undo()
+        #expect(strokeColor(m) == original)                  // the colour edit undid
+        #expect(m.annotations[0].style.strokeWidth == 20)    // the width edit survived
+    }
+
+    /// A push whose values already match must not leave a no-op entry behind: one
+    /// undo after it should still remove the rectangle itself.
+    @Test func aNoOpStrokePushDoesNotTouchHistory() {
+        let m = modelWithSelectedRectangle()
+        m.applyStrokeStyleToSelection()
+        m.undo()
+        #expect(m.annotations.isEmpty)
+    }
 }
