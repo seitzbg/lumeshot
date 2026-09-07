@@ -13,7 +13,7 @@ Settings layout and `docs/porting-map.md` the ShareX feature mapping.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.9 is the current release; the manual signed-build smoke recorded under
+  v0.1.10 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -44,6 +44,18 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 ## Unreleased
 
 _Nothing yet._
+
+## v0.1.10 — released
+
+[v0.1.10](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.10) is published. The
+source is identical to v0.1.9 apart from release and roadmap documentation; no app code
+changed. It exists so the **Check for Updates…** command shipped in v0.1.9 could be
+exercised against a newer release — the "up to date" path was verified on v0.1.9, but the
+"update available" path had nothing newer to find.
+
+v0.1.10 was deliberately chosen over v0.2.0: `0.1.10` sorts *before* `0.1.9` as a string,
+so it also exercises `ReleaseVersion`'s numeric comparison. A version check that compared
+strings would report "up to date" here and pass a v0.2.0 test.
 
 ## v0.1.9 — released
 
@@ -125,7 +137,7 @@ Run these when convenient (each is a checklist):
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.
-- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.9 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
+- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.10 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
@@ -135,7 +147,7 @@ Run these when convenient (each is a checklist):
   to it. Self-installing updates are still absent — Sparkle would need an EdDSA key
   pair, a hosted appcast and update-signing in the release workflow, which is a
   separate decision.
-- v0.1.9 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
+- v0.1.10 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
 
 **Uploaders**
 - **One active destination is shared by stills and recordings.** `UploadSettings` holds a
@@ -178,7 +190,7 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.9 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
+1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.10 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
 2. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
 3. **Per-kind upload destinations** — separate active uploaders for images and recordings, so an image-only host (Picsur) does not receive video. See the Uploaders backlog note.
 
