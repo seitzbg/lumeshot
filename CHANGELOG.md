@@ -4,7 +4,8 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-_Nothing yet._
+- Upload failures now record the underlying reason in `~/Library/Logs/Lumeshot.log`,
+  including failures from the uploader Test sheet.
 
 ## Releases
 

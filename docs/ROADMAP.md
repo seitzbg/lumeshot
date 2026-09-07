@@ -42,7 +42,22 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- Every upload failure now logs the underlying error, including the Test sheet's. Only
+  `RecordingDelivery` logged one; the Test and still paths surfaced `UploadFeedback`'s
+  friendly text, and for `.transport` that is "Couldn't complete the connection", which
+  discards the reason. `UploadService.upload` is the single funnel all three pass through,
+  so the raw error is recorded there once, with the destination name and kind.
+
+**Open — testing the SFTP uploader fails on the first attempt, succeeds on retry
+(reported 2026-09-07).** Reproducible per the reporter. Not the earlier Picsur-gets-video
+issue: this is the Test sheet, which uploads a generated image to the SFTP destination.
+Not trust-on-first-use either — the host key is already pinned (`sftpPinned=True` in
+settings), so no learning happens. The cause is **not determined**; nothing was logged,
+which the change above fixes. Candidates worth distinguishing once a real error is
+captured: a Keychain ACL prompt on the first secret read by a newly installed binary
+(would surface as a credential error, not `.transport`), a cold-start DNS or connect
+timeout, or something in Citadel's connection setup. Capture the log line before changing
+anything.
 
 ## v0.1.14 — released
 
