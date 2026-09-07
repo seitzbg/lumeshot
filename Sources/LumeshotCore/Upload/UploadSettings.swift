@@ -39,23 +39,57 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+/// What is being uploaded, as opposed to `UploadDestinationKind`, which is where it
+/// goes. Screenshots and recordings can target different destinations because plenty
+/// of image hosts — Picsur among them — accept no video at all.
+public enum UploadArtifactKind: String, Codable, Sendable, CaseIterable {
+    case image
+    case recording
+}
+
 public struct UploadSettings: Codable, Equatable, Sendable {
     public var uploadAfterCapture: Bool
+    /// Where screenshots go.
     public var activeDestinationID: String?
+    /// Where recordings go. `nil` means "wherever screenshots go", which is both the
+    /// behaviour before this field existed and what every settings file written before
+    /// it decodes to — so no migration, and no change for anyone who does not set it.
+    public var activeRecordingDestinationID: String?
     public var destinations: [UploadDestination]
 
     public init(uploadAfterCapture: Bool, activeDestinationID: String?,
+                activeRecordingDestinationID: String? = nil,
                 destinations: [UploadDestination]) {
         self.uploadAfterCapture = uploadAfterCapture
         self.activeDestinationID = activeDestinationID
+        self.activeRecordingDestinationID = activeRecordingDestinationID
         self.destinations = destinations
     }
 
     public static let disabled = UploadSettings(uploadAfterCapture: false,
                                                 activeDestinationID: nil, destinations: [])
 
-    public var activeDestination: UploadDestination? {
-        guard let id = activeDestinationID else { return nil }
+    public var activeDestination: UploadDestination? { destination(id: activeDestinationID) }
+
+    /// The destination an artifact of `kind` uploads to.
+    public func activeDestination(for kind: UploadArtifactKind) -> UploadDestination? {
+        switch kind {
+        case .image:
+            return activeDestination
+        case .recording:
+            // nil means "follow images". An id that no longer resolves means the chosen
+            // destination was deleted — which is not the same thing, and must not
+            // silently redirect recordings to the image host.
+            guard let id = activeRecordingDestinationID else { return activeDestination }
+            return destination(id: id)
+        }
+    }
+
+    /// True when recordings are pointed somewhere other than the image destination.
+    public var usesSeparateRecordingDestination: Bool { activeRecordingDestinationID != nil }
+
+    private func destination(id: String?) -> UploadDestination? {
+        guard let id else { return nil }
         return destinations.first { $0.id == id }
     }
 }

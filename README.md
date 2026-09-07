@@ -45,6 +45,8 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 - Optional system-audio capture; H.264 / HEVC
 
 **Uploaders**
+- Screenshots and screen recordings can target different destinations — useful when
+  your image host does not accept video
 - **Custom `.sxcu`** — JSON uploader configs; request templating + regex/JSON response-URL extraction
 - **Imgur** — anonymous upload (share URL + deletion URL)
 - **Picsur** — self-hosted image host; API-key auth, choice of serving format and direct-image vs viewer-page links

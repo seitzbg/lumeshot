@@ -55,6 +55,11 @@ final class DestinationsModel: ObservableObject {
         persist { $0.upload = $0.upload.settingActive(id: id) }
     }
 
+    /// `nil` sends recordings wherever screenshots go.
+    func setActiveRecording(_ id: String?) {
+        persist { $0.upload = $0.upload.settingActiveRecording(id: id) }
+    }
+
     /// Removes a destination and its Keychain secrets.
     ///
     /// The two stores cannot be written atomically. Purging first and saving
@@ -325,6 +330,30 @@ struct DestinationsView: View {
                 }
                 .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
                 .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
+
+                // Only worth showing with somewhere else to choose: with a single
+                // uploader "same as screenshots" and that uploader are the same thing.
+                if model.settings.destinations.count > 1 {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Screen recordings").font(.subheadline.weight(.medium))
+                        Text("Video can upload somewhere else. Image hosts often reject it.")
+                            .font(.callout).foregroundStyle(.secondary)
+                        Picker("Upload recordings to", selection: Binding<String?>(
+                            get: { model.settings.activeRecordingDestinationID },
+                            set: { model.setActiveRecording($0) })) {
+                            Text("Same as screenshots").tag(String?.none)
+                            ForEach(model.settings.destinations) { dest in
+                                Text(dest.name).tag(String?.some(dest.id))
+                            }
+                        }
+                        .frame(maxWidth: 340, alignment: .leading)
+                        .accessibilityLabel("Upload recordings to")
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(16)
+                    .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+                    .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
+                }
             }
             Text("For a custom service, choose Import .sxcu… in the Lumeshot menu.")
                 .font(.callout).foregroundStyle(.secondary)
