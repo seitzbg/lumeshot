@@ -9,6 +9,7 @@ final class MockEffects: PipelineEffects {
     var written: [(URL, Int)] = []      // (url, byte count)
     var clipboardCopies = 0
     var notifications: [(String, URL?)] = []
+    var logged: [String] = []
     var callOrder: [String] = []
     var textCopies: [String] = []
     var urlNotifications: [(String, String)] = []   // (body, url)
@@ -21,6 +22,8 @@ final class MockEffects: PipelineEffects {
         clipboardChangeCount += 1
         callOrder.append("clipboard"); clipboardCopies += 1
     }
+    func log(_ message: String) { logged.append(message) }
+
     func notify(title: String, body: String, fileURL: URL?) {
         callOrder.append("notify"); notifications.append((body, fileURL))
     }

@@ -42,7 +42,20 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- Recording upload failures now log why. `RecordingDelivery` only raised a notification,
+  and `LumeshotCore` had no way to reach the app's log, so a failed recording upload left
+  no recorded cause anywhere once the banner faded — the still path has logged this since
+  M2a. `PipelineEffects` gained a defaulted `log(_:)` so core code can reach `AppLog`.
+
+**Open — SFTP recording upload failed twice, then worked (reported 2026-09-07).** Two
+recording uploads to SFTP failed at 22:10:55 and 22:16:36; a later connection at 22:17:30
+pinned the host key and succeeded. Established from the log: both failures were recordings,
+neither reached SSH key exchange (no pin and no pin-failure line), and TOFU is not at fault
+— `.trustOnFirstUse` accepts and remembers, so a first connection to an unpinned host does
+not fail by design. What failed is **not determined**: the reason was never recorded, which
+is what the logging change above fixes. Candidates that fail before the handshake are a
+Keychain credential miss (`SFTPCredentials.load` throws before connecting), a key-parse
+failure, or DNS/TCP. Reproduce with the new logging before changing anything.
 
 ## v0.1.13 — released
 
