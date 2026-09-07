@@ -37,20 +37,55 @@ import Foundation
 @Suite struct UpdateCheckTests {
     private func payload(tag: String,
                          url: String = "https://github.com/seitzbg/lumeshot/releases/tag/v9.9.9",
-                         draft: Bool = false, prerelease: Bool = false) -> Data {
-        Data("""
-        {"tag_name":"\(tag)","html_url":"\(url)","draft":\(draft),"prerelease":\(prerelease)}
+                         draft: Bool = false, prerelease: Bool = false,
+                         assets: [(String, String)] = [
+                            ("Lumeshot-9.9.9.dmg", "https://example.com/Lumeshot-9.9.9.dmg"),
+                            ("SHA256SUMS.txt", "https://example.com/SHA256SUMS.txt"),
+                         ]) -> Data {
+        let assetJSON = assets
+            .map { "{\"name\":\"\($0.0)\",\"browser_download_url\":\"\($0.1)\"}" }
+            .joined(separator: ",")
+        return Data("""
+        {"tag_name":"\(tag)","html_url":"\(url)","draft":\(draft),"prerelease":\(prerelease),\
+        "assets":[\(assetJSON)]}
         """.utf8)
     }
 
     @Test func reportsAnUpdateWhenThePublishedTagIsNewer() throws {
         let result = try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
                                             latestReleaseJSON: payload(tag: "v0.2.0"))
-        guard case .updateAvailable(let latest, let page) = result else {
+        guard case .updateAvailable(let latest, let page, let download) = result else {
             Issue.record("expected updateAvailable, got \(result)"); return
         }
         #expect(latest.description == "0.2.0")
         #expect(page.host == "github.com")
+        #expect(download?.dmgName == "Lumeshot-9.9.9.dmg")
+        #expect(download?.checksumsURL?.lastPathComponent == "SHA256SUMS.txt")
+    }
+
+    /// A release with no dmg still reports the update — there is just nothing to
+    /// download, so the UI can only offer the release page.
+    @Test func anUpdateWithNoDmgHasNoDownload() throws {
+        let result = try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
+                                            latestReleaseJSON: payload(tag: "v0.2.0", assets: []))
+        guard case .updateAvailable(_, _, let download) = result else {
+            Issue.record("expected updateAvailable, got \(result)"); return
+        }
+        #expect(download == nil)
+    }
+
+    /// A dmg published without its checksum file: the download is offered as
+    /// unverifiable rather than silently trusted.
+    @Test func aDmgWithoutChecksumsHasNoChecksumURL() throws {
+        let result = try UpdateCheck.result(
+            currentVersion: "0.1.8", isReleaseBuild: true,
+            latestReleaseJSON: payload(tag: "v0.2.0",
+                                       assets: [("Lumeshot-9.9.9.dmg", "https://example.com/x.dmg")]))
+        guard case .updateAvailable(_, _, let download) = result else {
+            Issue.record("expected updateAvailable, got \(result)"); return
+        }
+        #expect(download?.dmgName == "Lumeshot-9.9.9.dmg")
+        #expect(download?.checksumsURL == nil)
     }
 
     @Test func reportsUpToDateWhenTheTagMatches() throws {

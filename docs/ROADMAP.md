@@ -42,7 +42,10 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- **Check for Updates…** can now download an available update. It fetches the dmg,
+  verifies it against the release's published `SHA256SUMS.txt`, marks it as downloaded
+  from the internet so Gatekeeper assesses it on open, saves it to ~/Downloads without
+  overwriting anything, and offers to reveal it in Finder. Installing stays manual.
 
 ## v0.1.10 — released
 
@@ -142,10 +145,15 @@ Run these when convenient (each is a checklist):
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Auto-update: **Check for Updates…** reports whether a newer release exists and links
-  to it. Self-installing updates are still absent — Sparkle would need an EdDSA key
-  pair, a hosted appcast and update-signing in the release workflow, which is a
-  separate decision.
+- Auto-update: **Check for Updates…** reports whether a newer release exists, and can
+  download the dmg, verify it against the release's `SHA256SUMS.txt`, mark it quarantined
+  so Gatekeeper assesses it, and reveal it in Finder. Installing is still manual by
+  design: replacing the running app is a privileged code path, and doing it safely means
+  Sparkle — an EdDSA key pair, a hosted appcast and update-signing in the release
+  workflow — which is a separate decision with its own key-management burden.
+  Note the checksum proves the download arrived intact, not that it is genuine (both
+  files come from the same release); the quarantine attribute is what makes macOS check
+  the Developer ID signature and notarization on first open.
 - v0.1.10 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
 
 **Uploaders**
