@@ -11,6 +11,10 @@ final class UploadActivity: ObservableObject {
         let filename: String
         let destination: String
         let filePath: String?
+        /// The history row this upload belongs to. The only reliable way to tell
+        /// whether a removed entry is the one `latest` is describing: a failed
+        /// upload has no URL, and `filePath` is nil when "Save a copy" is off.
+        let historyEntryID: String?
         var url: String?
         var error: String?
         var linkCopied = false
@@ -27,8 +31,10 @@ final class UploadActivity: ObservableObject {
         return latest.linkCopied ? "Link copied" : "Upload complete"
     }
 
-    func begin(filename: String, destination: String, filePath: String? = nil) -> UUID {
-        let operation = Operation(id: UUID(), filename: filename, destination: destination, filePath: filePath)
+    func begin(filename: String, destination: String, filePath: String? = nil,
+               historyEntryID: String? = nil) -> UUID {
+        let operation = Operation(id: UUID(), filename: filename, destination: destination,
+                                  filePath: filePath, historyEntryID: historyEntryID)
         running.append(operation)
         return operation.id
     }
@@ -46,8 +52,22 @@ final class UploadActivity: ObservableObject {
         latest?.linkCopied = true
     }
 
+    /// Clears the remembered result of a *successful* upload whose remote copy has
+    /// just been deleted. Cannot clear a failure: a failed upload has no URL, so the
+    /// guard below always exits early. Use `forgetEntry(id:)` for that.
     func forgetLink(_ url: String?) {
         guard let url, latest?.url == url else { return }
+        latest = nil
+    }
+
+    /// Clears the remembered result when its history row is removed, whether the
+    /// upload succeeded or failed.
+    ///
+    /// Without this, deleting a failed upload from History left `latest` holding the
+    /// failure, and everything that renders from it — the menu-bar icon and the
+    /// History banner — kept reporting a failure for a row that no longer exists.
+    func forgetEntry(id: String) {
+        guard latest?.historyEntryID == id else { return }
         latest = nil
     }
 

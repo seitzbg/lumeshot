@@ -422,4 +422,71 @@ struct UploadWorkflowTests {
         #expect(HistoryFilter.videos.includes(video))
         #expect(!HistoryFilter.failed.includes(video))
     }
+
+    // MARK: Removing a history row clears its remembered upload result
+
+    /// The reported bug: delete a *failed* upload from History and the menu-bar icon
+    /// keeps its "!" while the History banner keeps saying the upload failed, because
+    /// UploadActivity is a separate model from HistoryStore.
+    @MainActor
+    @Test func removingTheEntryClearsARememberedFailure() {
+        let activity = UploadActivity()
+        let op = activity.begin(filename: "capture.png", destination: "Picsur",
+                                filePath: nil, historyEntryID: "entry-1")
+        activity.finish(op, error: "Server rejected the upload")
+        #expect(activity.summary == "Upload failed")
+
+        activity.forgetEntry(id: "entry-1")
+        #expect(activity.latest == nil)
+        #expect(activity.summary == nil)
+    }
+
+    /// Removing a *different* row must leave the status alone.
+    @MainActor
+    @Test func removingAnotherEntryLeavesTheStatusAlone() {
+        let activity = UploadActivity()
+        let op = activity.begin(filename: "capture.png", destination: "Picsur",
+                                filePath: nil, historyEntryID: "entry-1")
+        activity.finish(op, error: "Server rejected the upload")
+        activity.forgetEntry(id: "entry-2")
+        #expect(activity.summary == "Upload failed")
+    }
+
+    @MainActor
+    @Test func removingTheEntryAlsoClearsASuccess() {
+        let activity = UploadActivity()
+        let op = activity.begin(filename: "capture.png", destination: "Picsur",
+                                filePath: nil, historyEntryID: "entry-1")
+        activity.finish(op, url: "https://example.com/a.png")
+        #expect(activity.summary == "Upload complete")
+        activity.forgetEntry(id: "entry-1")
+        #expect(activity.latest == nil)
+    }
+
+    /// Why forgetLink could not have been the fix: a failed upload has no URL, so it
+    /// early-returns and leaves the failure in place. Pinned so nobody "simplifies"
+    /// forgetEntry away in favour of it.
+    @MainActor
+    @Test func forgetLinkCannotClearAFailure() {
+        let activity = UploadActivity()
+        let op = activity.begin(filename: "capture.png", destination: "Picsur",
+                                filePath: nil, historyEntryID: "entry-1")
+        activity.finish(op, error: "Server rejected the upload")
+        activity.forgetLink(nil)
+        #expect(activity.summary == "Upload failed")   // unchanged, by design
+        activity.forgetEntry(id: "entry-1")
+        #expect(activity.latest == nil)
+    }
+
+    /// An upload with no history row (an uploader connection test) must not be
+    /// cleared by an unrelated removal.
+    @MainActor
+    @Test func anOperationWithNoEntryIDIsNotClearedByARemoval() {
+        let activity = UploadActivity()
+        let op = activity.begin(filename: "test.png", destination: "Picsur")
+        activity.finish(op, error: "boom")
+        activity.forgetEntry(id: "entry-1")
+        #expect(activity.summary == "Upload failed")
+    }
 }
+

@@ -267,7 +267,9 @@ final class CaptureCoordinator {
         Task { @MainActor in
             do {
                 let file = UploadService.filePart(pngData: pngData, filename: filename)
-                let result = try await uploadService.upload(part: file, destination: destination, sourcePath: savedURL?.path)
+                let result = try await uploadService.upload(part: file, destination: destination,
+                                                           sourcePath: savedURL?.path,
+                                                           historyEntryID: entryID)
                 AppLog.log("Upload succeeded: \(result.url)")
                 // Skip replacement if another copy occurred during the upload.
                 // MainActor serializes our own copies. Across apps this is best
@@ -332,9 +334,10 @@ final class CaptureCoordinator {
                 mime: mime,
                 history: historyStore,
                 effects: effects,
-                upload: { part, filename in
+                upload: { part, filename, historyEntryID in
                     guard let destination else { throw UploadError.unsupported("No active destination") }
-                    let result = try await service.upload(part: part, destination: destination)
+                    let result = try await service.upload(part: part, destination: destination,
+                                                          historyEntryID: historyEntryID)
                     return DeliveredUpload(url: result.url, deletionURL: result.deletionURL)
                 })
         }
