@@ -7,3 +7,9 @@ dist/
 # SDD scratch — planning artifacts stay out of the repo
 .superpowers/
 docs/superpowers/
+
+# Internal design notes and investigation write-ups. docs/ is for documentation
+# that ships: release notes, the release process, and how to build and test.
+docs/porting-map.md
+docs/settings-design.md
+docs/*-bug.md
