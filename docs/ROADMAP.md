@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.11 is the current release; the manual signed-build smoke recorded under
+  v0.1.12 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -41,6 +41,22 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **Rebrand + rename** | Lumeshot throughout the app, bundle ID (`org.lumeshot.app`), Keychain service, settings/capture/log paths, signing scripts, and documentation. Clean break: no automatic migration; existing data is left untouched. |
 
 ## Unreleased
+
+_Nothing yet._
+
+## v0.1.12 — released
+
+[v0.1.12](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.12) is published. The
+release workflow signed it with the Developer ID certificate, verified the team
+identifier, and notarized and stapled the dmg. See the [release notes](releases/v0.1.12.md)
+and [changelog](../CHANGELOG.md).
+
+Validation: 470 tests pass on macOS 26.6.2 / Swift 6.3.3 and on CI, and the menu-bar
+clipping was diagnosed by measuring the status item (22pt available against 53pt of
+content). Not exercised by hand: the recordings destination picker, an actual upload to a
+second destination, and the update download — this is the first release that can test the
+download, from v0.1.11. The manual Gatekeeper, launch, capture and notification smokes
+still date from v0.1.7.
 
 - Screen recordings can upload to their own destination, chosen under Uploads. Left
   unset they follow the screenshot destination, which is what every existing settings
@@ -165,7 +181,7 @@ Run these when convenient (each is a checklist):
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.
-- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.11 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
+- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.12 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
@@ -180,7 +196,7 @@ Run these when convenient (each is a checklist):
   Note the checksum proves the download arrived intact, not that it is genuine (both
   files come from the same release); the quarantine attribute is what makes macOS check
   the Developer ID signature and notarization on first open.
-- v0.1.11 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
+- v0.1.12 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
 
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
@@ -210,7 +226,7 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.11 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
+1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.12 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
 2. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
 
 Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
