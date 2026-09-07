@@ -4,13 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- Screen recordings can now upload to a different destination from screenshots, chosen
-  under Uploads. Useful when your image host does not accept video. Left unset,
-  recordings go wherever screenshots go.
-- The recording timer in the menu bar is no longer cut off.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.12](docs/releases/v0.1.12.md) — Separate upload destination for screen recordings, and an uncut menu-bar timer.
 - [v0.1.11](docs/releases/v0.1.11.md) — Download an available update, and clear an upload's status when its History row is removed.
 - [v0.1.10](docs/releases/v0.1.10.md) — Identical to v0.1.9; published to exercise the update check.
 - [v0.1.9](docs/releases/v0.1.9.md) — Stacked blur/pixelate, editor fixes, and a Check for Updates command.
