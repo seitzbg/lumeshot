@@ -49,6 +49,10 @@ Pushing a `v*` tag triggers the `Release` workflow on `macos-15`, which:
 3. Imports the Developer ID certificate into a throwaway keychain (skipped if unsigned).
 4. `scripts/bundle.sh` — bundles `.build/release/LumeshotApp` into `dist/Lumeshot.app`,
    signed with the hardened runtime, `Resources/Lumeshot.entitlements`, and a secure timestamp.
+   It passes `RELEASE_CHANNEL=release`, which stamps `LumeshotReleaseChannel` into
+   `Info.plist`. Nothing else sets it, so every local bundle is a development build and
+   **Check for Updates…** refuses to compare it against published releases — the
+   `VERSION` default of 0.1.0 would otherwise look like a real, older release.
 5. Verifies the signature's `TeamIdentifier` matches the `TEAM_ID` secret.
 6. `scripts/dmg.sh` — packages the `.app` into `dist/Lumeshot-<version>.dmg` and signs the dmg.
 7. `scripts/notarize.sh` — submits to Apple's notary service, waits for the verdict, staples

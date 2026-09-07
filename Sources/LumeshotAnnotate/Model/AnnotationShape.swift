@@ -18,4 +18,13 @@ public enum AnnotationShape: Codable, Sendable, Equatable {
     case blur(rect: CGRect, radius: Double)
     case pixelate(rect: CGRect, scale: Double)
     case step(center: CGPoint, number: Int)
+
+    /// Blur and pixelate bake into the bitmap (see `AnnotationRenderer.bakeEffects`);
+    /// every other shape draws as a vector on top of the baked image.
+    public var isEffect: Bool {
+        switch self {
+        case .blur, .pixelate: true
+        default: false
+        }
+    }
 }

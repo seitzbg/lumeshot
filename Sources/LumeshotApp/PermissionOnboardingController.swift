@@ -44,21 +44,31 @@ final class PermissionOnboardingController: NSObject {
         macOS ties the grant to the exact app binary, so a reinstalled or \
         differently-signed copy needs it re-granted.
         """)
-        text.frame = NSRect(x: 20, y: 70, width: 380, height: 190)
-
         let openButton = NSButton(title: "Open System Settings",
                                   target: self, action: #selector(openSettings))
-        openButton.frame = NSRect(x: 20, y: 20, width: 180, height: 32)
         let relaunchButton = NSButton(title: "Relaunch",
                                       target: self, action: #selector(relaunch))
-        relaunchButton.frame = NSRect(x: 210, y: 20, width: 100, height: 32)
 
-        let w = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 420, height: 280),
+        // Laid out rather than positioned by hand: the explanatory paragraph is six
+        // lines at the default text size and more at larger ones, and the fixed
+        // 190-point height it used to have clipped it silently.
+        let buttons = NSStackView(views: [openButton, relaunchButton])
+        buttons.orientation = .horizontal
+        buttons.spacing = 12
+
+        let stack = NSStackView(views: [text, buttons])
+        stack.orientation = .vertical
+        stack.alignment = .leading
+        stack.spacing = 20
+        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        // The one fixed dimension: the wrap width. Height follows from it.
+        text.widthAnchor.constraint(equalToConstant: 380).isActive = true
+
+        let w = NSWindow(contentRect: .zero,
                          styleMask: [.titled, .closable], backing: .buffered, defer: false)
         w.title = "Screen Recording Permission"
-        w.contentView?.addSubview(text)
-        w.contentView?.addSubview(openButton)
-        w.contentView?.addSubview(relaunchButton)
+        w.contentView = stack
+        w.setContentSize(stack.fittingSize)
         w.center()
         w.isReleasedWhenClosed = false
         window = w

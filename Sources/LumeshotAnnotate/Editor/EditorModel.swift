@@ -18,7 +18,9 @@ public final class EditorModel: ObservableObject {
     @Published public var pixelScale: Double = AnnotationDefaults.pixelScale
     @Published public var textFontSize: Double = AnnotationDefaults.textFontSize
     @Published public private(set) var editingTextID: Annotation.ID?
-    @Published public private(set) var selectedID: Annotation.ID?
+    @Published public private(set) var selectedID: Annotation.ID? {
+        didSet { if selectedID != oldValue { styleEditRun = nil } }
+    }
     @Published public private(set) var canUndo = false
     @Published public private(set) var canRedo = false
 
@@ -77,6 +79,10 @@ public final class EditorModel: ObservableObject {
         activeTool = tool
         if tool != .select { selectedID = nil }
     }
+
+    /// The annotation currently absorbing a run of style edits, or nil when no run
+    /// is open. See `applyStrokeColorToSelection`.
+    private var styleEditRun: Annotation.ID?
 
     private var currentStyle: AnnotationStyle {
         AnnotationStyle(strokeColor: strokeColor, strokeWidth: strokeWidth, fillColor: .clear)
@@ -139,7 +145,7 @@ public final class EditorModel: ObservableObject {
 
     public func deleteSelected() {
         guard let id = selectedID, let target = annotations.first(where: { $0.id == id }) else { return }
-        history.commit(annotations)
+        commitHistory(annotations)
         let deletedAStep: Bool
         if case .step = target.shape { deletedAStep = true } else { deletedAStep = false }
         annotations.removeAll { $0.id == id }
@@ -161,21 +167,83 @@ public final class EditorModel: ObservableObject {
     }
 
     public func undo() {
+        styleEditRun = nil
         guard let previous = history.undo(current: annotations) else { return }
         annotations = previous
         clampSelection()
+        syncInspectorToSelection()
         refreshHistoryFlags()
     }
 
     public func redo() {
+        styleEditRun = nil
         guard let next = history.redo(current: annotations) else { return }
         annotations = next
         clampSelection()
+        syncInspectorToSelection()
         refreshHistoryFlags()
     }
 
     public func flatten() -> CGImage? {
         AnnotationRenderer.flatten(base: baseImage, annotations: annotations)
+    }
+
+    /// Snapshots history and ends any open style-edit run, so an unrelated edit
+    /// cannot be absorbed into a run of colour changes.
+    private func commitHistory(_ state: [Annotation]) {
+        history.commit(state)
+        styleEditRun = nil
+    }
+
+    /// Pushes the toolbar's stroke colour onto the selected annotation.
+    ///
+    /// `ColorPicker` has no `onEditingChanged`, so dragging through the colour wheel
+    /// emits a continuous stream of values with no release event to commit on. One
+    /// history entry per value would bury the undo stack, so consecutive colour edits
+    /// to the *same* annotation coalesce: the first snapshots history, the rest mutate
+    /// in place. A run ends on selection change, undo/redo, any other edit, or
+    /// `endStrokeStyleRun()`.
+    ///
+    /// The accepted cost: two deliberate colour picks with nothing in between merge
+    /// into one undo entry. Without a release event the alternative is a timer, which
+    /// buys little for a cosmetic edit.
+    public func applyStrokeColorToSelection() {
+        applyStroke(coalescing: true) { $0.strokeColor = self.strokeColor }
+    }
+
+    /// Pushes the toolbar's stroke width onto the selected annotation as its own undo
+    /// entry. The slider has a real release event, so there is no reason to coalesce —
+    /// and coalescing here would let a width edit swallow a preceding colour change.
+    public func applyStrokeWidthToSelection() {
+        applyStroke(coalescing: false) { $0.strokeWidth = self.strokeWidth }
+    }
+
+    /// Ends any open style-edit run. Call when a new interaction begins (a slider
+    /// grab), so the edit that follows cannot merge backwards into it.
+    public func endStrokeStyleRun() { styleEditRun = nil }
+
+    /// Applies ONE property. Applying both would be wrong: undo restores `annotations`
+    /// but not the toolbar's published values, so after undoing a colour change the
+    /// picker still holds the new colour — and copying it alongside a width edit would
+    /// silently re-apply the colour the user just undid.
+    private func applyStroke(coalescing: Bool, _ mutate: (inout AnnotationStyle) -> Void) {
+        guard let id = selectedID,
+              let index = annotations.firstIndex(where: { $0.id == id }) else {
+            styleEditRun = nil
+            return
+        }
+        var style = annotations[index].style
+        mutate(&style)
+        guard style != annotations[index].style else {
+            if !coalescing { styleEditRun = nil }
+            return
+        }
+        if !(coalescing && styleEditRun == id) {
+            commitHistory(annotations)              // also clears styleEditRun
+            styleEditRun = coalescing ? id : nil
+        }
+        annotations[index].style = style
+        refreshHistoryFlags()
     }
 
     /// Applies the current inspector params (`blurRadius`/`pixelScale`) to the
@@ -193,7 +261,7 @@ public final class EditorModel: ObservableObject {
         // Wired to slider/stepper release, so a press-release with no actual value
         // change must not push a no-op entry onto the undo stack.
         guard let newShape = updated, newShape != annotations[index].shape else { return }
-        history.commit(annotations)
+        commitHistory(annotations)
         annotations[index].shape = newShape
         refreshHistoryFlags()
     }
@@ -238,7 +306,7 @@ public final class EditorModel: ObservableObject {
             return
         }
         if let before = textEditStartState {
-            history.commit(before)
+            commitHistory(before)
             textEditStartState = nil
             refreshHistoryFlags()
         }
@@ -294,7 +362,7 @@ public final class EditorModel: ObservableObject {
 
     /// Places an auto-numbered step badge at `point` and selects it (one commit).
     private func placeStep(at point: CGPoint) {
-        history.commit(annotations)
+        commitHistory(annotations)
         let step = Annotation(shape: .step(center: point, number: nextStepNumber), style: currentStyle)
         annotations.append(step)
         selectedID = step.id
@@ -358,9 +426,16 @@ public final class EditorModel: ObservableObject {
         guard let before = gestureStartState else { return }
         gestureStartState = nil
         if before != annotations {
-            history.commit(before)
+            commitHistory(before)
             refreshHistoryFlags()
         }
+    }
+
+    /// Re-reads the toolbar from whatever is selected. Undo/redo replace the document
+    /// wholesale, and without this the inspector keeps describing the state that was
+    /// just undone.
+    private func syncInspectorToSelection() {
+        if let selected = selectedAnnotation { syncInspector(to: selected) }
     }
 
     private func clampSelection() {

@@ -427,4 +427,157 @@ import CoreGraphics
         }
         #expect(radius == 20)
     }
+
+    // MARK: Stroke push from the toolbar
+
+    private let blue = RGBAColor(r: 0, g: 0, b: 1, a: 1)
+    private let green = RGBAColor(r: 0, g: 1, b: 0, a: 1)
+
+    private func modelWithSelectedRectangle() -> EditorModel {
+        let m = EditorModel(baseImage: base())
+        m.setTool(.rectangle)
+        m.pointerDown(at: CGPoint(x: 10, y: 10))
+        m.pointerDragged(to: CGPoint(x: 60, y: 40))
+        m.pointerUp(at: CGPoint(x: 60, y: 40))
+        return m
+    }
+
+    private func strokeColor(_ m: EditorModel) -> RGBAColor { m.annotations[0].style.strokeColor }
+    private func strokeWidth(_ m: EditorModel) -> Double { m.annotations[0].style.strokeWidth }
+
+    @Test func strokeColorAppliesToTheSelectedAnnotation() {
+        let m = modelWithSelectedRectangle()
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+        #expect(strokeColor(m) == blue)
+    }
+
+    @Test func strokeWidthAppliesToTheSelectedAnnotation() {
+        let m = modelWithSelectedRectangle()
+        m.strokeWidth = 11
+        m.applyStrokeWidthToSelection()
+        #expect(strokeWidth(m) == 11)
+    }
+
+    @Test func strokeStyleDoesNothingWithoutASelection() {
+        let m = modelWithSelectedRectangle()
+        let before = m.annotations[0].style
+        m.setTool(.line)                  // leaving .select clears the selection
+        #expect(m.selectedID == nil)
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+        #expect(m.annotations[0].style == before)
+    }
+
+    /// A ColorPicker drag arrives as many changes with no release event. One undo must
+    /// return to the colour the run started from, not an intermediate value.
+    @Test func aRunOfColourChangesCoalescesIntoOneUndoEntry() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        for step in 1...5 {
+            m.strokeColor = RGBAColor(r: Double(step) / 5, g: 0, b: 0, a: 1)
+            m.applyStrokeColorToSelection()
+        }
+        #expect(strokeColor(m) == RGBAColor(r: 1, g: 0, b: 0, a: 1))
+        m.undo()
+        #expect(strokeColor(m) == original)
+    }
+
+    @Test func aNewRunStartsAfterTheSelectionChanges() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 90, y: 90))
+        m.pointerUp(at: CGPoint(x: 90, y: 90))
+        #expect(m.selectedID == nil)
+        m.pointerDown(at: CGPoint(x: 30, y: 25))
+        m.pointerUp(at: CGPoint(x: 30, y: 25))
+        #expect(m.selectedID == m.annotations[0].id)
+
+        m.strokeColor = green
+        m.applyStrokeColorToSelection()
+        m.undo()
+        #expect(strokeColor(m) == blue)
+        m.undo()
+        #expect(strokeColor(m) == original)
+    }
+
+    /// Undo restores the document but not the toolbar's published values. If a later
+    /// width edit copied the colour too, it would silently reinstate the colour the
+    /// user just undid.
+    @Test func aWidthEditDoesNotRestoreAnUndoneColour() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+        m.undo()
+        #expect(strokeColor(m) == original)
+
+        m.strokeWidth = 17
+        m.applyStrokeWidthToSelection()
+        #expect(strokeWidth(m) == 17)
+        #expect(strokeColor(m) == original)   // must not have gone blue again
+    }
+
+    /// The mirror image: a colour edit must not reinstate an undone width.
+    @Test func aColourEditDoesNotRestoreAnUndoneWidth() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeWidth(m)
+        m.strokeWidth = 17
+        m.applyStrokeWidthToSelection()
+        m.undo()
+        #expect(strokeWidth(m) == original)
+
+        m.strokeColor = green
+        m.applyStrokeColorToSelection()
+        #expect(strokeColor(m) == green)
+        #expect(strokeWidth(m) == original)
+    }
+
+    /// Colour then width: the width edit must not absorb the colour change into its
+    /// own undo entry, which would make one undo discard both.
+    @Test func aWidthEditDoesNotAbsorbThePrecedingColourChange() {
+        let m = modelWithSelectedRectangle()
+        let originalWidth = strokeWidth(m)
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+        m.strokeWidth = 17
+        m.applyStrokeWidthToSelection()
+
+        m.undo()
+        #expect(strokeWidth(m) == originalWidth)   // only the width came back
+        #expect(strokeColor(m) == blue)            // the colour edit survives
+    }
+
+    /// The view ends the run on slider grab, but the fix must not depend on the view
+    /// remembering to: a non-coalescing apply commits its own entry regardless.
+    @Test func endingTheRunExplicitlyIsNotRequiredForASeparateEntry() {
+        let m = modelWithSelectedRectangle()
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+        m.endStrokeStyleRun()
+        m.strokeWidth = 17
+        m.applyStrokeWidthToSelection()
+        m.undo()
+        #expect(strokeColor(m) == blue)
+    }
+
+    @Test func undoResyncsTheInspectorToTheSelection() {
+        let m = modelWithSelectedRectangle()
+        let original = strokeColor(m)
+        m.strokeColor = blue
+        m.applyStrokeColorToSelection()
+        m.undo()
+        #expect(m.strokeColor == original)   // the toolbar follows the document
+    }
+
+    @Test func aNoOpStrokePushDoesNotTouchHistory() {
+        let m = modelWithSelectedRectangle()
+        m.applyStrokeColorToSelection()
+        m.undo()
+        #expect(m.annotations.isEmpty)
+    }
 }

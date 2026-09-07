@@ -4,6 +4,10 @@ cd "$(dirname "$0")/.."
 
 APP="${BUNDLE_OUTPUT:-dist/Lumeshot.app}"
 VERSION="${VERSION:-0.1.0}"
+# Only the release workflow sets this. Everything else is a development build,
+# which the in-app update check refuses to compare against published releases —
+# the VERSION default above would otherwise look like a real, older release.
+RELEASE_CHANNEL="${RELEASE_CHANNEL:-development}"
 ENTITLEMENTS="Resources/Lumeshot.entitlements"
 
 # Signing identity resolution, in priority order:
@@ -53,7 +57,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/LumeshotApp "$APP/Contents/MacOS/LumeshotApp"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Sources/LumeshotApp/Resources/OpenSourceCredits.json "$APP/Contents/Resources/"
-sed "s/@VERSION@/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
+sed -e "s/@VERSION@/$VERSION/g" -e "s/@CHANNEL@/$RELEASE_CHANNEL/g" \
+    Resources/Info.plist > "$APP/Contents/Info.plist"
 
 # --options runtime is what notarization actually requires. It is applied on
 # every path, not just releases, so the dev loop exercises the same runtime
@@ -68,4 +73,4 @@ codesign --force --sign "$CODESIGN_ID" \
     "$APP"
 
 codesign --verify --strict --verbose=2 "$APP" 2>&1 | sed 's/^/  /'
-echo "Built $APP (version $VERSION, sign: $CODESIGN_ID)"
+echo "Built $APP (version $VERSION, channel: $RELEASE_CHANNEL, sign: $CODESIGN_ID)"

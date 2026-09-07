@@ -22,12 +22,12 @@ public enum AnnotationRenderer {
     /// annotations (they bake into the image; vectors draw on top afterward).
     /// Rects are annotation space (top-left, y-down); converted to CI's bottom-left
     /// space here. Returns `base` unchanged when there are no effect annotations.
+    ///
+    /// Effects **stack** in list order: each one samples the accumulated result, so
+    /// blurring a region that was already pixelated operates on the pixelated pixels.
+    /// Effects over disjoint regions are unaffected by this.
     public static func bakeEffects(base: CGImage, annotations: [Annotation]) -> CGImage {
-        let effects = annotations.filter {
-            if case .blur = $0.shape { return true }
-            if case .pixelate = $0.shape { return true }
-            return false
-        }
+        let effects = annotations.filter(\.shape.isEffect)
         guard !effects.isEmpty else { return base }
         let h = CGFloat(base.height)
         let baseCI = CIImage(cgImage: base)
@@ -38,12 +38,12 @@ public enum AnnotationRenderer {
             switch ann.shape {
             case .blur(let r, let radius):
                 rect = r.standardized
-                filtered = baseCI.clampedToExtent()
+                filtered = acc.clampedToExtent()
                     .applyingFilter("CIGaussianBlur", parameters: [kCIInputRadiusKey: radius])
                     .cropped(to: baseCI.extent)
             case .pixelate(let r, let scale):
                 rect = r.standardized
-                filtered = baseCI
+                filtered = acc
                     .applyingFilter("CIPixellate",
                                     parameters: [kCIInputScaleKey: scale, kCIInputCenterKey: CIVector(x: 0, y: 0)])
             default:
@@ -183,7 +183,7 @@ public enum AnnotationRenderer {
     private static func drawText(_ rect: CGRect, string: String, fontSize: Double,
                                  style: AnnotationStyle, in ctx: CGContext) {
         guard !string.isEmpty else { return }
-        let font = CTFontCreateWithName("HelveticaNeue" as CFString, CGFloat(fontSize), nil)
+        let font = CTFontCreateWithName(AnnotationDefaults.textFontName as CFString, CGFloat(fontSize), nil)
         // CoreText attribute keys (AppKit-free — LumeshotAnnotate must not import AppKit).
         let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
         let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
@@ -220,7 +220,7 @@ public enum AnnotationRenderer {
         ctx.saveGState()
         ctx.setFillColor(style.strokeColor.cgColor)
         ctx.fillEllipse(in: circle)
-        let font = CTFontCreateWithName("HelveticaNeue-Bold" as CFString, AnnotationDefaults.stepFontSize, nil)
+        let font = CTFontCreateWithName(AnnotationDefaults.stepFontName as CFString, AnnotationDefaults.stepFontSize, nil)
         // CoreText attribute keys (AppKit-free — LumeshotAnnotate must not import AppKit).
         let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
         let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)

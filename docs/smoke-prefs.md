@@ -41,12 +41,18 @@ re-verified here.
 - [ ] **Delayed upload:** While an upload is pending, copy text in another app or turn
       upload off and capture again. The old upload must not replace the newer clipboard
       contents; its URL should still appear in history.
-- [ ] **Shortcuts page: live recorder + re-register (Task 7):** Click the Fullscreen recorder,
-      press a new combo (e.g. ⌃⌥⇧2); the field updates immediately. Without relaunching,
-      confirm the NEW combo triggers a fullscreen capture and the OLD combo (⌥⇧3) no longer
-      does anything (proves the old Carbon registration was actually unregistered, not just
-      shadowed). Click "clear" on a hotkey and confirm it stops firing. Repeat for
-      Region/Window/Record.
+- [ ] **Shortcuts page: live recorder + re-register (Task 7):** Click the recorder on
+      **Capture fullscreen**, press a new combo (e.g. ⌃⌥⇧2); the field updates immediately.
+      Without relaunching, confirm the NEW combo triggers a fullscreen capture and the OLD
+      combo (⌥⇧3) no longer does anything (proves the old Carbon registration was actually
+      unregistered, not just shadowed). Click the ⊗ clear button and confirm it stops firing.
+      Repeat for **Capture region**, **Capture window**, and **Start or stop recording**.
+- [ ] **Shortcut row alignment (shipped in v0.1.8):** With at least one shortcut assigned and
+      at least one cleared, confirm every recorder button has the same width and the same left
+      edge — the trailing clear slot stays reserved, so clearing or assigning a shortcut must
+      not shift its button sideways. Check all-set and all-unset layouts too. On a cleared row
+      the clear button is invisible: confirm it is also inert — clicking where it would be does
+      nothing, and keyboard focus skips it.
 - [ ] **Recorder monitor teardown on window close:** In the Shortcuts page, click a hotkey field so it shows "Press a key…", then close the Settings window via the red traffic-light button WITHOUT pressing a key. Reopen Settings (⌘,) and confirm the next keystroke you type elsewhere is NOT swallowed (i.e. the stale key-capture monitor was torn down). (A belt-and-suspenders NSWindow.willCloseNotification teardown was added for this; this verifies it.)
 
 M1 capture smoke: see `docs/smoke-m1.md`. M2a upload smoke: see `docs/smoke-m2a.md`.

@@ -43,7 +43,19 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- Blur and pixelate effects now **stack**. Each samples the accumulated result rather
+  than the pristine base, so layering them composes instead of the last one winning.
+  Effects over disjoint regions are unchanged, and export matches the preview.
+- The baked effect bitmap is cached on the effect annotations, so dragging a vector
+  annotation no longer re-runs Core Image over the whole screenshot every frame.
+- Text is edited in the face it commits to. The live field used the system font while
+  the renderer committed HelveticaNeue, so text reflowed the moment editing ended.
+- The toolbar's stroke colour and width now apply to the selected annotation, not only
+  to newly drawn ones. A colour-wheel drag collapses to a single undo entry.
+- **Check for Updates…** in the Lumeshot menu compares the running build against the
+  latest published release and links to it. It does not download or install anything.
+- The Screen Recording permission window is laid out rather than hand-positioned, so its
+  explanation no longer clips at larger system text sizes.
 
 ## v0.1.8 — released
 
@@ -104,20 +116,22 @@ Run these when convenient (each is a checklist):
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Auto-update mechanism (none today).
+- Auto-update: **Check for Updates…** reports whether a newer release exists and links
+  to it. Self-installing updates are still absent — Sparkle would need an EdDSA key
+  pair, a hosted appcast and update-signing in the release workflow, which is a
+  separate decision.
 - v0.1.8 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.8 in `docs/smoke-signing.md`.
 
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
 - SFTP/FTP transports still start from a complete `Data`, so a large recording is resident for those two destinations (bounded now, but not streamed). Streaming needs a chunked transport API on both.
 - Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
-- Imgur **OAuth / authenticated albums** (anonymous-only today).
+- Imgur OAuth / authenticated albums: **not planned** (decided 2026-09-07). Anonymous
+  upload stays. OAuth would need a registered app whose client secret cannot be kept
+  secret in a distributed binary, plus a redirect scheme or a loopback listener inside
+  the hardened runtime — a lot of surface for a service we do not want to lean on.
+  `.sxcu` custom uploaders and the self-hosted backends cover the same need.
 - Supply-chain: Citadel rides a stale personal fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh` 0.3.4) — watch for an upstream path.
-
-**Editor**
-- Effects don't **stack** (each samples the pristine base — fine for redaction, limiting for layered edits); no `bakeEffects`/geometry caching (recompute per repaint).
-- Live text field uses systemFont vs the committed HelveticaNeue (editing-time cosmetic).
-- Stroke-push (P3 #3): committing a stroke edit from the toolbar `ColorPicker` has no natural "release" boundary in SwiftUI (`ColorPicker` lacks `onEditingChanged`) — needs debounce or a per-tick-history decision.
 
 **Recording**
 - Live SCK paths are build + smoke-only (the test binary can't inherit the app's TCC grant). Smoke must confirm the start path and the GIF-export error alert (see `docs/smoke-m4.md`).
@@ -136,10 +150,12 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.8 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`.
-2. **Editor polish pass** — effect stacking + caching, text-font fidelity, stroke inspector commit.
-3. **Uploader auth** — Imgur OAuth (SFTP host-key pinning shipped).
-4. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
+1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.8 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
+2. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
+
+Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
+Done: **editor polish pass** — effect stacking + caching, text-font fidelity and the
+stroke push all landed; see Unreleased.
 
 ## How to resume
 
