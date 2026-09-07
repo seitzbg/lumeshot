@@ -40,9 +40,17 @@ final class DestinationsModel: ObservableObject {
 
     func testModel(for destination: UploadDestination) -> UploaderTestModel {
         let service = UploadService(credentials: credentials, settingsStore: store, activity: .shared)
-        return UploaderTestModel(destination: destination, credentials: credentials) { part, destination in
-            try await service.upload(part: part, destination: destination)
+        return UploaderTestModel(destination: destination, credentials: credentials) { [weak self] part, destination in
+            let result = try await service.upload(part: part, destination: destination)
+            // Only a real upload counts as a pass, so this records it here rather than
+            // anywhere the button could be pressed.
+            self?.markTested(destination.id)
+            return result
         }
+    }
+
+    private func markTested(_ id: String) {
+        persist { $0.upload = $0.upload.markingTested(id: id) }
     }
 
     /// Persisted binding for the Uploads tab's "Upload after capture" toggle
@@ -221,6 +229,15 @@ final class DestinationsModel: ObservableObject {
         save(updated, isNew: false) {}
     }
 
+    /// "SFTP", plus what the destination cannot do and whether it has been proven to
+    /// work — the two things a list of uploader names otherwise hides.
+    func rowCaption(for destination: UploadDestination) -> String {
+        var parts = [kindLabel(destination.kind)]
+        if !destination.kind.acceptsRecordings { parts.append("images only") }
+        if !destination.hasPassedATest { parts.append("not tested") }
+        return parts.joined(separator: " · ")
+    }
+
     func kindLabel(_ kind: UploadDestinationKind) -> String {
         switch kind {
         case .customUploader: return "Custom (.sxcu)"
@@ -304,9 +321,7 @@ struct DestinationsView: View {
                                     VStack(alignment: .leading, spacing: 5) {
                                         Text(dest.name).fontWeight(.medium)
                                             .fixedSize(horizontal: false, vertical: true)
-                                        Text(dest.kind.acceptsRecordings
-                                             ? model.kindLabel(dest.kind)
-                                             : "\(model.kindLabel(dest.kind)) · images only")
+                                        Text(model.rowCaption(for: dest))
                                             .font(.caption).foregroundStyle(.secondary)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -357,6 +372,16 @@ struct DestinationsView: View {
                     .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
                 }
+            }
+            if !model.settings.untestedActiveDestinations.isEmpty {
+                let names = model.settings.untestedActiveDestinations.map(\.name).joined(separator: ", ")
+                Label("\(names) hasn’t been tested yet. Use Test… to confirm it works before "
+                      + "relying on it — captures will still upload either way.",
+                      systemImage: "questionmark.circle")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             if let blocked = model.settings.recordingDestinationRejectingVideo {
                 Label("\(blocked.name) only accepts images, so screen recordings sent there "

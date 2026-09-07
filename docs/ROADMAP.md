@@ -47,6 +47,11 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
   no recorded cause anywhere once the banner faded — the still path has logged this since
   M2a. `PipelineEffects` gained a defaulted `log(_:)` so core code can reach `AppLog`.
 
+- Uploaders record whether they have passed a connection test. Untested ones are marked
+  in the Uploads list and an active one prompts a nudge, but nothing is blocked: refusing
+  to save a correct configuration because the host is briefly unreachable would be worse
+  than the warning it prevents. Any edit clears the pass, deliberately bluntly — deciding
+  a change was "only the name" would also have to know whether a secret was re-entered.
 - Destinations now declare whether they accept video, and recordings pointed at an
   image-only host fail immediately with a message naming the host and the setting to
   change, instead of a generic upload error from the server. The Uploads list marks such

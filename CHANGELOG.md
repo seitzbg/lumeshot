@@ -4,6 +4,9 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
+- Uploaders you haven't tested are marked "not tested" in the Uploads list, with a
+  reminder when one is in use. Testing an uploader records the pass; editing it clears
+  it again. Nothing is blocked — it is a nudge, not a gate.
 - Uploaders that only accept images are now marked as such, and Lumeshot warns when screen
   recordings would be sent to one. Recording uploads to an image-only host now fail
   immediately with a message naming the host, rather than a generic server error.

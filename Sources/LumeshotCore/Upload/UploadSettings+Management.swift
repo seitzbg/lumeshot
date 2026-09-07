@@ -2,6 +2,12 @@ import Foundation
 
 public extension UploadSettings {
     /// Replace the destination sharing `destination.id`, or append it if new.
+    ///
+    /// An edit clears the tested state, since the caller builds a fresh
+    /// `UploadDestination` with `lastTestedAt` nil. Deliberately blunt: deciding a
+    /// change was "only the name" would also have to know whether a secret was
+    /// re-entered, which this layer cannot see. Being wrong towards "untested" costs a
+    /// re-test; being wrong the other way vouches for a configuration nobody checked.
     func addingOrUpdating(_ destination: UploadDestination) -> UploadSettings {
         var copy = self
         if let idx = copy.destinations.firstIndex(where: { $0.id == destination.id }) {
@@ -24,6 +30,14 @@ public extension UploadSettings {
         // Reverting to nil means recordings follow the image destination again. Leaving
         // the dangling id would instead send them nowhere, silently.
         if copy.activeRecordingDestinationID == id { copy.activeRecordingDestinationID = nil }
+        return copy
+    }
+
+    /// Record that `id` just passed a connection test.
+    func markingTested(id: String, at date: Date = Date()) -> UploadSettings {
+        var copy = self
+        guard let index = copy.destinations.firstIndex(where: { $0.id == id }) else { return copy }
+        copy.destinations[index].lastTestedAt = date
         return copy
     }
 
