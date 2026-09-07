@@ -24,7 +24,7 @@ missing=$(
             # matches parens to close $( ) without understanding case patterns,
             # so a bare `pattern)` in here is a syntax error.
             case "$target" in
-                ('' | http://* | https://* | data:*) continue ;;
+                ('' | [Hh][Tt][Tt][Pp]://* | [Hh][Tt][Tt][Pp][Ss]://* | [Dd][Aa][Tt][Aa]:* | //*) continue ;;
             esac
             [ -e "$dir/$target" ] || echo "  $doc -> $target"
         done

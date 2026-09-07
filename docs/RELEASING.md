@@ -18,8 +18,9 @@ it for you, and v0.1.8 shipped with four stale `v0.1.7` references because it wa
 from memory.
 
 - [ ] `docs/releases/<tag>.md` — the release body, user-visible changes only.
-- [ ] `CHANGELOG.md` — move `## Unreleased` into a new `## Releases` entry, then
-      leave `## Unreleased` behind with `_Nothing yet._`.
+- [ ] `CHANGELOG.md` — promote what is under `## Unreleased` to a new version
+      bullet under the existing `## Releases` heading (do not add a second one),
+      then leave `## Unreleased` behind with `_Nothing yet._`.
 - [ ] `docs/ROADMAP.md` — same promotion for its `## Unreleased` section; retitle it
       `## <tag> — released`, and re-point anything that says "current release",
       "latest validation", or names the previous version in a *pending* check.
