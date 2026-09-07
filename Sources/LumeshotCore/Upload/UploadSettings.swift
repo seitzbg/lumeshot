@@ -9,6 +9,24 @@ public enum UploadDestinationKind: String, Codable, Sendable {
     case ftp
 }
 
+public extension UploadDestinationKind {
+    /// Whether this kind of host accepts video.
+    ///
+    /// Picsur and Imgur are image hosts and reject an `.mp4` outright — sending one
+    /// produces a server error that reads like a broken uploader rather than a
+    /// mismatched destination. The rest are general-purpose file transports.
+    ///
+    /// A custom `.sxcu` uploader is treated as capable: it could be either, and
+    /// guessing "no" would block a working configuration. Being wrong in that
+    /// direction only costs the failure the user would have had anyway.
+    var acceptsRecordings: Bool {
+        switch self {
+        case .picsur, .imgur:                       false
+        case .customUploader, .s3, .sftp, .ftp:     true
+        }
+    }
+}
+
 public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var name: String
@@ -19,6 +37,12 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     public var s3Config: S3Config?                     // non-secret S3 config; secrets → Keychain
     public var sftpConfig: SFTPConfig?                 // non-secret SFTP config; secrets → Keychain
     public var ftpConfig: FTPConfig?                   // non-secret FTP config; secrets → Keychain
+    /// When this destination last passed a connection test, or nil if never — which is
+    /// also what every settings file written before this field decodes to. Advisory
+    /// only: an untested destination is flagged, never blocked, because refusing to
+    /// save a correct configuration because the host is briefly unreachable is worse
+    /// than the warning it would prevent.
+    public var lastTestedAt: Date?
 
     public init(id: String, name: String, kind: UploadDestinationKind,
                 customUploader: CustomUploaderConfig? = nil,
@@ -26,7 +50,8 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
                 picsurConfig: PicsurConfig? = nil,
                 s3Config: S3Config? = nil,
                 sftpConfig: SFTPConfig? = nil,
-                ftpConfig: FTPConfig? = nil) {
+                ftpConfig: FTPConfig? = nil,
+                lastTestedAt: Date? = nil) {
         self.id = id
         self.name = name
         self.kind = kind
@@ -36,7 +61,10 @@ public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
         self.s3Config = s3Config
         self.sftpConfig = sftpConfig
         self.ftpConfig = ftpConfig
+        self.lastTestedAt = lastTestedAt
     }
+
+    public var hasPassedATest: Bool { lastTestedAt != nil }
 }
 
 /// What is being uploaded, as opposed to `UploadDestinationKind`, which is where it
@@ -87,6 +115,29 @@ public struct UploadSettings: Codable, Equatable, Sendable {
 
     /// True when recordings are pointed somewhere other than the image destination.
     public var usesSeparateRecordingDestination: Bool { activeRecordingDestinationID != nil }
+
+    /// Active destinations that have never passed a connection test. Advisory: these
+    /// are flagged in the UI, never prevented from being used.
+    public var untestedActiveDestinations: [UploadDestination] {
+        var result: [UploadDestination] = []
+        if let image = activeDestination(for: .image), !image.hasPassedATest { result.append(image) }
+        if let recording = activeDestination(for: .recording),
+           !recording.hasPassedATest, !result.contains(where: { $0.id == recording.id }) {
+            result.append(recording)
+        }
+        return result
+    }
+
+    /// The destination recordings would use, when it cannot accept video.
+    ///
+    /// Non-nil is the state that produced a confusing bug report: recordings following
+    /// an image-only screenshot destination, failing with a generic upload error that
+    /// looked like the *other* uploader was broken.
+    public var recordingDestinationRejectingVideo: UploadDestination? {
+        guard let destination = activeDestination(for: .recording),
+              !destination.kind.acceptsRecordings else { return nil }
+        return destination
+    }
 
     private func destination(id: String?) -> UploadDestination? {
         guard let id else { return nil }

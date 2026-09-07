@@ -149,5 +149,35 @@ private struct Boom: Error {}
         #expect(rows.count == 1)
         #expect(seenID == rows.first?.id)
     }
+
+    /// A failed recording upload must record *why* somewhere durable. The
+    /// notification says it in friendly words and then disappears; when a real SFTP
+    /// upload failed there was no recorded cause anywhere, which made it
+    /// undiagnosable after the fact.
+    @Test func aFailedRecordingUploadLogsTheUnderlyingError() async throws {
+        let fileURL = try tempFile()
+        let history = try tempHistoryStore()
+        let effects = MockEffects()
+        await RecordingDelivery.deliver(
+            fileURL: fileURL, capturedAt: Date(), destinationName: "SFTP",
+            shouldUpload: true, showNotification: true, mime: "video/mp4",
+            history: history, effects: effects,
+            upload: { _, _, _ in throw Boom() })
+        #expect(effects.logged.contains { $0.contains("Recording upload failed") })
+        // MockEffects records the notification *body*, not the title.
+        #expect(effects.notifications.contains { $0.0.contains("Local file kept.") })
+    }
+
+    @Test func aSuccessfulRecordingUploadLogsTheURL() async throws {
+        let fileURL = try tempFile()
+        let history = try tempHistoryStore()
+        let effects = MockEffects()
+        await RecordingDelivery.deliver(
+            fileURL: fileURL, capturedAt: Date(), destinationName: "SFTP",
+            shouldUpload: true, showNotification: true, mime: "video/mp4",
+            history: history, effects: effects,
+            upload: { _, _, _ in DeliveredUpload(url: "https://example.com/x.mp4", deletionURL: nil) })
+        #expect(effects.logged.contains { $0.contains("https://example.com/x.mp4") })
+    }
 }
 
