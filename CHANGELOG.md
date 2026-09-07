@@ -10,6 +10,10 @@ Release notes describe the changes in each published version.
 - Text no longer reflows when you finish typing it.
 - Stroke colour and width apply to the selected annotation, and a colour change is one
   undo step rather than one per movement of the colour wheel.
+- New **Check for Updates…** in the Lumeshot menu tells you when a newer release is
+  published and links to it.
+- The Screen Recording permission window no longer clips its instructions at larger
+  system text sizes.
 
 ## Releases
 

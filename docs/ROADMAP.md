@@ -52,6 +52,10 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
   the renderer committed HelveticaNeue, so text reflowed the moment editing ended.
 - The toolbar's stroke colour and width now apply to the selected annotation, not only
   to newly drawn ones. A colour-wheel drag collapses to a single undo entry.
+- **Check for Updates…** in the Lumeshot menu compares the running build against the
+  latest published release and links to it. It does not download or install anything.
+- The Screen Recording permission window is laid out rather than hand-positioned, so its
+  explanation no longer clips at larger system text sizes.
 
 ## v0.1.8 — released
 
@@ -112,7 +116,10 @@ Run these when convenient (each is a checklist):
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Auto-update mechanism (none today).
+- Auto-update: **Check for Updates…** reports whether a newer release exists and links
+  to it. Self-installing updates are still absent — Sparkle would need an EdDSA key
+  pair, a hosted appcast and update-signing in the release workflow, which is a
+  separate decision.
 - v0.1.8 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.8 in `docs/smoke-signing.md`.
 
 **Uploaders**
