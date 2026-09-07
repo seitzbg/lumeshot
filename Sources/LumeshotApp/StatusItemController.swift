@@ -8,7 +8,13 @@ final class StatusItemController {
     private var uploadFailed = false
 
     init(menu: NSMenu) {
-        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+        // variableLength, not squareLength: the item shows an elapsed-time title while
+        // recording, and squareLength pins the width to the menu bar's thickness.
+        // Measured on macOS 26.6 — a 22pt square against 53pt of icon-plus-"0:07"
+        // content, so the title was clipped to a sliver that rendered as a bare ":".
+        // With no title the item is 33pt rather than 38pt, so the idle icon does not
+        // get wider from this.
+        statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         // macOS persists status-item visibility per autosave name: ⌘-dragging an
         // item off the bar writes "NSStatusItem Visible <name> = 0" and it stays
         // gone across relaunches. Name the slot so that pref is greppable, and

@@ -42,7 +42,9 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- The recording elapsed time is no longer clipped in the menu bar. The status item was
+  created with `squareLength`, which pins it to the menu bar's thickness — 22pt against
+  53pt of icon-plus-timer content — so the timer showed as a bare `:`.
 
 ## v0.1.11 — released
 
@@ -194,12 +196,6 @@ Run these when convenient (each is a checklist):
 - Supply-chain: Citadel rides a stale personal fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh` 0.3.4) — watch for an upstream path.
 
 **Recording**
-- Menu-bar elapsed time renders clipped while recording — observed as a bare `:` with no
-  digits ([screenshot](https://pic.bsd-unix.net/i/6d3a026f-3370-4651-9d4d-f168425bfc77.png),
-  reported 2026-09-07). `elapsedLabel` formats `%d:%02d`, so it always produces digits and
-  the value is being truncated in the menu bar rather than miscomputed; whether that is
-  status-item width negotiation, a crowded menu bar, or something else is **unconfirmed**.
-  Reproduce with a live recording before changing anything.
 - Live SCK paths are build + smoke-only (the test binary can't inherit the app's TCC grant). Smoke must confirm the start path and the GIF-export error alert (see `docs/smoke-m4.md`).
 - `ffmpeg` palettegen GIF path skipped (native AVFoundation path shipped).
 
