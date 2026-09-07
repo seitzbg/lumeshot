@@ -79,7 +79,7 @@ jobs:
           echo "DEVELOPER_ID_SIGNING=1"       >> "$GITHUB_ENV"
 
       - name: Bundle app
-        run: VERSION="${GITHUB_REF_NAME#v}" scripts/bundle.sh
+        run: VERSION="${GITHUB_REF_NAME#v}" RELEASE_CHANNEL=release scripts/bundle.sh
 
       # Catches the wrong certificate being imported — a valid signature from
       # some other team would otherwise sail through and only fail later, at

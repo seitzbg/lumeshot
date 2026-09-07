@@ -71,13 +71,24 @@ struct EditorView: View {
 
             Divider().frame(height: 20)
 
+            // ColorPicker has no onEditingChanged, so every wheel movement lands here.
+            // applyStrokeColorToSelection coalesces a run of them into one undo entry.
             ColorPicker("", selection: Binding(
                 get: { Color(rgba: model.strokeColor) },
-                set: { model.strokeColor = RGBAColor(color: $0) }))
+                set: {
+                    model.strokeColor = RGBAColor(color: $0)
+                    model.applyStrokeColorToSelection()
+                }))
                 .labelsHidden()
                 .help("Stroke color")
 
-            Slider(value: $model.strokeWidth, in: 1...40)
+            // The grab ends any open colour run, so this edit cannot merge backwards
+            // into it; the release applies the width as its own undo entry.
+            Slider(value: $model.strokeWidth, in: 1...40,
+                   onEditingChanged: { editing in
+                       if editing { model.endStrokeStyleRun() }
+                       else { model.applyStrokeWidthToSelection() }
+                   })
                 .frame(width: 90)
                 .help("Stroke width")
 

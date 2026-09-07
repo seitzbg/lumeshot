@@ -124,6 +124,43 @@ import CoreGraphics
         #expect(sample(b, 13, 20) == before)   // the original base pixel is untouched
     }
 
+    /// Effects stack: a second blur over the same region samples the already-blurred
+    /// pixels, so it is visibly blurrier than one pass. Before stacking, every effect
+    /// sampled the pristine base and the two results were identical.
+    @Test func overlappingEffectsStackInsteadOfResampling() {
+        let b = edgeBase()
+        let region = CGRect(x: 4, y: 4, width: 32, height: 32)
+        let once = AnnotationRenderer.bakeEffects(
+            base: b, annotations: [Annotation(shape: .blur(rect: region, radius: 6),
+                                              style: AnnotationStyle())])
+        let twice = AnnotationRenderer.bakeEffects(
+            base: b, annotations: [Annotation(shape: .blur(rect: region, radius: 6),
+                                              style: AnnotationStyle()),
+                                   Annotation(shape: .blur(rect: region, radius: 6),
+                                              style: AnnotationStyle())])
+        // x=14 sits in the black half, 6px from the white edge, inside the blurred
+        // region. One pass bleeds some white in; two passes bleed more.
+        let base14 = sample(b, 14, 20).0
+        let once14 = sample(once, 14, 20).0
+        let twice14 = sample(twice, 14, 20).0
+        #expect(base14 == 0)              // the probe really is on a black pixel
+        #expect(once14 > base14)          // one pass already lightens it
+        #expect(twice14 > once14)         // the second pass compounds it
+    }
+
+    /// Stacking must not change effects that do not overlap — each still applies to
+    /// its own region.
+    @Test func disjointEffectsEachStillApply() {
+        let b = topBottomEdgeBase()
+        let top = Annotation(shape: .blur(rect: CGRect(x: 0, y: 0, width: 40, height: 18), radius: 6),
+                             style: AnnotationStyle())
+        let bottom = Annotation(shape: .pixelate(rect: CGRect(x: 0, y: 22, width: 40, height: 18), scale: 8),
+                                style: AnnotationStyle())
+        let out = AnnotationRenderer.bakeEffects(base: b, annotations: [top, bottom])
+        #expect(channelDelta(sample(out, 18, 9), sample(b, 18, 9)) > 0)    // top band changed
+        #expect(channelDelta(sample(out, 18, 30), sample(b, 18, 30)) > 0)  // bottom band changed
+    }
+
     @Test func flattenCropsOutputToTheCropRect() throws {
         let b = edgeBase()
         let crop = Annotation(id: .init(),

@@ -4,7 +4,16 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-_Nothing yet._
+- Blur and pixelate effects stack when they overlap instead of the last one replacing
+  the others.
+- The editor stays responsive while dragging over a blurred or pixelated region.
+- Text no longer reflows when you finish typing it.
+- Stroke colour and width apply to the selected annotation, and a colour change is one
+  undo step rather than one per movement of the colour wheel.
+- New **Check for Updates…** in the Lumeshot menu tells you when a newer release is
+  published and links to it.
+- The Screen Recording permission window no longer clips its instructions at larger
+  system text sizes.
 
 ## Releases
 

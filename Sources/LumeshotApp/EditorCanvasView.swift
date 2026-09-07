@@ -14,6 +14,8 @@ import LumeshotAnnotate
 final class EditorCanvasNSView: NSView, NSTextFieldDelegate {
     let model: EditorModel
     private var textField: NSTextField?
+    /// Keeps the baked blur/pixelate bitmap across repaints; see `EffectBakeCache`.
+    private let effectCache = EffectBakeCache()
 
     init(model: EditorModel) {
         self.model = model
@@ -37,10 +39,10 @@ final class EditorCanvasNSView: NSView, NSTextFieldDelegate {
         let geo = geometry
 
         // Effect preview: composite blur/pixelate regions into the base via Core Image
-        // so they show live. PERF CAVEAT: bakeEffects runs on every repaint (a drag =
-        // many repaints); caching the baked image by annotation-signature is deferred.
-        let baked = AnnotationRenderer.bakeEffects(base: model.baseImage,
-                                                   annotations: model.displayAnnotations)
+        // so they show live. Cached on the effect annotations, so a drag that only moves
+        // a vector annotation repaints without re-running Core Image.
+        let baked = effectCache.bakedImage(base: model.baseImage,
+                                           annotations: model.displayAnnotations)
         ctx.saveGState()
         ctx.interpolationQuality = .high
         ctx.draw(baked, in: geo.imageRectInView)
@@ -154,7 +156,12 @@ final class EditorCanvasNSView: NSView, NSTextFieldDelegate {
         let frame = CGRect(spanning: geo.imageToView(CGPoint(x: s.minX, y: s.minY)),
                            geo.imageToView(CGPoint(x: s.maxX, y: s.maxY)))
         field.frame = frame.insetBy(dx: -2, dy: -2)
-        field.font = .systemFont(ofSize: CGFloat(fontSize) * geo.scale)
+        // Match the committed render (AnnotationRenderer.drawText) so the text does
+        // not reflow when editing ends. systemFont here made every text annotation
+        // shift on commit.
+        let pointSize = CGFloat(fontSize) * geo.scale
+        field.font = NSFont(name: AnnotationDefaults.textFontName, size: pointSize)
+            ?? .systemFont(ofSize: pointSize)
         field.textColor = NSColor(srgbRed: model.strokeColor.r, green: model.strokeColor.g,
                                   blue: model.strokeColor.b, alpha: model.strokeColor.a)
         if field.stringValue != string { field.stringValue = string }

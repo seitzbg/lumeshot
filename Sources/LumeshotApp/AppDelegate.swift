@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: CaptureCoordinator?
     private var preferencesWindow: PreferencesWindowController?
     private let aboutWindow = AboutWindowController()
+    private let updateChecker = UpdateCheckController()
     private var historyStore: HistoryStore?
     private var historyWindow: HistoryWindowController?
     private let editorWindow = EditorWindowController()
@@ -87,6 +88,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appMenu = NSMenu(title: "Lumeshot")
         let about = appMenu.addItem(withTitle: "About Lumeshot", action: #selector(showAbout), keyEquivalent: "")
         about.target = self
+        let updates = appMenu.addItem(withTitle: "Check for Updates…",
+                                      action: #selector(checkForUpdates), keyEquivalent: "")
+        updates.target = self
         appMenu.addItem(.separator())
         let settings = appMenu.addItem(withTitle: "Settings…", action: #selector(showPreferences),
                                       keyEquivalent: ",")
@@ -256,6 +260,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsItem.target = self
         menu.addItem(settingsItem)
         menu.addItem(menuItem("About Lumeshot", #selector(showAbout)))
+        // Also in the main menu, but Lumeshot runs as an accessory app: that menu bar
+        // only appears while Settings is open, so the status menu is the real home.
+        menu.addItem(menuItem("Check for Updates…", #selector(checkForUpdates)))
         menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))
@@ -367,6 +374,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showPreferences() { preferencesWindow?.show() }
 
     @objc private func showAbout() { aboutWindow.show() }
+
+    @objc private func checkForUpdates() { updateChecker.checkForUpdates() }
 
     @objc private func copyLastUploadLink() { UploadActivity.shared.copyLatestLink() }
 
