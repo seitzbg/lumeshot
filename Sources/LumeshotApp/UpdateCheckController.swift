@@ -4,16 +4,16 @@ import LumeshotCore
 /// "Check for Updates…": asks GitHub whether a newer release exists and reports the
 /// answer in an alert.
 ///
-/// This deliberately does not download or install anything. A real auto-updater
-/// (Sparkle) needs an EdDSA key pair, a hosted appcast and update-signing in the
-/// release workflow; until that exists, telling the user a release is out beats the
-/// current situation, which is no signal at all.
+/// It can download an update and reveal it in Finder, but it does not install one.
+/// Replacing the running app is a privileged code path — see `UpdateDownloader` for
+/// why that is left to Sparkle rather than reimplemented here.
 ///
 /// The decision itself lives in `UpdateCheck` as a pure function, so it is tested
 /// without a network; this type only performs the request and presents the result.
 @MainActor
 final class UpdateCheckController {
     private var inFlight = false
+    private let downloader = UpdateDownloader()
 
     private var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
@@ -59,13 +59,23 @@ final class UpdateCheckController {
     private func present(_ result: UpdateCheckResult) {
         let alert = NSAlert()
         switch result {
-        case .updateAvailable(let latest, let page):
+        case .updateAvailable(let latest, let page, let download):
             alert.messageText = "Lumeshot \(latest) is available"
             alert.informativeText = "You are running \(currentVersion)."
+            // Download is the default only when there is something to download and a
+            // checksum to check it against; otherwise the release page is all we can
+            // honestly offer.
+            let canDownload = download?.checksumsURL != nil
+            if canDownload { alert.addButton(withTitle: "Download") }
             alert.addButton(withTitle: "View Release")
             alert.addButton(withTitle: "Later")
             NSApp.activate()
-            if alert.runModal() == .alertFirstButtonReturn { NSWorkspace.shared.open(page) }
+            let choice = alert.runModal()
+            if canDownload, choice == .alertFirstButtonReturn, let download {
+                startDownload(download)
+            } else if choice == (canDownload ? .alertSecondButtonReturn : .alertFirstButtonReturn) {
+                NSWorkspace.shared.open(page)
+            }
             return
         case .upToDate(let current):
             alert.messageText = "Lumeshot is up to date"
@@ -82,9 +92,37 @@ final class UpdateCheckController {
         alert.runModal()
     }
 
-    private func presentFailure(status: Int? = nil, error: Error? = nil) {
+    private func startDownload(_ update: UpdateDownload) {
+        guard !inFlight else { return }
+        inFlight = true
+        Task { [weak self] in
+            defer { self?.inFlight = false }
+            guard let self else { return }
+            do {
+                let file = try await self.downloader.download(update)
+                let done = NSAlert()
+                done.messageText = "Downloaded \(file.lastPathComponent)"
+                done.informativeText = """
+                Saved to your Downloads folder and checked against the published \
+                checksum. Open it and drag Lumeshot to Applications, replacing the \
+                current copy. Quit Lumeshot first.
+                """
+                done.addButton(withTitle: "Show in Finder")
+                done.addButton(withTitle: "Done")
+                NSApp.activate()
+                if done.runModal() == .alertFirstButtonReturn {
+                    NSWorkspace.shared.activateFileViewerSelecting([file])
+                }
+            } catch {
+                self.presentFailure(title: "Could not download the update", error: error)
+            }
+        }
+    }
+
+    private func presentFailure(title: String = "Could not check for updates",
+                                status: Int? = nil, error: Error? = nil) {
         let alert = NSAlert()
-        alert.messageText = "Could not check for updates"
+        alert.messageText = title
         if let status, status == 403 || status == 429 {
             alert.informativeText = "GitHub is rate-limiting requests. Try again later."
         } else if let status {
