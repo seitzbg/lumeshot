@@ -42,7 +42,13 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- Fixed: the **Download** button in the update alert was a silent no-op. `checkForUpdates`
+  and `startDownload` shared one `inFlight` flag, and the flag was cleared in a `defer`
+  that could not run until the check's Task returned — but the check's Task is where
+  `runModal()` blocks waiting for the click. So `startDownload`'s guard always saw a check
+  still in flight and returned immediately. Each operation now has its own flag, and both
+  are cleared before any alert is shown, because a flag that means "a request is running"
+  must not still be set while a dialog waits on a human.
 
 ## v0.1.12 — released
 

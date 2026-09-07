@@ -12,7 +12,12 @@ import LumeshotCore
 /// without a network; this type only performs the request and presents the result.
 @MainActor
 final class UpdateCheckController {
-    private var inFlight = false
+    // One flag per network operation, and each is cleared BEFORE any alert is shown.
+    // A single shared flag deadlocked the feature: runModal() blocks inside the check's
+    // Task, so the flag was still set when the Download button ran, and startDownload's
+    // own guard rejected it — silently, with no download and no error.
+    private var checkInFlight = false
+    private var downloadInFlight = false
     private let downloader = UpdateDownloader()
 
     private var currentVersion: String {
@@ -28,31 +33,52 @@ final class UpdateCheckController {
     }
 
     func checkForUpdates() {
-        guard !inFlight else { return }   // double-click on the menu item
-        inFlight = true
+        guard !checkInFlight else { return }   // double-click on the menu item
+        checkInFlight = true
         Task { [weak self] in
-            defer { self?.inFlight = false }
-            do {
-                var request = URLRequest(url: UpdateCheck.latestReleaseAPI)
-                // GitHub asks for an explicit API version and rejects requests with no
-                // User-Agent.
-                request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-                request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
-                request.setValue("Lumeshot", forHTTPHeaderField: "User-Agent")
-                request.timeoutInterval = 15
-                let (data, response) = try await URLSession.shared.data(for: request)
-                if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
-                    // Rate limiting (403/429) is the common one and deserves its own words.
-                    self?.presentFailure(status: http.statusCode)
-                    return
+            guard let self else { return }
+            let outcome = await Self.fetchLatestRelease()
+            // Cleared before presenting, not in a defer: the alert below blocks until
+            // the user clicks, and the flag describes the request, not the dialog.
+            self.checkInFlight = false
+            switch outcome {
+            case .payload(let data):
+                do {
+                    self.present(try UpdateCheck.result(currentVersion: self.currentVersion,
+                                                        isReleaseBuild: self.isReleaseBuild,
+                                                        latestReleaseJSON: data))
+                } catch {
+                    self.presentFailure(error: error)
                 }
-                let result = try UpdateCheck.result(currentVersion: self?.currentVersion ?? "",
-                                                    isReleaseBuild: self?.isReleaseBuild ?? false,
-                                                    latestReleaseJSON: data)
-                self?.present(result)
-            } catch {
-                self?.presentFailure(error: error)
+            case .httpStatus(let code):
+                self.presentFailure(status: code)
+            case .failed(let error):
+                self.presentFailure(error: error)
             }
+        }
+    }
+
+    private enum FetchOutcome {
+        case payload(Data)
+        case httpStatus(Int)
+        case failed(Error)
+    }
+
+    private static func fetchLatestRelease() async -> FetchOutcome {
+        var request = URLRequest(url: UpdateCheck.latestReleaseAPI)
+        // GitHub asks for an explicit API version and rejects requests with no User-Agent.
+        request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
+        request.setValue("2022-11-28", forHTTPHeaderField: "X-GitHub-Api-Version")
+        request.setValue("Lumeshot", forHTTPHeaderField: "User-Agent")
+        request.timeoutInterval = 15
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
+                return .httpStatus(http.statusCode)   // 403/429 is rate limiting
+            }
+            return .payload(data)
+        } catch {
+            return .failed(error)
         }
     }
 
@@ -70,11 +96,10 @@ final class UpdateCheckController {
             alert.addButton(withTitle: "View Release")
             alert.addButton(withTitle: "Later")
             NSApp.activate()
-            let choice = alert.runModal()
-            if canDownload, choice == .alertFirstButtonReturn, let download {
-                startDownload(download)
-            } else if choice == (canDownload ? .alertSecondButtonReturn : .alertFirstButtonReturn) {
-                NSWorkspace.shared.open(page)
+            switch UpdateAlertChoice(response: alert.runModal(), canDownload: canDownload) {
+            case .download:      if let download { startDownload(download) }
+            case .viewRelease:   NSWorkspace.shared.open(page)
+            case .dismiss:       break
             }
             return
         case .upToDate(let current):
@@ -93,13 +118,13 @@ final class UpdateCheckController {
     }
 
     private func startDownload(_ update: UpdateDownload) {
-        guard !inFlight else { return }
-        inFlight = true
+        guard !downloadInFlight else { return }
+        downloadInFlight = true
         Task { [weak self] in
-            defer { self?.inFlight = false }
             guard let self else { return }
             do {
                 let file = try await self.downloader.download(update)
+                self.downloadInFlight = false   // cleared before the alert blocks
                 let done = NSAlert()
                 done.messageText = "Downloaded \(file.lastPathComponent)"
                 done.informativeText = """
@@ -114,6 +139,7 @@ final class UpdateCheckController {
                     NSWorkspace.shared.activateFileViewerSelecting([file])
                 }
             } catch {
+                self.downloadInFlight = false
                 self.presentFailure(title: "Could not download the update", error: error)
             }
         }

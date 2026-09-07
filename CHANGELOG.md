@@ -4,7 +4,8 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-_Nothing yet._
+- Fixed: the **Download** button in the update alert did nothing. Clicking it produced no
+  download and no error. Use **View Release** if you are on v0.1.12 and need to update.
 
 ## Releases
 
