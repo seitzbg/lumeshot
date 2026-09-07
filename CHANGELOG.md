@@ -4,11 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- Fixed: the **Download** button in the update alert did nothing. Clicking it produced no
-  download and no error. Use **View Release** if you are on v0.1.12 and need to update.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.13](docs/releases/v0.1.13.md) — Fix the Download button in the update alert doing nothing.
 - [v0.1.12](docs/releases/v0.1.12.md) — Separate upload destination for screen recordings, and an uncut menu-bar timer.
 - [v0.1.11](docs/releases/v0.1.11.md) — Download an available update, and clear an upload's status when its History row is removed.
 - [v0.1.10](docs/releases/v0.1.10.md) — Identical to v0.1.9; published to exercise the update check.
