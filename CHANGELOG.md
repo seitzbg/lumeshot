@@ -4,17 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- Uploaders you haven't tested are marked "not tested" in the Uploads list, with a
-  reminder when one is in use. Testing an uploader records the pass; editing it clears
-  it again. Nothing is blocked — it is a nudge, not a gate.
-- Uploaders that only accept images are now marked as such, and Lumeshot warns when screen
-  recordings would be sent to one. Recording uploads to an image-only host now fail
-  immediately with a message naming the host, rather than a generic server error.
-- Failed recording uploads now record the reason in `~/Library/Logs/Lumeshot.log`, instead
-  of only showing a notification that disappears.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.14](docs/releases/v0.1.14.md) — Guard rails for upload destinations: image-only hosts, untested uploaders, and logged recording failures.
 - [v0.1.13](docs/releases/v0.1.13.md) — Fix the Download button in the update alert doing nothing.
 - [v0.1.12](docs/releases/v0.1.12.md) — Separate upload destination for screen recordings, and an uncut menu-bar timer.
 - [v0.1.11](docs/releases/v0.1.11.md) — Download an available update, and clear an upload's status when its History row is removed.
