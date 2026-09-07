@@ -20,6 +20,9 @@ public enum UploadFeedback {
             case .transport: return "Couldn’t complete the connection. Check the network, server address, and login."
             case .emptyURL, .badResponse: return "The server responded, but no usable upload link was returned. Check the uploader configuration."
             case .unsupported: return "This uploader or file configuration isn’t supported. Check its settings and file size."
+            case .destinationRejectsVideo(let name):
+                return "\(name) only accepts images, so it can’t take a screen recording. "
+                    + "Choose a different destination under Uploads → Screen recordings."
             }
         }
         if let error = error as? URLError {

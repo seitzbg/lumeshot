@@ -42,7 +42,29 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- Recording upload failures now log why. `RecordingDelivery` only raised a notification,
+  and `LumeshotCore` had no way to reach the app's log, so a failed recording upload left
+  no recorded cause anywhere once the banner faded — the still path has logged this since
+  M2a. `PipelineEffects` gained a defaulted `log(_:)` so core code can reach `AppLog`.
+
+- Uploaders record whether they have passed a connection test. Untested ones are marked
+  in the Uploads list and an active one prompts a nudge, but nothing is blocked: refusing
+  to save a correct configuration because the host is briefly unreachable would be worse
+  than the warning it prevents. Any edit clears the pass, deliberately bluntly — deciding
+  a change was "only the name" would also have to know whether a secret was re-entered.
+- Destinations now declare whether they accept video, and recordings pointed at an
+  image-only host fail immediately with a message naming the host and the setting to
+  change, instead of a generic upload error from the server. The Uploads list marks such
+  destinations "images only" and warns when recordings would land on one.
+
+**Resolved — "SFTP recording upload failed twice, then worked" (reported 2026-09-07).**
+Not an SFTP fault. Both recordings uploaded to the *screenshot* destination (Picsur),
+because `activeRecordingDestinationID` was still unset and recordings follow screenshots
+by default; Picsur rejected the `.mp4`. That is why neither failure reached SSH key
+exchange. Setting the recordings destination to the SFTP uploader fixed it, and the
+22:17:30 host-key pin was that first successful SFTP connection. Confirmed against the
+live settings file: `activeDestinationID` was the Picsur destination, and the pinned id
+matched the SFTP one. The guardrail above exists so the same state announces itself.
 
 ## v0.1.13 — released
 

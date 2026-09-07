@@ -95,6 +95,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         }
     }
 
+    func log(_ message: String) { AppLog.log(message) }
+
     func notifyURL(title: String, body: String, url: String) {
         guard notificationsAvailable else { return }
         let content = UNMutableNotificationContent()

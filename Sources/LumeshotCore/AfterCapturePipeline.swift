@@ -11,6 +11,14 @@ public protocol PipelineEffects {
     func notify(title: String, body: String, fileURL: URL?)
     func copyTextToClipboard(_ text: String)
     func notifyURL(title: String, body: String, url: String)
+    /// Diagnostic logging. LumeshotCore has no AppLog of its own, so this is how
+    /// code here reaches the app's log file. Defaulted to a no-op so test doubles
+    /// need not implement it.
+    func log(_ message: String)
+}
+
+public extension PipelineEffects {
+    func log(_ message: String) {}
 }
 
 /// Whether the disk write is governed by the user's automatic-capture

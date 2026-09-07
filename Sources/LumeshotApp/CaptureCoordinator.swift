@@ -338,6 +338,13 @@ final class CaptureCoordinator {
                 effects: effects,
                 upload: { part, filename, historyEntryID in
                     guard let destination else { throw UploadError.unsupported("No active destination") }
+                    // Fail here rather than letting an image host reject the .mp4 with a
+                    // server error that reads like a broken uploader. This is the state a
+                    // fresh install lands in: recordings follow the screenshot destination
+                    // until one is chosen, and that destination is often image-only.
+                    guard destination.kind.acceptsRecordings else {
+                        throw UploadError.destinationRejectsVideo(destination: destination.name)
+                    }
                     let result = try await service.upload(part: part, destination: destination,
                                                           historyEntryID: historyEntryID)
                     return DeliveredUpload(url: result.url, deletionURL: result.deletionURL)

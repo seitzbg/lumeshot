@@ -74,12 +74,17 @@ public enum RecordingDelivery {
             }
             // Matches the still-image path: success honors the preference,
             // failure below always surfaces (fail-loud).
+            effects.log("Recording upload succeeded: \(result.url)")
             if showNotification {
                 effects.notifyURL(title: "Uploaded", body: result.url, url: result.url)
             }
             try? history?.setURL(id: entryID, url: result.url, deletionURL: result.deletionURL, failed: false)
         } catch {
             // Fail-loud: surface the failure; the row + file remain (local-first).
+            // Log the underlying error too. The notification carries a friendly
+            // message and then vanishes, which left a real SFTP failure with no
+            // recorded cause anywhere — the still path has logged this since M2a.
+            effects.log("Recording upload failed: \(error)")
             effects.notify(title: "Upload failed", body: "\(UploadFeedback.message(for: error)) Local file kept.", fileURL: fileURL)
             try? history?.setURL(id: entryID, url: nil, deletionURL: nil, failed: true)
         }

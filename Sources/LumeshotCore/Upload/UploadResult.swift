@@ -19,4 +19,6 @@ public enum UploadError: Error, Equatable, Sendable {
     case transport(String)
     case badResponse(String)
     case hostKeyMismatch(String)
+    /// The destination is an image host and the artifact is video.
+    case destinationRejectsVideo(destination: String)
 }
