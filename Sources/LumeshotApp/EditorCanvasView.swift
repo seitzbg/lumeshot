@@ -156,7 +156,12 @@ final class EditorCanvasNSView: NSView, NSTextFieldDelegate {
         let frame = CGRect(spanning: geo.imageToView(CGPoint(x: s.minX, y: s.minY)),
                            geo.imageToView(CGPoint(x: s.maxX, y: s.maxY)))
         field.frame = frame.insetBy(dx: -2, dy: -2)
-        field.font = .systemFont(ofSize: CGFloat(fontSize) * geo.scale)
+        // Match the committed render (AnnotationRenderer.drawText) so the text does
+        // not reflow when editing ends. systemFont here made every text annotation
+        // shift on commit.
+        let pointSize = CGFloat(fontSize) * geo.scale
+        field.font = NSFont(name: AnnotationDefaults.textFontName, size: pointSize)
+            ?? .systemFont(ofSize: pointSize)
         field.textColor = NSColor(srgbRed: model.strokeColor.r, green: model.strokeColor.g,
                                   blue: model.strokeColor.b, alpha: model.strokeColor.a)
         if field.stringValue != string { field.stringValue = string }

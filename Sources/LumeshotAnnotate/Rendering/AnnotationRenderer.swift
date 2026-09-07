@@ -183,7 +183,7 @@ public enum AnnotationRenderer {
     private static func drawText(_ rect: CGRect, string: String, fontSize: Double,
                                  style: AnnotationStyle, in ctx: CGContext) {
         guard !string.isEmpty else { return }
-        let font = CTFontCreateWithName("HelveticaNeue" as CFString, CGFloat(fontSize), nil)
+        let font = CTFontCreateWithName(AnnotationDefaults.textFontName as CFString, CGFloat(fontSize), nil)
         // CoreText attribute keys (AppKit-free — LumeshotAnnotate must not import AppKit).
         let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
         let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
@@ -220,7 +220,7 @@ public enum AnnotationRenderer {
         ctx.saveGState()
         ctx.setFillColor(style.strokeColor.cgColor)
         ctx.fillEllipse(in: circle)
-        let font = CTFontCreateWithName("HelveticaNeue-Bold" as CFString, AnnotationDefaults.stepFontSize, nil)
+        let font = CTFontCreateWithName(AnnotationDefaults.stepFontName as CFString, AnnotationDefaults.stepFontSize, nil)
         // CoreText attribute keys (AppKit-free — LumeshotAnnotate must not import AppKit).
         let fontKey = NSAttributedString.Key(kCTFontAttributeName as String)
         let colorKey = NSAttributedString.Key(kCTForegroundColorAttributeName as String)
