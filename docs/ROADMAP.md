@@ -150,6 +150,16 @@ Run these when convenient (each is a checklist):
 - v0.1.10 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
 
 **Uploaders**
+- **A removed failed upload keeps showing as failed** (reported 2026-09-07). Delete a
+  failed row from History and the menu-bar icon keeps its `!` and the History banner keeps
+  saying the upload failed. One cause, two symptoms: `UploadActivity` is an in-memory model
+  separate from `HistoryStore`, and `HistoryModel.removeFromHistory` deletes the store row
+  without touching it, so `UploadActivity.latest` still holds the failed `Operation` —
+  which is what both `StatusItemController.setUploadActivity` (`uploadFailed =
+  latest?.error != nil`) and `HistoryView`'s `@ObservedObject activity` render from.
+  Note that calling the existing `forgetLink(_:)` would not fix it: it early-returns on
+  `guard let url`, and a failed upload has no URL. A fix needs to match the removed entry
+  by `filePath` (which `Operation` and `HistoryEntry` both carry) or by operation id.
 - **One active destination is shared by stills and recordings.** `UploadSettings` holds a
   single `activeDestinationID`, and both pipelines read it — `CaptureCoordinator` line ~243
   for stills and `deliverRecording` line ~320 for video. An image-only host such as Picsur
