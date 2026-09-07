@@ -2,7 +2,7 @@
 
 A Swift-native screenshot, annotation, upload, and screen-recording tool for macOS (Apple Silicon, macOS 15+). Lumeshot lives in the menu bar, captures with ScreenCaptureKit, and supports `.sxcu` custom uploaders.
 
-**Status:** v0.1.8 is released — capture, a full annotation editor, screen recording, multiple uploader backends, dedicated Settings, and a Developer ID signed + notarized `.dmg`. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Design: `docs/superpowers/specs/2026-07-10-lumeshot-design.md` · Local build: `swift build` (see [local development](docs/local-development.md)).
+**Status:** v0.1.8 is released — capture, a full annotation editor, screen recording, multiple uploader backends, dedicated Settings, and a Developer ID signed + notarized `.dmg`. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Local build: `swift build` (see [local development](docs/local-development.md)).
 
 [Download v0.1.8](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.8) · [Changelog](CHANGELOG.md)
 

@@ -4,5 +4,6 @@ dist/
 .swiftpm/
 *.xcodeproj
 
-# SDD scratch
+# SDD scratch — planning artifacts stay out of the repo
 .superpowers/
+docs/superpowers/

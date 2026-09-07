@@ -7,9 +7,13 @@ replace `swift test` with the required command in the next section):
 swift build
 swift test
 swift build -c release
-BUNDLE_OUTPUT=dist/test/Lumeshot.app VERSION=0.1.8 scripts/bundle.sh
+BUNDLE_OUTPUT=dist/test/Lumeshot.app VERSION="$(git describe --tags --abbrev=0 | sed 's/^v//')" scripts/bundle.sh
 open dist/test/Lumeshot.app
 ```
+
+`VERSION` only stamps `Info.plist` for this throwaway bundle, so it is read from
+the latest tag rather than written out — nothing here ships, and a literal version
+would need bumping every release.
 
 Quit any running copy of Lumeshot before opening the new bundle so it can
 register the capture hotkeys. The bundle script uses the local `lumeshot-dev`
@@ -22,7 +26,7 @@ directory. Quit the running test copy before packaging, then reopen the same pat
 
 ```sh
 swift build -c release
-BUNDLE_OUTPUT=dist/test/Lumeshot.app VERSION=0.1.8 scripts/bundle.sh
+BUNDLE_OUTPUT=dist/test/Lumeshot.app VERSION="$(git describe --tags --abbrev=0 | sed 's/^v//')" scripts/bundle.sh
 open dist/test/Lumeshot.app
 ```
 
