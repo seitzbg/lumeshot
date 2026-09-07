@@ -2,11 +2,13 @@
 
 A Swift-native screenshot, annotation, upload, and screen-recording tool for macOS (Apple Silicon, macOS 15+). Lumeshot lives in the menu bar, captures with ScreenCaptureKit, and supports `.sxcu` custom uploaders.
 
-**Status:** v1 feature-complete — capture, a full annotation editor, screen recording, five uploader backends, a dedicated Preferences window, and a Developer ID signed + notarized `.dmg` release pipeline. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Design: `docs/superpowers/specs/2026-07-10-lumeshot-design.md` · Local build: `swift build` (see [local development](docs/local-development.md)).
+**Status:** v0.1.7 is released — capture, a full annotation editor, screen recording, multiple uploader backends, dedicated Settings, and a Developer ID signed + notarized `.dmg`. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Design: `docs/superpowers/specs/2026-07-10-lumeshot-design.md` · Local build: `swift build` (see [local development](docs/local-development.md)).
+
+[Download v0.1.7](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.7) · [Changelog](CHANGELOG.md)
 
 ## Screenshots
 
-Shown in dark appearance. Settings follows your Mac’s light or dark theme.
+Settings screenshots from v0.1.6, shown in dark appearance. v0.1.7 expands uploader selection and adds uploader testing. Settings follows your Mac’s light or dark theme.
 
 <img src="docs/images/settings-general-dark-cf88ec70.png" alt="Lumeshot General settings in dark appearance, with sidebar navigation and grouped capture controls" width="820">
 

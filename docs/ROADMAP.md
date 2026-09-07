@@ -13,7 +13,7 @@ checklists are `docs/smoke-*.md`.
 - **Platform:** macOS 15+, Apple Silicon. Bundle ID `org.lumeshot.app`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
-  SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0. Local validation: See `docs/session-review-2026-09-06.md` for the latest validation.
+  SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0. Latest validation is recorded under v0.1.7 below; `docs/session-review-2026-09-06.md` covers the earlier capture fixes.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
 - **Signing:** ad-hoc / self-signed `lumeshot-dev` for local development;
@@ -40,7 +40,10 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **Developer ID signing** | Hardened runtime + `Resources/Lumeshot.entitlements` (deliberately empty) + secure timestamp; release workflow imports a Developer ID cert into a throwaway keychain, asserts the signature's team, signs the dmg, notarizes via `scripts/notarize.sh` (App Store Connect API key) and staples. Signing is opt-in on secret presence, so a secret-less repo still publishes. `scripts/setup-developer-id.sh` walks the one-time Apple-portal setup. |
 | **Rebrand + rename** | Lumeshot throughout the app, bundle ID (`org.lumeshot.app`), Keychain service, settings/capture/log paths, signing scripts, and documentation. Clean break: no automatic migration; existing data is left untouched. |
 
-## v0.1.7 release preparation
+## v0.1.7 — released
+
+[v0.1.7](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.7) is published.
+See the [release notes](releases/v0.1.7.md) and [changelog](../CHANGELOG.md).
 
 Upload recovery and History polish are implemented: upload activity in the menu
 bar and History, generated-image uploader tests, retry/reupload with stable
@@ -55,6 +58,14 @@ upload/deletion. About and uploader layout were reviewed interactively. History
 preview was shown in a screenshot; not every History action was individually
 confirmed. Imgur deletion is covered with a fake transport, not a live account.
 
+PR CI, merged-main CI, and the release workflow passed. The published DMG passed
+local SHA-256 verification, stapled-ticket validation, and Gatekeeper assessment
+as a Notarized Developer ID release. The signed app launched successfully on
+macOS 26.6.2 from `dist/test/Lumeshot.app`, displayed version 0.1.7 in Settings,
+and reported notification authorization granted. Its launch check reported Screen
+Recording access missing; granting that access and confirming a visible capture
+notification on this signed build remain manual checks.
+
 ## Remaining live Mac checks
 
 Automated checks cover the delivery logic. GUI and hardware checks for the current bundle remain manual. Earlier release observations below predate the clean-break identity.
@@ -65,17 +76,18 @@ Run these when convenient (each is a checklist):
 - [ ] **M5b dmg + polish** — `docs/smoke-m5b.md` (dmg mounts + drag-installs; elapsed timer; GIF spinner; inspector-on-select).
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
-- [ ] **Signing + notarization — runtime half** — still open: the app crashed on launch on macOS 26 (`EXC_BREAKPOINT`, main-actor isolation trap in `AppPipelineEffects`), fixed but unverified there. **Notifications firing remains unproven.**
+- [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.
+- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.7 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
 - Auto-update mechanism (none today).
-- v0.1.6's release workflow completed Developer ID signature verification and notarization. Verify launch, notifications, and capture permission behavior on the next signed release using `docs/smoke-signing.md`.
+- v0.1.7 is signed, notarized, locally verified, and launches successfully. Complete the remaining capture-permission and visible-notification checks in `docs/smoke-signing.md`.
 
 **Uploaders**
-- Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied — failures still surface as the raw `.http(status:body:)`. Affects Picsur and any `.sxcu`.
+- Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
 - SFTP/FTP transports still start from a complete `Data`, so a large recording is resident for those two destinations (bounded now, but not streamed). Streaming needs a chunked transport API on both.
 - Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
 - Imgur **OAuth / authenticated albums** (anonymous-only today).
@@ -103,7 +115,7 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Release v0.1.7** and verify the signed app's launch, notifications, and capture permissions using `docs/smoke-signing.md`.
+1. **Finish signed-release smoke checks** — v0.1.7 is released and launch is verified; confirm capture permissions and visible notifications using `docs/smoke-signing.md`.
 2. **Editor polish pass** — effect stacking + caching, text-font fidelity, stroke inspector commit.
 3. **Uploader auth** — Imgur OAuth (SFTP host-key pinning shipped).
 4. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
