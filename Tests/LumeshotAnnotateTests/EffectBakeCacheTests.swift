@@ -1,5 +1,6 @@
 import Testing
 import CoreGraphics
+import Foundation
 @testable import LumeshotAnnotate
 
 /// The cache exists to keep `bakeEffects` off the repaint path, so these assert
@@ -18,8 +19,8 @@ import CoreGraphics
         return ctx.makeImage()!
     }
 
-    private func blur(_ rect: CGRect, radius: Double = 4) -> Annotation {
-        Annotation(shape: .blur(rect: rect, radius: radius), style: AnnotationStyle())
+    private func blur(_ rect: CGRect, radius: Double = 4, id: UUID = UUID()) -> Annotation {
+        Annotation(id: id, shape: .blur(rect: rect, radius: radius), style: AnnotationStyle())
     }
 
     private func arrow(to end: CGPoint) -> Annotation {
@@ -42,25 +43,28 @@ import CoreGraphics
     @Test func reusesTheBakedImageWhenOnlyVectorAnnotationsChange() {
         let cache = EffectBakeCache()
         let b = base()
-        let first = cache.bakedImage(base: b, annotations: [blur(region), arrow(to: CGPoint(x: 5, y: 5))])
-        let second = cache.bakedImage(base: b, annotations: [blur(region), arrow(to: CGPoint(x: 19, y: 19))])
+        let effect = blur(region)   // the same effect value in both passes
+        let first = cache.bakedImage(base: b, annotations: [effect, arrow(to: CGPoint(x: 5, y: 5))])
+        let second = cache.bakedImage(base: b, annotations: [effect, arrow(to: CGPoint(x: 19, y: 19))])
         #expect(first === second)
     }
 
     @Test func rebakesWhenAnEffectMoves() {
         let cache = EffectBakeCache()
         let b = base()
-        let first = cache.bakedImage(base: b, annotations: [blur(region)])
-        let moved = cache.bakedImage(base: b, annotations: [blur(region.offsetBy(dx: 4, dy: 0))])
-        #expect(first !== moved)
+        let id = UUID()
+        let first = cache.bakedImage(base: b, annotations: [blur(region, id: id)])
+        let moved = cache.bakedImage(base: b, annotations: [blur(region.offsetBy(dx: 4, dy: 0), id: id)])
+        #expect(first !== moved)   // same annotation, moved — the rect alone must re-bake
     }
 
     @Test func rebakesWhenAnEffectParameterChanges() {
         let cache = EffectBakeCache()
         let b = base()
-        let first = cache.bakedImage(base: b, annotations: [blur(region, radius: 4)])
-        let stronger = cache.bakedImage(base: b, annotations: [blur(region, radius: 12)])
-        #expect(first !== stronger)
+        let id = UUID()
+        let first = cache.bakedImage(base: b, annotations: [blur(region, radius: 4, id: id)])
+        let stronger = cache.bakedImage(base: b, annotations: [blur(region, radius: 12, id: id)])
+        #expect(first !== stronger)   // same annotation, stronger blur
     }
 
     @Test func rebakesWhenAnEffectIsRemoved() {
