@@ -2,9 +2,9 @@
 
 A Swift-native screenshot, annotation, upload, and screen-recording tool for macOS (Apple Silicon, macOS 15+). Lumeshot lives in the menu bar, captures with ScreenCaptureKit, and supports `.sxcu` custom uploaders.
 
-**Status:** v0.1.7 is released — capture, a full annotation editor, screen recording, multiple uploader backends, dedicated Settings, and a Developer ID signed + notarized `.dmg`. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Design: `docs/superpowers/specs/2026-07-10-lumeshot-design.md` · Local build: `swift build` (see [local development](docs/local-development.md)).
+**Status:** v0.1.8 is released — capture, a full annotation editor, screen recording, multiple uploader backends, dedicated Settings, and a Developer ID signed + notarized `.dmg`. See **[docs/ROADMAP.md](docs/ROADMAP.md)** for the detailed status, pending manual smokes, and what's next. Design: `docs/superpowers/specs/2026-07-10-lumeshot-design.md` · Local build: `swift build` (see [local development](docs/local-development.md)).
 
-[Download v0.1.7](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.7) · [Changelog](CHANGELOG.md)
+[Download v0.1.8](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.8) · [Changelog](CHANGELOG.md)
 
 ## Screenshots
 
@@ -18,9 +18,9 @@ Uploader configuration uses grouped fields and a dedicated action bar.
 
 <img src="docs/images/settings-uploader-dark-v017-45bfc735.png" alt="Picsur uploader dialog in dark appearance with connection settings and sharing options" width="540">
 
-Shortcut controls stay aligned when only some shortcuts are assigned (current development build).
+Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 layout).
 
-<img src="docs/images/settings-shortcuts-dark-dev-f3f27c86.png" alt="Shortcut controls aligned with one shortcut assigned and three unset" width="600">
+<img src="docs/images/settings-shortcuts-dark-v018-f3f27c86.png" alt="Shortcut controls aligned with one shortcut assigned and three unset" width="600">
 
 ## Features
 

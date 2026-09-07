@@ -2,13 +2,9 @@
 
 Release notes describe the changes in each published version.
 
-## Unreleased
-
-- Keep shortcut recording buttons aligned when only some hotkeys are assigned.
-- Refresh README screenshots with v0.1.7 Settings and a preview of the shortcut alignment fix.
-
 ## Releases
 
+- [v0.1.8](docs/releases/v0.1.8.md) — Align assigned and unset shortcut controls and refresh Settings screenshots.
 - [v0.1.7](docs/releases/v0.1.7.md) — About and open source credits, roomier uploader selection, upload status and testing, History improvements, retry, and authenticated remote deletion.
 - [v0.1.6](docs/releases/v0.1.6.md)
 - [v0.1.5](docs/releases/v0.1.5.md)
