@@ -22,16 +22,19 @@ struct HotkeyRecorderField: View {
                     .frame(minWidth: 90)
             }
             .buttonStyle(.bordered)
-            if combo != nil {
-                Button {
-                    stopRecording()
-                    onChange(nil)
-                } label: {
-                    Image(systemName: "xmark.circle.fill")
-                }
-                .buttonStyle(.borderless)
-                .help("Clear this hotkey")
+            Button {
+                stopRecording()
+                onChange(nil)
+            } label: {
+                Image(systemName: "xmark.circle.fill")
             }
+            .buttonStyle(.borderless)
+            .help("Clear this hotkey")
+            // Keep the trailing slot so mixed set/unset rows stay aligned.
+            .opacity(combo == nil ? 0 : 1)
+            .disabled(combo == nil)
+            .allowsHitTesting(combo != nil)
+            .accessibilityHidden(combo == nil)
         }
         .onDisappear { stopRecording() }
         .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { _ in
