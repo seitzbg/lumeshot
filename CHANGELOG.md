@@ -4,7 +4,7 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-_Nothing yet._
+- The recording timer in the menu bar is no longer cut off.
 
 ## Releases
 
