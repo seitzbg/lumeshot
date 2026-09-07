@@ -4,6 +4,9 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
+- Testing an uploader now sends what that destination will actually carry — a short video
+  to uploaders that accept video, a generated image to image-only ones. The Test sheet says
+  which before it runs.
 - Upload failures now record the underlying reason in `~/Library/Logs/Lumeshot.log`,
   including failures from the uploader Test sheet.
 

@@ -48,16 +48,18 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
   discards the reason. `UploadService.upload` is the single funnel all three pass through,
   so the raw error is recorded there once, with the destination name and kind.
 
-**Open — testing the SFTP uploader fails on the first attempt, succeeds on retry
-(reported 2026-09-07).** Reproducible per the reporter. Not the earlier Picsur-gets-video
-issue: this is the Test sheet, which uploads a generated image to the SFTP destination.
-Not trust-on-first-use either — the host key is already pinned (`sftpPinned=True` in
-settings), so no learning happens. The cause is **not determined**; nothing was logged,
-which the change above fixes. Candidates worth distinguishing once a real error is
-captured: a Keychain ACL prompt on the first secret read by a newly installed binary
-(would surface as a credential error, not `.transport`), a cold-start DNS or connect
-timeout, or something in Citadel's connection setup. Capture the log line before changing
-anything.
+- The uploader Test now sends what the destination will actually carry: a short clip to
+  hosts that accept video, the generated image to image-only ones. Testing an image host
+  with video only proves it says no; testing a file transport with an image exercised less
+  than the destination was chosen for.
+
+**Watching — SFTP Test failed once on a new build, then never again (2026-09-07).** One
+failure immediately after installing a new build; not reproducible afterwards. Ruled out:
+trust-on-first-use (the host key was already pinned) and the image-host-rejects-video
+cause (the Test sent an image to SFTP, which accepts anything). Nothing was logged, so the
+cause is unknown and now unrecoverable. Deliberately **not** being chased further: a
+single unreproducible failure is not worth speculative changes. The funnel logging above
+means a recurrence records its own reason; revisit only with a real log line in hand.
 
 ## v0.1.14 — released
 
