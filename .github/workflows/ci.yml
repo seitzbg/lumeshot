@@ -11,6 +11,10 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
         with:
           persist-credentials: false
+      # Runs before the toolchain work: it needs no compiler and catches a
+      # screenshot rename that left a doc pointing at a file that no longer exists.
+      - name: Check doc image references
+        run: bash scripts/check-doc-links.sh
       - name: Swift version
         run: swift --version
       - name: Build

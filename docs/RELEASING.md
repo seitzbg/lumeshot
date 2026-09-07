@@ -9,10 +9,36 @@ Write `docs/releases/<tag>.md` and commit it before creating the tag. Describe
 user-visible changes and upgrade steps in plain language, with no author mentions
 or attribution trailers. The workflow requires this file and publishes it verbatim;
 it does not generate notes from PR titles. For example, `v0.2.0` requires
-`docs/releases/v0.2.0.md`.
+`docs/releases/v0.2.0.md`. Keep it to changes in the shipped app — repository
+housekeeping such as refreshed screenshots is not a release note.
+
+The tag supplies the version to the *build* (see below), but several documents carry
+the version by hand. Work this checklist in the release-prep commit; nothing verifies
+it for you, and v0.1.8 shipped with four stale `v0.1.7` references because it was done
+from memory.
+
+- [ ] `docs/releases/<tag>.md` — the release body, user-visible changes only.
+- [ ] `CHANGELOG.md` — move `## Unreleased` into a new `## Releases` entry, then
+      leave `## Unreleased` behind with `_Nothing yet._`.
+- [ ] `docs/ROADMAP.md` — same promotion for its `## Unreleased` section; retitle it
+      `## <tag> — released`, and re-point anything that says "current release",
+      "latest validation", or names the previous version in a *pending* check.
+- [ ] `README.md` — the **Status:** line, the Download link, and any screenshot
+      caption that names a version.
+- [ ] `docs/settings-design.md` — the Previews section, if screenshots changed.
+      It embeds the same images as the README and is easy to miss.
+- [ ] Screenshots — when replacing one, update *every* page that embeds it.
+      `scripts/check-doc-links.sh` fails CI on a reference that no longer resolves.
+- [ ] `bash scripts/check-doc-links.sh` passes locally.
+
+Then tag:
 
     git tag v0.2.0
     git push origin v0.2.0
+
+Publishing is not instant — notarization can take minutes and the release only appears
+after step 8 below. Confirm `gh release view <tag>` shows the dmg before treating the
+README's "released" claim as true.
 
 Pushing a `v*` tag triggers the `Release` workflow on `macos-15`, which:
 
