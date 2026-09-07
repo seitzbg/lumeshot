@@ -40,6 +40,14 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **Developer ID signing** | Hardened runtime + `Resources/Lumeshot.entitlements` (deliberately empty) + secure timestamp; release workflow imports a Developer ID cert into a throwaway keychain, asserts the signature's team, signs the dmg, notarizes via `scripts/notarize.sh` (App Store Connect API key) and staples. Signing is opt-in on secret presence, so a secret-less repo still publishes. `scripts/setup-developer-id.sh` walks the one-time Apple-portal setup. |
 | **Rebrand + rename** | Lumeshot throughout the app, bundle ID (`org.lumeshot.app`), Keychain service, settings/capture/log paths, signing scripts, and documentation. Clean break: no automatic migration; existing data is left untouched. |
 
+## Unreleased
+
+- Shortcut recording controls reserve space for the clear button, keeping set
+  and unset rows aligned. Verified with mixed, all-set, and all-unset rendered
+  layouts; release build passed.
+- README screenshots now show v0.1.7 General, Uploads, and uploader configuration,
+  plus a current-development preview of the shortcut alignment fix.
+
 ## v0.1.7 — released
 
 [v0.1.7](https://github.com/seitzbg/lumeshot/releases/tag/v0.1.7) is published.

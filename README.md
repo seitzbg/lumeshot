@@ -8,15 +8,19 @@ A Swift-native screenshot, annotation, upload, and screen-recording tool for mac
 
 ## Screenshots
 
-Settings screenshots from v0.1.6, shown in dark appearance. v0.1.7 expands uploader selection and adds uploader testing. Settings follows your Mac’s light or dark theme.
+General, Uploads, and uploader-dialog screenshots are from v0.1.7, shown in dark appearance. Settings follows your Mac’s light or dark theme.
 
-<img src="docs/images/settings-general-dark-cf88ec70.png" alt="Lumeshot General settings in dark appearance, with sidebar navigation and grouped capture controls" width="820">
+<img src="docs/images/settings-general-dark-v017-720b5a07.png" alt="Lumeshot General settings in dark appearance, with sidebar navigation and grouped capture controls" width="820">
 
-<img src="docs/images/settings-uploads-dark-2988c8fe.png" alt="Lumeshot Uploads settings in dark appearance, with multiple uploaders and an active uploader selection" width="820">
+<img src="docs/images/settings-uploads-dark-v017-c83f257c.png" alt="Lumeshot Uploads settings in dark appearance, with an active Picsur uploader and a Test action" width="820">
 
 Uploader configuration uses grouped fields and a dedicated action bar.
 
-<img src="docs/images/settings-uploader-dark-f0dbb7a2.png" alt="Picsur uploader dialog in dark appearance with connection settings and sharing options" width="540">
+<img src="docs/images/settings-uploader-dark-v017-45bfc735.png" alt="Picsur uploader dialog in dark appearance with connection settings and sharing options" width="540">
+
+Shortcut controls stay aligned when only some shortcuts are assigned (current development build).
+
+<img src="docs/images/settings-shortcuts-dark-dev-f3f27c86.png" alt="Shortcut controls aligned with one shortcut assigned and three unset" width="600">
 
 ## Features
 
