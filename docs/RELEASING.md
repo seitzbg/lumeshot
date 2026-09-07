@@ -26,8 +26,6 @@ from memory.
       "latest validation", or names the previous version in a *pending* check.
 - [ ] `README.md` — the **Status:** line, the Download link, and any screenshot
       caption that names a version.
-- [ ] `docs/settings-design.md` — the Previews section, if screenshots changed.
-      It embeds the same images as the README and is easy to miss.
 - [ ] Screenshots — when replacing one, update *every* page that embeds it.
       `scripts/check-doc-links.sh` fails CI on a reference that no longer resolves.
 - [ ] `bash scripts/check-doc-links.sh` passes locally.

@@ -3,8 +3,7 @@
 _Last updated: 2026-09-07._
 
 Single source of truth for where the project is and what's left. Per-milestone
-manual smoke checklists are `docs/smoke-*.md`; `docs/settings-design.md` covers the
-Settings layout and `docs/porting-map.md` the ShareX feature mapping.
+manual smoke checklists are `docs/smoke-*.md`.
 
 ## Current state
 
