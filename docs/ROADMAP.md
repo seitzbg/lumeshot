@@ -42,6 +42,11 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
+- Screen recordings can upload to their own destination, chosen under Uploads. Left
+  unset they follow the screenshot destination, which is what every existing settings
+  file does — so nothing changes unless you pick something. This exists because image
+  hosts such as Picsur reject video outright, and a single shared destination meant the
+  only workaround was switching uploader by hand before each recording.
 - The recording elapsed time is no longer clipped in the menu bar. The status item was
   created with `squareLength`, which pins it to the menu bar's thickness — 22pt against
   53pt of icon-plus-timer content — so the timer showed as a bare `:`.
@@ -178,13 +183,6 @@ Run these when convenient (each is a checklist):
 - v0.1.11 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
 
 **Uploaders**
-- **One active destination is shared by stills and recordings.** `UploadSettings` holds a
-  single `activeDestinationID`, and both pipelines read it — `CaptureCoordinator` line ~243
-  for stills and `deliverRecording` line ~320 for video. An image-only host such as Picsur
-  therefore also receives `.mp4`/`.gif` uploads, which it cannot accept. Wanted: a separate
-  active destination per artifact kind (image vs recording), so Picsur can stay the image
-  host while recordings go to S3/SFTP/FTP. Until then the workaround is switching the
-  active uploader by hand before recording.
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
 - SFTP/FTP transports still start from a complete `Data`, so a large recording is resident for those two destinations (bounded now, but not streamed). Streaming needs a chunked transport API on both.
 - Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
@@ -214,11 +212,12 @@ Rough priority order — revisit when picking up again:
 
 1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.11 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
 2. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
-3. **Per-kind upload destinations** — separate active uploaders for images and recordings, so an image-only host (Picsur) does not receive video. See the Uploaders backlog note.
 
 Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
 Done: **editor polish pass** — effect stacking + caching, text-font fidelity and the
-stroke push all landed; see Unreleased.
+stroke push all landed. **Per-kind upload destinations** — implemented and unit-tested;
+the picker and an actual upload to the second destination still need a hands-on pass with
+two uploaders configured. See Unreleased.
 
 ## How to resume
 

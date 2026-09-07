@@ -240,7 +240,7 @@ final class CaptureCoordinator {
     private func recordAndMaybeUpload(settings: AppSettings, savedURL: URL?,
                                       pngData: Data, capturedAt: Date, upload: Bool) {
         let entryID = UUID().uuidString
-        let destination = settings.upload.activeDestination
+        let destination = settings.upload.activeDestination(for: .image)
         // The action (Save vs Upload) now decides whether to upload; the passthrough
         // path passes `settings.upload.uploadAfterCapture` so its behavior is unchanged.
         let willUpload = upload && destination != nil
@@ -319,7 +319,9 @@ final class CaptureCoordinator {
     func deliverRecording(fileURL: URL, appName: String?) {
         let settings = settingsStore.loadOrDefault().0
         AppLog.log("Recording saved: \(fileURL.path)")
-        let destination = settings.upload.activeDestination
+        // Recordings may target their own destination: image hosts such as Picsur
+        // accept no video, so sending a .mp4 to the screenshot uploader just fails.
+        let destination = settings.upload.activeDestination(for: .recording)
         let shouldUpload = settings.upload.uploadAfterCapture && destination != nil
         let mime = MIMEType.forExtension(fileURL.pathExtension)
         let service = uploadService
