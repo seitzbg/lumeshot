@@ -1,8 +1,25 @@
 import Foundation
 
+/// Where a published update can be fetched from, when the release carries a dmg.
+/// `checksumsURL` is optional because a release could publish the dmg alone; the
+/// download is then unverifiable and the app says so rather than pretending.
+public struct UpdateDownload: Equatable, Sendable {
+    public let dmgURL: URL
+    public let dmgName: String
+    public let checksumsURL: URL?
+
+    public init(dmgURL: URL, dmgName: String, checksumsURL: URL?) {
+        self.dmgURL = dmgURL
+        self.dmgName = dmgName
+        self.checksumsURL = checksumsURL
+    }
+}
+
 public enum UpdateCheckResult: Equatable, Sendable {
     case upToDate(current: ReleaseVersion)
-    case updateAvailable(latest: ReleaseVersion, releasePage: URL)
+    /// `download` is nil when the release published no dmg — the update exists but
+    /// there is nothing to fetch, so only the release page can be offered.
+    case updateAvailable(latest: ReleaseVersion, releasePage: URL, download: UpdateDownload?)
     /// Not a published release: a local `scripts/bundle.sh` bundle, or a version
     /// string that is not comparable. Never reported as out of date.
     case notAReleaseBuild
@@ -24,10 +41,25 @@ public enum UpdateCheck {
         "https://api.github.com/repos/seitzbg/lumeshot/releases/latest")!
 
     private struct Payload: Decodable {
+        struct Asset: Decodable {
+            let name: String
+            let browser_download_url: String
+        }
         let tag_name: String
         let html_url: String
         let draft: Bool?
         let prerelease: Bool?
+        let assets: [Asset]?
+    }
+
+    /// Picks the dmg and its checksum file out of a release's assets.
+    private static func download(from assets: [Payload.Asset]?) -> UpdateDownload? {
+        guard let assets,
+              let dmg = assets.first(where: { $0.name.lowercased().hasSuffix(".dmg") }),
+              let dmgURL = URL(string: dmg.browser_download_url) else { return nil }
+        let checksums = assets.first { $0.name == "SHA256SUMS.txt" }
+            .flatMap { URL(string: $0.browser_download_url) }
+        return UpdateDownload(dmgURL: dmgURL, dmgName: dmg.name, checksumsURL: checksums)
     }
 
     /// `isReleaseBuild` comes from the bundle's `LumeshotReleaseChannel`, which only
@@ -56,7 +88,8 @@ public enum UpdateCheck {
             return .upToDate(current: current)
         }
         return latest > current
-            ? .updateAvailable(latest: latest, releasePage: page)
+            ? .updateAvailable(latest: latest, releasePage: page,
+                               download: download(from: payload.assets))
             : .upToDate(current: current)
     }
 }

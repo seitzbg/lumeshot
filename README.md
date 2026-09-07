@@ -28,8 +28,9 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 - Fullscreen (all displays), Region (drag-to-select), Window (hover-to-highlight)
 - After-capture pipeline: save to disk → copy image → optional upload → history. Upload success copies the uploaded URL, skipping replacement when it detects a newer copy; upload failure leaves the current clipboard intact. Preservation across apps is best effort.
 - Permission gating for the TCC Screen Recording grant on first run
-- **Check for Updates…** in the Lumeshot menu, comparing the running build against
-  the latest published release (it reports and links; it does not self-install)
+- **Check for Updates…** in the Lumeshot menu, comparing the running build against the
+  latest published release. It can download the dmg, check it against the release's
+  published checksum, and reveal it in Finder — you still drag it to Applications
 
 **Editor** (opt-in via "Annotate Before Sharing")
 - Vector tools: rectangle, ellipse, line, arrow, freehand
