@@ -4,14 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- Removing an upload from History now clears its status. Deleting a failed upload used
-  to leave the menu-bar warning and the History banner still reporting a failure.
-- **Check for Updates…** can now download the update for you. It checks the download
-  against the checksum published with the release and reveals it in Finder; you still
-  drag it to Applications.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.11](docs/releases/v0.1.11.md) — Download an available update, and clear an upload's status when its History row is removed.
 - [v0.1.10](docs/releases/v0.1.10.md) — Identical to v0.1.9; published to exercise the update check.
 - [v0.1.9](docs/releases/v0.1.9.md) — Stacked blur/pixelate, editor fixes, and a Check for Updates command.
 - [v0.1.8](docs/releases/v0.1.8.md) — Align assigned and unset shortcut controls.
