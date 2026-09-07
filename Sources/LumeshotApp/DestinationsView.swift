@@ -304,7 +304,10 @@ struct DestinationsView: View {
                                     VStack(alignment: .leading, spacing: 5) {
                                         Text(dest.name).fontWeight(.medium)
                                             .fixedSize(horizontal: false, vertical: true)
-                                        Text(model.kindLabel(dest.kind)).font(.caption).foregroundStyle(.secondary)
+                                        Text(dest.kind.acceptsRecordings
+                                             ? model.kindLabel(dest.kind)
+                                             : "\(model.kindLabel(dest.kind)) · images only")
+                                            .font(.caption).foregroundStyle(.secondary)
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)
                                 }
@@ -354,6 +357,15 @@ struct DestinationsView: View {
                     .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
                     .overlay(RoundedRectangle(cornerRadius: 10).stroke(.quaternary, lineWidth: 0.5))
                 }
+            }
+            if let blocked = model.settings.recordingDestinationRejectingVideo {
+                Label("\(blocked.name) only accepts images, so screen recordings sent there "
+                      + "will fail. Choose another destination under Screen recordings.",
+                      systemImage: "exclamationmark.triangle.fill")
+                    .font(.callout)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
             Text("For a custom service, choose Import .sxcu… in the Lumeshot menu.")
                 .font(.callout).foregroundStyle(.secondary)

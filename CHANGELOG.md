@@ -4,6 +4,9 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
+- Uploaders that only accept images are now marked as such, and Lumeshot warns when screen
+  recordings would be sent to one. Recording uploads to an image-only host now fail
+  immediately with a message naming the host, rather than a generic server error.
 - Failed recording uploads now record the reason in `~/Library/Logs/Lumeshot.log`, instead
   of only showing a notification that disappears.
 

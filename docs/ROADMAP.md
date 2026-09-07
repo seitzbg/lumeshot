@@ -47,15 +47,19 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
   no recorded cause anywhere once the banner faded — the still path has logged this since
   M2a. `PipelineEffects` gained a defaulted `log(_:)` so core code can reach `AppLog`.
 
-**Open — SFTP recording upload failed twice, then worked (reported 2026-09-07).** Two
-recording uploads to SFTP failed at 22:10:55 and 22:16:36; a later connection at 22:17:30
-pinned the host key and succeeded. Established from the log: both failures were recordings,
-neither reached SSH key exchange (no pin and no pin-failure line), and TOFU is not at fault
-— `.trustOnFirstUse` accepts and remembers, so a first connection to an unpinned host does
-not fail by design. What failed is **not determined**: the reason was never recorded, which
-is what the logging change above fixes. Candidates that fail before the handshake are a
-Keychain credential miss (`SFTPCredentials.load` throws before connecting), a key-parse
-failure, or DNS/TCP. Reproduce with the new logging before changing anything.
+- Destinations now declare whether they accept video, and recordings pointed at an
+  image-only host fail immediately with a message naming the host and the setting to
+  change, instead of a generic upload error from the server. The Uploads list marks such
+  destinations "images only" and warns when recordings would land on one.
+
+**Resolved — "SFTP recording upload failed twice, then worked" (reported 2026-09-07).**
+Not an SFTP fault. Both recordings uploaded to the *screenshot* destination (Picsur),
+because `activeRecordingDestinationID` was still unset and recordings follow screenshots
+by default; Picsur rejected the `.mp4`. That is why neither failure reached SSH key
+exchange. Setting the recordings destination to the SFTP uploader fixed it, and the
+22:17:30 host-key pin was that first successful SFTP connection. Confirmed against the
+live settings file: `activeDestinationID` was the Picsur destination, and the pinned id
+matched the SFTP one. The guardrail above exists so the same state announces itself.
 
 ## v0.1.13 — released
 

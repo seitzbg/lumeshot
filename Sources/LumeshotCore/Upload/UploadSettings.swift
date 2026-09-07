@@ -9,6 +9,24 @@ public enum UploadDestinationKind: String, Codable, Sendable {
     case ftp
 }
 
+public extension UploadDestinationKind {
+    /// Whether this kind of host accepts video.
+    ///
+    /// Picsur and Imgur are image hosts and reject an `.mp4` outright — sending one
+    /// produces a server error that reads like a broken uploader rather than a
+    /// mismatched destination. The rest are general-purpose file transports.
+    ///
+    /// A custom `.sxcu` uploader is treated as capable: it could be either, and
+    /// guessing "no" would block a working configuration. Being wrong in that
+    /// direction only costs the failure the user would have had anyway.
+    var acceptsRecordings: Bool {
+        switch self {
+        case .picsur, .imgur:                       false
+        case .customUploader, .s3, .sftp, .ftp:     true
+        }
+    }
+}
+
 public struct UploadDestination: Codable, Equatable, Sendable, Identifiable {
     public var id: String
     public var name: String
@@ -87,6 +105,17 @@ public struct UploadSettings: Codable, Equatable, Sendable {
 
     /// True when recordings are pointed somewhere other than the image destination.
     public var usesSeparateRecordingDestination: Bool { activeRecordingDestinationID != nil }
+
+    /// The destination recordings would use, when it cannot accept video.
+    ///
+    /// Non-nil is the state that produced a confusing bug report: recordings following
+    /// an image-only screenshot destination, failing with a generic upload error that
+    /// looked like the *other* uploader was broken.
+    public var recordingDestinationRejectingVideo: UploadDestination? {
+        guard let destination = activeDestination(for: .recording),
+              !destination.kind.acceptsRecordings else { return nil }
+        return destination
+    }
 
     private func destination(id: String?) -> UploadDestination? {
         guard let id else { return nil }
