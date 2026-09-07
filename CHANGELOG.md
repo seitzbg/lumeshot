@@ -4,6 +4,9 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
+- Screen recordings can now upload to a different destination from screenshots, chosen
+  under Uploads. Useful when your image host does not accept video. Left unset,
+  recordings go wherever screenshots go.
 - The recording timer in the menu bar is no longer cut off.
 
 ## Releases

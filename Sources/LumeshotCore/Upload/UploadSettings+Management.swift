@@ -13,7 +13,7 @@ public extension UploadSettings {
         return copy
     }
 
-    /// Remove a destination by id; clears the active selection if it pointed there.
+    /// Remove a destination by id; clears any active selection that pointed there.
     func removing(id: String) -> UploadSettings {
         var copy = self
         copy.destinations.removeAll { $0.id == id }
@@ -21,6 +21,17 @@ public extension UploadSettings {
             copy.activeDestinationID = nil
             copy.uploadAfterCapture = false
         }
+        // Reverting to nil means recordings follow the image destination again. Leaving
+        // the dangling id would instead send them nowhere, silently.
+        if copy.activeRecordingDestinationID == id { copy.activeRecordingDestinationID = nil }
+        return copy
+    }
+
+    /// Point recordings at their own destination, or pass `nil` to follow the image one.
+    func settingActiveRecording(id: String?) -> UploadSettings {
+        var copy = self
+        guard id == nil || destinations.contains(where: { $0.id == id }) else { return copy }
+        copy.activeRecordingDestinationID = id
         return copy
     }
 
