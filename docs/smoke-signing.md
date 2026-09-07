@@ -3,6 +3,10 @@
 Manual checklist. Nothing here can be verified in CI or on the dev Mac — it needs a
 published dmg and, for the Gatekeeper checks, a Mac that has never run Lumeshot.
 
+`v0.2.0` below is a stand-in for whichever version you are testing. To smoke an
+already-published build, substitute its version and start at step 3; steps 1–2 apply only
+when you are cutting a new release.
+
 ## Before the first signed release
 
 1. Run `scripts/setup-developer-id.sh` and let it finish its own verification stage.
