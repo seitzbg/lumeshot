@@ -20,8 +20,11 @@ missing=$(
             grep -oE '<img[^>]+src="[^"]+"' "$doc" | sed -E 's/.*src="//; s/"$//' || true
         } | while IFS= read -r target; do
             target=${target%% *}   # drop a title: ![alt](path "title")
+            # The leading "(" is load-bearing: CI runs on macOS, whose bash 3.2
+            # matches parens to close $( ) without understanding case patterns,
+            # so a bare `pattern)` in here is a syntax error.
             case "$target" in
-                '' | http://* | https://* | data:*) continue ;;
+                ('' | http://* | https://* | data:*) continue ;;
             esac
             [ -e "$dir/$target" ] || echo "  $doc -> $target"
         done
