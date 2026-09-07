@@ -138,6 +138,13 @@ Run these when convenient (each is a checklist):
 - v0.1.9 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
 
 **Uploaders**
+- **One active destination is shared by stills and recordings.** `UploadSettings` holds a
+  single `activeDestinationID`, and both pipelines read it — `CaptureCoordinator` line ~243
+  for stills and `deliverRecording` line ~320 for video. An image-only host such as Picsur
+  therefore also receives `.mp4`/`.gif` uploads, which it cannot accept. Wanted: a separate
+  active destination per artifact kind (image vs recording), so Picsur can stay the image
+  host while recordings go to S3/SFTP/FTP. Until then the workaround is switching the
+  active uploader by hand before recording.
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
 - SFTP/FTP transports still start from a complete `Data`, so a large recording is resident for those two destinations (bounded now, but not streamed). Streaming needs a chunked transport API on both.
 - Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
@@ -149,6 +156,12 @@ Run these when convenient (each is a checklist):
 - Supply-chain: Citadel rides a stale personal fork of `swift-nio-ssh` (`Wellz26/swift-nio-ssh` 0.3.4) — watch for an upstream path.
 
 **Recording**
+- Menu-bar elapsed time renders clipped while recording — observed as a bare `:` with no
+  digits ([screenshot](https://pic.bsd-unix.net/i/6d3a026f-3370-4651-9d4d-f168425bfc77.png),
+  reported 2026-09-07). `elapsedLabel` formats `%d:%02d`, so it always produces digits and
+  the value is being truncated in the menu bar rather than miscomputed; whether that is
+  status-item width negotiation, a crowded menu bar, or something else is **unconfirmed**.
+  Reproduce with a live recording before changing anything.
 - Live SCK paths are build + smoke-only (the test binary can't inherit the app's TCC grant). Smoke must confirm the start path and the GIF-export error alert (see `docs/smoke-m4.md`).
 - `ffmpeg` palettegen GIF path skipped (native AVFoundation path shipped).
 
@@ -167,6 +180,7 @@ Rough priority order — revisit when picking up again:
 
 1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.9 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
 2. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
+3. **Per-kind upload destinations** — separate active uploaders for images and recordings, so an image-only host (Picsur) does not receive video. See the Uploaders backlog note.
 
 Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
 Done: **editor polish pass** — effect stacking + caching, text-font fidelity and the
