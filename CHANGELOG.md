@@ -8,6 +8,7 @@ _Nothing yet._
 
 ## Releases
 
+- [v0.1.10](docs/releases/v0.1.10.md) — Identical to v0.1.9; published to exercise the update check.
 - [v0.1.9](docs/releases/v0.1.9.md) — Stacked blur/pixelate, editor fixes, and a Check for Updates command.
 - [v0.1.8](docs/releases/v0.1.8.md) — Align assigned and unset shortcut controls.
 - [v0.1.7](docs/releases/v0.1.7.md) — About and open source credits, roomier uploader selection, upload status and testing, History improvements, retry, and authenticated remote deletion.
