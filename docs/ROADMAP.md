@@ -40,7 +40,22 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **Developer ID signing** | Hardened runtime + `Resources/Lumeshot.entitlements` (deliberately empty) + secure timestamp; release workflow imports a Developer ID cert into a throwaway keychain, asserts the signature's team, signs the dmg, notarizes via `scripts/notarize.sh` (App Store Connect API key) and staples. Signing is opt-in on secret presence, so a secret-less repo still publishes. `scripts/setup-developer-id.sh` walks the one-time Apple-portal setup. |
 | **Rebrand + rename** | Lumeshot throughout the app, bundle ID (`org.lumeshot.app`), Keychain service, settings/capture/log paths, signing scripts, and documentation. Clean break: no automatic migration; existing data is left untouched. |
 
-## Pending — needs you (live Mac smoke)
+## v0.1.7 release preparation
+
+Upload recovery and History polish are implemented: upload activity in the menu
+bar and History, generated-image uploader tests, retry/reupload with stable
+destination IDs, filters, larger thumbnails, Space-bar previews, and separate
+history/remote deletion actions. Existing history databases migrate in place.
+The compact About window includes offline dependency credits and is accessible
+from Settings. Uploader selection wraps long names instead of truncating them.
+
+Local validation: 410 automated tests pass. The user confirmed capture permission
+onboarding, normal capture/upload, failed-upload retry, and generated-image Picsur
+upload/deletion. About and uploader layout were reviewed interactively. History
+preview was shown in a screenshot; not every History action was individually
+confirmed. Imgur deletion is covered with a fake transport, not a live account.
+
+## Remaining live Mac checks
 
 Automated checks cover the delivery logic. GUI and hardware checks for the current bundle remain manual. Earlier release observations below predate the clean-break identity.
 Run these when convenient (each is a checklist):
@@ -48,7 +63,7 @@ Run these when convenient (each is a checklist):
 - [ ] **M4 recording** — `docs/smoke-m4.md` (live mp4 start/stop + GIF export; verify `SCStream.addRecordingOutput` starts and the GIF-export error alert presents).
 - [ ] **M5a SFTP/FTP** — `docs/smoke-m5a.md` (real password + key SFTP, plain FTP, FTPS; result URL reachable; secrets purged on remove).
 - [ ] **M5b dmg + polish** — `docs/smoke-m5b.md` (dmg mounts + drag-installs; elapsed timer; GIF spinner; inspector-on-select).
-- [ ] **Picsur** — `docs/smoke-picsur.md` (real upload to a live instance; direct-image link resolves; deletion URL works; bad key surfaces an error).
+- [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [ ] **Signing + notarization — runtime half** — still open: the app crashed on launch on macOS 26 (`EXC_BREAKPOINT`, main-actor isolation trap in `AppPipelineEffects`), fixed but unverified there. **Notifications firing remains unproven.**
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
@@ -57,7 +72,7 @@ Run these when convenient (each is a checklist):
 
 **Signing & distribution**
 - Auto-update mechanism (none today).
-- The release is signed + notarized, but **unverified end to end**: no signed release has been cut yet. `docs/smoke-signing.md` is the gate, and the notification fix in particular is a hypothesis until a notarized build runs on a clean Mac.
+- v0.1.6's release workflow completed Developer ID signature verification and notarization. Verify launch, notifications, and capture permission behavior on the next signed release using `docs/smoke-signing.md`.
 
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied — failures still surface as the raw `.http(status:body:)`. Affects Picsur and any `.sxcu`.
@@ -88,10 +103,10 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Cut the first signed release** and work `docs/smoke-signing.md` — the pipeline exists but has never run against Apple's notary service.
+1. **Release v0.1.7** and verify the signed app's launch, notifications, and capture permissions using `docs/smoke-signing.md`.
 2. **Editor polish pass** — effect stacking + caching, text-font fidelity, stroke inspector commit.
 3. **Uploader auth** — Imgur OAuth (SFTP host-key pinning shipped).
-4. **Distribution polish** — auto-update, a real app icon, first-run/onboarding refinement.
+4. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
 
 ## How to resume
 

@@ -8,6 +8,7 @@ public enum HistoryStoreError: Error, Equatable {
 
 /// Thin SQLite wrapper for capture/upload history. Not Sendable — use on one actor.
 public final class HistoryStore {
+    public static let didChange = Notification.Name("LumeshotHistoryDidChange")
     private var db: OpaquePointer?
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)  // SQLITE_TRANSIENT
 
@@ -28,6 +29,13 @@ public final class HistoryStore {
                 upload_failed INTEGER NOT NULL DEFAULT 0
             );
             """)
+        let columns = try prepare("PRAGMA table_info(history);")
+        defer { sqlite3_finalize(columns) }
+        var hasDestinationID = false
+        while sqlite3_step(columns) == SQLITE_ROW {
+            if text(columns, 1) == "destination_id" { hasDestinationID = true }
+        }
+        if !hasDestinationID { try exec("ALTER TABLE history ADD COLUMN destination_id TEXT;") }
     }
 
     deinit { sqlite3_close(db) }
@@ -35,8 +43,8 @@ public final class HistoryStore {
     public func insert(_ entry: HistoryEntry) throws {
         let sql = """
             INSERT OR REPLACE INTO history
-            (id, captured_at, file_path, url, deletion_url, destination, upload_failed)
-            VALUES (?,?,?,?,?,?,?);
+            (id, captured_at, file_path, url, deletion_url, destination, upload_failed, destination_id)
+            VALUES (?,?,?,?,?,?,?,?);
             """
         let stmt = try prepare(sql)
         defer { sqlite3_finalize(stmt) }
@@ -47,12 +55,14 @@ public final class HistoryStore {
         bindText(stmt, 5, entry.deletionURL)
         bindText(stmt, 6, entry.destinationName)
         sqlite3_bind_int(stmt, 7, entry.uploadFailed ? 1 : 0)
+        bindText(stmt, 8, entry.destinationID)
         guard sqlite3_step(stmt) == SQLITE_DONE else { throw HistoryStoreError.exec(lastError) }
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
     public func recent(limit: Int) throws -> [HistoryEntry] {
         let sql = """
-            SELECT id, captured_at, file_path, url, deletion_url, destination, upload_failed
+            SELECT id, captured_at, file_path, url, deletion_url, destination, upload_failed, destination_id
             FROM history ORDER BY captured_at DESC LIMIT ?;
             """
         let stmt = try prepare(sql)
@@ -72,7 +82,7 @@ public final class HistoryStore {
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return try recent(limit: limit) }
         let sql = """
-            SELECT id, captured_at, file_path, url, deletion_url, destination, upload_failed
+            SELECT id, captured_at, file_path, url, deletion_url, destination, upload_failed, destination_id
             FROM history
             WHERE file_path LIKE ? OR url LIKE ? OR destination LIKE ?
             ORDER BY captured_at DESC LIMIT ?;
@@ -92,6 +102,7 @@ public final class HistoryStore {
         defer { sqlite3_finalize(stmt) }
         bindText(stmt, 1, id)
         guard sqlite3_step(stmt) == SQLITE_DONE else { throw HistoryStoreError.exec(lastError) }
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
     public func setURL(id: String, url: String?, deletionURL: String?, failed: Bool) throws {
@@ -103,6 +114,7 @@ public final class HistoryStore {
         sqlite3_bind_int(stmt, 3, failed ? 1 : 0)
         bindText(stmt, 4, id)
         guard sqlite3_step(stmt) == SQLITE_DONE else { throw HistoryStoreError.exec(lastError) }
+        NotificationCenter.default.post(name: Self.didChange, object: nil)
     }
 
     // MARK: - Helpers
@@ -120,7 +132,8 @@ public final class HistoryStore {
                 url: text(stmt, 3),
                 deletionURL: text(stmt, 4),
                 destinationName: text(stmt, 5),
-                uploadFailed: sqlite3_column_int(stmt, 6) != 0))
+                uploadFailed: sqlite3_column_int(stmt, 6) != 0,
+                destinationID: text(stmt, 7)))
             rc = sqlite3_step(stmt)
         }
         guard rc == SQLITE_DONE else { throw HistoryStoreError.exec(lastError) }

@@ -90,6 +90,8 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         pb.clearContents()
         if !pb.setString(text, forType: .string) {
             AppLog.log("Pasteboard text write failed")
+        } else {
+            UploadActivity.shared.copied(text)
         }
     }
 

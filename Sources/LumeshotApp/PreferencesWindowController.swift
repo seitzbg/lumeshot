@@ -10,16 +10,18 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
     private let credentials: CredentialStore
     private let onChange: () -> Void
     private let applyHotkeys: (HotkeySettings) -> Void
+    private let showAbout: () -> Void
     private var previousActivationPolicy: NSApplication.ActivationPolicy?
 
     var isOpen: Bool { previousActivationPolicy != nil }
 
     init(store: SettingsStore, credentials: CredentialStore, onChange: @escaping () -> Void,
-        applyHotkeys: @escaping (HotkeySettings) -> Void) {
+        applyHotkeys: @escaping (HotkeySettings) -> Void, showAbout: @escaping () -> Void) {
         self.store = store
         self.credentials = credentials
         self.onChange = onChange
         self.applyHotkeys = applyHotkeys
+        self.showAbout = showAbout
         super.init()
     }
 
@@ -43,7 +45,7 @@ final class PreferencesWindowController: NSObject, NSWindowDelegate {
                                      onChange: onChange, applyHotkeys: applyHotkeys)
         if let tab { model.selectedTab = tab }
         self.model = model
-        let hosting = NSHostingController(rootView: PreferencesView(model: model))
+        let hosting = NSHostingController(rootView: PreferencesView(model: model, showAbout: showAbout))
         let w = NSWindow(contentViewController: hosting)
         w.title = "Lumeshot Settings"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]

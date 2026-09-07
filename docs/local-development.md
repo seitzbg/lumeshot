@@ -7,14 +7,24 @@ replace `swift test` with the required command in the next section):
 swift build
 swift test
 swift build -c release
-VERSION=0.1.5 scripts/bundle.sh
-open dist/Lumeshot.app
+BUNDLE_OUTPUT=dist/test/Lumeshot.app VERSION=0.1.7 scripts/bundle.sh
+open dist/test/Lumeshot.app
 ```
 
 Quit any running copy of Lumeshot before opening the new bundle so it can
 register the capture hotkeys. The bundle script uses the local `lumeshot-dev`
 signing identity when configured; otherwise it signs ad hoc. Ad-hoc rebuilds
 can require a new Screen Recording grant.
+
+Use one consistent location for local test apps: `dist/test/Lumeshot.app`.
+Update that bundle for each iteration instead of creating another named test
+directory. Quit the running test copy before packaging, then reopen the same path:
+
+```sh
+swift build -c release
+BUNDLE_OUTPUT=dist/test/Lumeshot.app VERSION=0.1.7 scripts/bundle.sh
+open dist/test/Lumeshot.app
+```
 
 ## Command Line Tools test runner
 
@@ -34,6 +44,16 @@ swift test --disable-xctest \
 Add `--filter CaptureCoordinatorTests` for the region delivery regression.
 It uses synthetic cropped images and temporary settings/output, so it does
 not need Screen Recording permission or an upload destination.
+
+## Updating open source acknowledgments
+
+After changing package versions, run `swift package resolve` followed by
+`python3 scripts/generate-credits.py` and commit the updated
+`Sources/LumeshotApp/Resources/OpenSourceCredits.json`. The generator reads the
+resolved checkouts' license and notice files; the About window displays these
+offline. `scripts/bundle.sh` includes the same resource in release apps.
+The credits test checks coverage and versions against `Package.resolved`.
+System-library and vendored-component notices are maintained in `scripts/licenses`.
 
 ## App identity and data
 

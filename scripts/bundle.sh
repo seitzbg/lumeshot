@@ -2,7 +2,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-APP="dist/Lumeshot.app"
+APP="${BUNDLE_OUTPUT:-dist/Lumeshot.app}"
 VERSION="${VERSION:-0.1.0}"
 ENTITLEMENTS="Resources/Lumeshot.entitlements"
 
@@ -52,6 +52,7 @@ rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/LumeshotApp "$APP/Contents/MacOS/LumeshotApp"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
+cp Sources/LumeshotApp/Resources/OpenSourceCredits.json "$APP/Contents/Resources/"
 sed "s/@VERSION@/$VERSION/g" Resources/Info.plist > "$APP/Contents/Info.plist"
 
 # --options runtime is what notarization actually requires. It is applied on

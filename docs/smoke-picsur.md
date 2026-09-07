@@ -30,10 +30,18 @@ under **Settings → API keys** in the Picsur web UI.
 5. Open the history browser.
    - [ ] The row records the result URL, and a thumbnail URL of the form
          `/i/<id>.jpg?width=128&shrinkonly=yes`.
-   - [ ] If the API key has delete rights, the deletion URL
-         (`/api/image/delete/<id>/<key>`) actually deletes the image.
+   - [ ] If the API key has delete rights, **Delete remote upload…** removes the
+         image from Picsur and clears the remote link while keeping the local file.
+         Lumeshot uses the saved API key with `POST /api/image/delete/key`;
+         opening the stored browser deletion URL without authentication can be denied.
    - [ ] If the key has **no** delete rights, no deletion URL is recorded
          (rather than a dangling `/api/image/delete/<id>/`).
+   - [ ] In **Settings → Uploads → Test uploader**, upload the generated PNG,
+         then **Delete test upload…**. The sheet confirms deletion and the test
+         image is no longer available on Picsur. Also test with guest deletion
+         disabled on the server: the saved API key must still be used.
+   - [ ] A denied request or missing image does not claim success or discard its
+         deletion link. The sheet keeps its result and shows a readable error.
 
 ## Variants + failure paths
 

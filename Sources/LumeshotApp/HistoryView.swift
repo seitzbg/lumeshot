@@ -1,4 +1,5 @@
 import AppKit
+import QuickLookUI
 import ImageIO
 import SwiftUI
 import LumeshotCore
@@ -9,6 +10,11 @@ import LumeshotUpload
 final class HistoryModel: ObservableObject {
     @Published var entries: [HistoryEntry] = []
     @Published var query: String = "" { didSet { reload() } }
+    @Published var filter: HistoryFilter = .all
+    @Published var actionError: String?
+    @Published var previewEntry: HistoryEntry?
+    @Published var uploadEntry: HistoryEntry?
+    @Published private(set) var uploading: Set<String> = []
     @Published var loadError: String?
     @Published var exportingEntry: HistoryEntry?
     @Published var exportError: String?
@@ -16,16 +22,27 @@ final class HistoryModel: ObservableObject {
     /// Entries with a remote deletion already in flight. Without this a
     /// second click schedules a second request, and a late failure from it
     /// would report an error for a row the first request already removed.
-    private var deletionsInFlight: Set<String> = []
+    @Published private(set) var deletionsInFlight: Set<String> = []
+    private let settingsStore: SettingsStore?
+    private let effects: any PipelineEffects
+    private let uploadFile: (FilePart, UploadDestination) async throws -> UploadResult
     private let store: HistoryStore
-    private let http: HTTPClient
+    private let deletionService: RemoteDeletionService
     /// Re-read when the window is shown, not just when it is created.
     var recordingSettings: RecordingSettings
 
     init(store: HistoryStore, http: HTTPClient = URLSessionHTTPClient(),
-        recordingSettings: RecordingSettings = .default) {
+        recordingSettings: RecordingSettings = .default,
+        settingsStore: SettingsStore? = nil,
+        effects: any PipelineEffects = AppPipelineEffects(),
+        credentials: CredentialStore = KeychainCredentialStore(),
+        uploadFile: ((FilePart, UploadDestination) async throws -> UploadResult)? = nil) {
+        self.settingsStore = settingsStore
+        self.effects = effects
+        let service = UploadService(http: http, credentials: credentials, settingsStore: settingsStore, activity: .shared)
+        self.uploadFile = uploadFile ?? { part, destination in try await service.upload(part: part, destination: destination) }
         self.store = store
-        self.http = http
+        self.deletionService = RemoteDeletionService(http: http, credentials: credentials)
         self.recordingSettings = recordingSettings
         reload()
     }
@@ -60,55 +77,108 @@ final class HistoryModel: ObservableObject {
         NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
     }
 
-    /// Deletes the history row and, when the entry carries one, the remote
-    /// object. The row is dropped only after the remote deletion succeeds: it
-    /// holds the *only* copy of the deletion token, so removing it first made a
-    /// failed deletion permanently unretryable and left the object online.
-    ///
-    /// GET is correct here rather than an assumption — a custom uploader `DeletionURL`
-    /// is by convention a link you can open in a browser, which is what Imgur,
-    /// Picsur and custom uploaders all emit.
-    ///
-    /// The local file is deliberately left on disk; this deletes the history
-    /// record and the remote copy, not the user's screenshot.
-    func delete(_ entry: HistoryEntry) {
-        guard let deletionURL = entry.deletionURL, let url = URL(string: deletionURL) else {
-            if entry.deletionURL != nil {
-                AppLog.log("History: unusable deletion URL for \(entry.id); removing row only")
-            }
-            removeRow(entry)
+    var visibleEntries: [HistoryEntry] { entries.filter { filter.includes($0) } }
+
+    var destinations: [UploadDestination] { settingsStore?.loadOrDefault().0.upload.destinations ?? [] }
+
+    func preferredDestination(for entry: HistoryEntry) -> String? {
+        let choices = destinations
+        if let id = entry.destinationID, choices.contains(where: { $0.id == id }) { return id }
+        // Legacy rows have names only. Never guess when two uploaders share a name.
+        let matches = choices.filter { $0.name == entry.destinationName }
+        if entry.destinationID == nil, matches.count == 1 { return matches[0].id }
+        return nil
+    }
+
+    func isBusy(_ entry: HistoryEntry) -> Bool {
+        uploading.contains(entry.id) || deletionsInFlight.contains(entry.id)
+            || (entry.filePath != nil && UploadActivity.shared.running.contains { $0.filePath == entry.filePath })
+    }
+
+    func hasLocalFile(_ entry: HistoryEntry) -> Bool {
+        entry.filePath.map { FileManager.default.fileExists(atPath: $0) } ?? false
+    }
+
+    func preview(_ entry: HistoryEntry) {
+        guard hasLocalFile(entry) else {
+            actionError = "The local file is no longer available."
             return
         }
-        guard !deletionsInFlight.contains(entry.id) else { return }
-        deletionsInFlight.insert(entry.id)
-        let http = self.http
-        Task { @MainActor in
-            defer { deletionsInFlight.remove(entry.id) }
+        previewEntry = entry
+    }
+
+    func copyImage(_ entry: HistoryEntry) {
+        guard let path = entry.filePath, !MIMEType.isVideo(path: path),
+              let image = NSImage(contentsOfFile: path) else {
+            actionError = "The local image is no longer available."
+            return
+        }
+        NSPasteboard.general.clearContents()
+        if !NSPasteboard.general.writeObjects([image]) { actionError = "Couldn’t copy the image." }
+    }
+
+    /// A retry updates its failed row; another upload of a successful capture gets
+    /// its own row so the existing link and remote deletion token remain available.
+    func upload(_ entry: HistoryEntry, to destination: UploadDestination) async {
+        guard !isBusy(entry) else { return }
+        guard let path = entry.filePath, hasLocalFile(entry) else {
+            actionError = "The local file is no longer available, so this capture can’t be uploaded again."
+            return
+        }
+        uploading.insert(entry.id)
+        defer { uploading.remove(entry.id); reload() }
+        let fileURL = URL(fileURLWithPath: path)
+        var row = entry
+        if entry.url != nil || entry.deletionURL != nil {
+            row.id = UUID().uuidString
+            row.capturedAt = Date()
+        }
+        row.destinationID = destination.id
+        row.destinationName = destination.name
+        row.uploadFailed = true // A crash during transfer leaves a recoverable retry.
+        do {
+            let part = try FilePart.file(fieldName: "file", filename: fileURL.lastPathComponent,
+                                         mimeType: MIMEType.forExtension(fileURL.pathExtension), url: fileURL)
+            try store.insert(row)
+            let clipboardCount = effects.clipboardChangeCount
+            let result = try await uploadFile(part, destination)
+            row.url = result.url
+            row.deletionURL = result.deletionURL
+            row.uploadFailed = false
             do {
-                let response = try await http.send(PreparedRequest(method: .get,
-                                                                   url: url.absoluteString))
-                guard (200..<300).contains(response.status) else {
-                    AppLog.log("History: remote deletion for \(entry.id) returned HTTP \(response.status)")
-                    deleteError = "The host refused the deletion (HTTP \(response.status)). "
-                        + "The entry was kept so you can try again."
-                    return
-                }
-                removeRow(entry)
+                try store.insert(row)
             } catch {
-                AppLog.log("History: remote deletion failed for \(entry.id): \(error)")
-                deleteError = "Couldn’t reach the host to delete the upload. "
-                    + "The entry was kept so you can try again."
+                // Keep the returned link available even when history cannot be updated.
+                actionError = "Upload succeeded, but History couldn’t save its link. The link was copied if the clipboard was unchanged."
             }
+            if effects.clipboardChangeCount == clipboardCount { effects.copyTextToClipboard(result.url) }
+        } catch {
+            actionError = UploadFeedback.message(for: error) + " Your local file was kept."
         }
     }
 
-    private func removeRow(_ entry: HistoryEntry) {
+    func removeFromHistory(_ entry: HistoryEntry) {
+        guard !isBusy(entry) else { return }
         do { try store.delete(id: entry.id) }
-        catch {
-            AppLog.log("History: delete failed for \(entry.id): \(error)")
-            deleteError = "Couldn’t remove the history entry."
-        }
+        catch { deleteError = "Couldn’t remove the history entry." }
         reload()
+    }
+
+    /// Explicit remote deletion leaves the local file and history row intact.
+    func deleteRemote(_ entry: HistoryEntry) async {
+        guard !isBusy(entry), let deletionURL = entry.deletionURL,
+              let url = URL(string: deletionURL), ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
+        deletionsInFlight.insert(entry.id)
+        defer { deletionsInFlight.remove(entry.id); reload() }
+        do {
+            let destinationID = preferredDestination(for: entry)
+            let destination = destinations.first { $0.id == destinationID }
+            try await deletionService.delete(url.absoluteString, destination: destination)
+            try store.setURL(id: entry.id, url: nil, deletionURL: nil, failed: false)
+            UploadActivity.shared.forgetLink(entry.url)
+        } catch {
+            deleteError = "Couldn’t delete the remote upload. The entry was kept. " + RemoteDeletionService.message(for: error)
+        }
     }
 
     func beginGifExport(_ entry: HistoryEntry) {
@@ -142,82 +212,201 @@ final class HistoryModel: ObservableObject {
     }
 }
 
-struct HistoryView: View {
-    @ObservedObject var model: HistoryModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
-                TextField("Search captures", text: $model.query)
-                    .textFieldStyle(.roundedBorder)
-            }
-            .padding(8)
-            Divider()
-            if model.entries.isEmpty {
-                Spacer()
-                Text(model.loadError ?? "No captures yet.")
-                    .foregroundStyle(.secondary)
-                Spacer()
-            } else {
-                List(model.entries) { entry in
-                    HistoryRow(entry: entry, model: model)
-                }
-            }
-        }
-        .frame(minWidth: 520, minHeight: 400)
-        .sheet(item: $model.exportingEntry) { entry in
-            GifExportSheet(entry: entry, model: model)
-        }
-        .alert("Delete Failed", isPresented: .constant(model.deleteError != nil), presenting: model.deleteError) { _ in
-            Button("OK") { model.deleteError = nil }
-        } message: { Text($0) }
-        .alert("Export Failed", isPresented: .constant(model.exportError != nil), presenting: model.exportError) { _ in
-            Button("OK") { model.exportError = nil }
-        } message: { message in
-            Text(message)
+enum HistoryFilter: String, CaseIterable, Identifiable {
+    case all = "All", images = "Images", videos = "Videos", failed = "Failed uploads"
+    var id: Self { self }
+    func includes(_ entry: HistoryEntry) -> Bool {
+        let path = entry.filePath ?? entry.url.flatMap { URL(string: $0)?.path } ?? ""
+        switch self {
+        case .all: return true
+        case .images: return !path.isEmpty && !MIMEType.isVideo(path: path)
+        case .videos: return MIMEType.isVideo(path: path)
+        case .failed: return entry.uploadFailed
         }
     }
 }
 
-private struct HistoryRow: View {
-    let entry: HistoryEntry
+struct HistoryView: View {
     @ObservedObject var model: HistoryModel
+    @ObservedObject private var activity = UploadActivity.shared
+    @State private var selection: String?
+    @State private var removing: HistoryEntry?
+    @State private var deletingRemote: HistoryEntry?
 
     var body: some View {
-        HStack(spacing: 10) {
-            Thumbnail(path: entry.filePath)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(entry.url ?? entry.filePath.map { ($0 as NSString).lastPathComponent }
-                     ?? "Capture")
-                    .lineLimit(1)
-                HStack(spacing: 6) {
-                    Text(entry.capturedAt.formatted(date: .abbreviated, time: .shortened))
-                    if let dest = entry.destinationName { Text("· \(dest)") }
-                    if entry.uploadFailed { Text("· upload failed").foregroundStyle(.red) }
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack {
+                    Text("History").font(.title2.bold())
+                    Spacer()
+                    TextField("Search captures", text: $model.query)
+                        .textFieldStyle(.roundedBorder).frame(maxWidth: 280)
                 }
-                .font(.caption).foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let url = entry.url {
-                Button { model.copy(url) } label: { Image(systemName: "doc.on.doc") }
-                    .buttonStyle(.borderless).help("Copy URL")
-                Button { model.open(url) } label: { Image(systemName: "safari") }
-                    .buttonStyle(.borderless).help("Open URL")
-            }
-            if let path = entry.filePath {
-                if MIMEType.isVideo(path: path) {
-                    Button { model.beginGifExport(entry) } label: { Image(systemName: "film.stack") }
-                        .buttonStyle(.borderless).help("Export as GIF…")
+                Picker("Filter captures", selection: $model.filter) {
+                    ForEach(HistoryFilter.allCases) { filter in Text(filter.rawValue).tag(filter) }
                 }
-                Button { model.reveal(path) } label: { Image(systemName: "folder") }
-                    .buttonStyle(.borderless).help("Reveal in Finder")
+                .pickerStyle(.segmented)
             }
-            Button(role: .destructive) { model.delete(entry) } label: { Image(systemName: "trash") }
-                .buttonStyle(.borderless).help("Delete")
+            .padding(20)
+            Divider()
+            UploadActivityView(activity: activity)
+            if model.visibleEntries.isEmpty {
+                ContentUnavailableView(model.loadError ?? (model.entries.isEmpty && model.query.isEmpty ? "No captures yet" : "No matching captures"),
+                                       systemImage: "photo.on.rectangle",
+                                       description: Text("Captures and upload results appear here. Try another filter or search."))
+                    .frame(maxHeight: .infinity)
+            } else {
+                List(selection: $selection) {
+                    ForEach(model.visibleEntries) { entry in
+                        historyRow(entry).tag(entry.id)
+                    }
+                }
+                .listStyle(.inset)
+                .onKeyPress(.space) {
+                    guard let entry = model.visibleEntries.first(where: { $0.id == selection }) else { return .ignored }
+                    model.preview(entry)
+                    return .handled
+                }
+            }
+            Divider()
+            HStack {
+                Text("\(model.visibleEntries.count) captures")
+                Spacer()
+                Text("Select a capture and press Space to preview")
+            }
+            .font(.caption).foregroundStyle(.secondary).padding(12)
         }
-        .padding(.vertical, 2)
+        .frame(minWidth: 700, minHeight: 480)
+        .onReceive(NotificationCenter.default.publisher(for: HistoryStore.didChange)) { _ in model.reload() }
+        .sheet(item: $model.previewEntry) { entry in
+            VStack(spacing: 0) {
+                if let path = entry.filePath { CapturePreview(url: URL(fileURLWithPath: path)) }
+                Divider()
+                HStack {
+                    Text(entry.filePath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? "Capture").lineLimit(1)
+                    Spacer()
+                    Button("Done") { model.previewEntry = nil }.keyboardShortcut(.cancelAction)
+                }.padding(16)
+            }.frame(width: 800, height: 560)
+        }
+        .sheet(item: $model.uploadEntry) { entry in HistoryUploadSheet(entry: entry, model: model) }
+        .sheet(item: $model.exportingEntry) { entry in GifExportSheet(entry: entry, model: model) }
+        .alert("Remove from History?", isPresented: Binding(get: { removing != nil }, set: { if !$0 { removing = nil } })) {
+            Button("Cancel", role: .cancel) { removing = nil }
+            Button("Remove", role: .destructive) {
+                if let entry = removing { model.removeFromHistory(entry) }; removing = nil
+            }
+        } message: { Text("The local file and any remote upload will remain. The saved link and remote-deletion action will be removed from History.") }
+        .alert("Delete remote upload?", isPresented: Binding(get: { deletingRemote != nil }, set: { if !$0 { deletingRemote = nil } })) {
+            Button("Cancel", role: .cancel) { deletingRemote = nil }
+            Button("Delete remote upload", role: .destructive) {
+                if let entry = deletingRemote { Task { await model.deleteRemote(entry) } }; deletingRemote = nil
+            }
+        } message: { Text("This asks the server to permanently delete this upload. Your local file and history entry will remain.") }
+        .alert("Couldn’t complete action", isPresented: Binding(get: { model.actionError != nil }, set: { if !$0 { model.actionError = nil } })) {
+            Button("OK") { model.actionError = nil }
+        } message: { Text(model.actionError ?? "") }
+        .alert("Delete failed", isPresented: Binding(get: { model.deleteError != nil }, set: { if !$0 { model.deleteError = nil } })) {
+            Button("OK") { model.deleteError = nil }
+        } message: { Text(model.deleteError ?? "") }
+        .alert("Export failed", isPresented: Binding(get: { model.exportError != nil }, set: { if !$0 { model.exportError = nil } })) {
+            Button("OK") { model.exportError = nil }
+        } message: { Text(model.exportError ?? "") }
     }
+
+    private func historyRow(_ entry: HistoryEntry) -> some View {
+        HStack(spacing: 16) {
+            Button { model.preview(entry) } label: { Thumbnail(path: entry.filePath) }
+                .buttonStyle(.plain).disabled(!model.hasLocalFile(entry)).help("Preview capture")
+            VStack(alignment: .leading, spacing: 6) {
+                Text(entry.filePath.map { URL(fileURLWithPath: $0).lastPathComponent } ?? entry.url ?? "Capture")
+                    .fontWeight(.medium).lineLimit(2)
+                Text(entry.capturedAt.formatted(date: .abbreviated, time: .shortened))
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(model.isBusy(entry) ? "Working…" : entry.uploadFailed ? "Upload failed · \(entry.destinationName ?? "Unknown destination")" : entry.url != nil ? "Uploaded · \(entry.destinationName ?? "Uploader")" : "Saved locally")
+                    .font(.caption).foregroundStyle(entry.uploadFailed ? Color.orange : .secondary)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            if model.isBusy(entry) { ProgressView().controlSize(.small) }
+            else if entry.uploadFailed {
+                Button("Retry…") { model.uploadEntry = entry }.disabled(!model.hasLocalFile(entry))
+                    .help(model.hasLocalFile(entry) ? "Retry this upload" : "Retry requires the original local file")
+            } else if let url = entry.url {
+                Button("Copy link") { model.copy(url) }
+            }
+            Menu {
+                Button("Preview") { model.preview(entry) }.disabled(!model.hasLocalFile(entry))
+                if let path = entry.filePath, !MIMEType.isVideo(path: path) {
+                    Button("Copy image") { model.copyImage(entry) }.disabled(!model.hasLocalFile(entry))
+                }
+                if let url = entry.url {
+                    Button("Copy link") { model.copy(url) }
+                    Button("Open link") { model.open(url) }
+                }
+                Button(entry.uploadFailed ? "Retry upload…" : "Upload…") { model.uploadEntry = entry }
+                    .disabled(!model.hasLocalFile(entry))
+                if let path = entry.filePath {
+                    if MIMEType.isVideo(path: path) { Button("Export as GIF…") { model.beginGifExport(entry) } }
+                    Button("Reveal in Finder") { model.reveal(path) }
+                }
+                Divider()
+                Button("Remove from History…", role: .destructive) { removing = entry }
+                if entry.deletionURL != nil {
+                    Button("Delete remote upload…", role: .destructive) { deletingRemote = entry }
+                }
+            } label: { Image(systemName: "ellipsis.circle").font(.title3) }
+            .menuStyle(.borderlessButton).fixedSize().disabled(model.isBusy(entry))
+            .accessibilityLabel("Actions for capture")
+        }
+        .padding(.vertical, 10)
+    }
+}
+
+private struct HistoryUploadSheet: View {
+    let entry: HistoryEntry
+    @ObservedObject var model: HistoryModel
+    @Environment(\.dismiss) private var dismiss
+    @State private var destinationID: String?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text(entry.uploadFailed ? "Retry upload" : "Upload capture").font(.title2.bold())
+            Text("Choose where to send this file. A successful upload copies its link if the clipboard hasn’t changed.")
+                .foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    ForEach(model.destinations) { destination in
+                        Button { destinationID = destination.id } label: {
+                            Label(destination.name, systemImage: destinationID == destination.id ? "largecircle.fill.circle" : "circle")
+                                .fixedSize(horizontal: false, vertical: true)
+                                .frame(maxWidth: .infinity, alignment: .leading).padding(10)
+                                .contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                    }
+                    if model.destinations.isEmpty { Text("Add an uploader in Settings → Uploads first.").foregroundStyle(.secondary) }
+                }
+            }
+            HStack {
+                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button("Upload") {
+                    guard let destination = model.destinations.first(where: { $0.id == destinationID }) else { return }
+                    dismiss()
+                    Task { await model.upload(entry, to: destination) }
+                }
+                .buttonStyle(.borderedProminent).disabled(destinationID == nil)
+            }
+        }
+        .padding(24).frame(width: 520, height: 360)
+        .onAppear { destinationID = model.preferredDestination(for: entry) }
+    }
+}
+
+private struct CapturePreview: NSViewRepresentable {
+    let url: URL
+    func makeNSView(context: Context) -> QLPreviewView { QLPreviewView(frame: .zero, style: .normal)! }
+    func updateNSView(_ view: QLPreviewView, context: Context) { view.previewItem = url as NSURL }
+    static func dismantleNSView(_ view: QLPreviewView, coordinator: ()) { view.close() }
 }
 
 /// fps/scale options for "Export as GIF…", pre-filled from RecordingSettings.
@@ -277,26 +466,26 @@ private struct GifExportSheet: View {
 private struct Thumbnail: View {
     let path: String?
     var body: some View {
-        if let path, let image = Thumbnail.downsampled(path: path, maxPixel: 96) {
+        if let path, let image = Thumbnail.downsampled(path: path, maxPixel: 192) {
             Image(nsImage: image)
-                .resizable().aspectRatio(contentMode: .fill)
-                .frame(width: 48, height: 36).clipped()
+                .resizable().aspectRatio(contentMode: .fit)
+                .frame(width: 96, height: 64).clipped()
                 .clipShape(RoundedRectangle(cornerRadius: 4))
         } else if let path, MIMEType.isVideo(path: path) {
             RoundedRectangle(cornerRadius: 4)
                 .fill(.quaternary)
-                .frame(width: 48, height: 36)
+                .frame(width: 96, height: 64)
                 .overlay(Image(systemName: "film").foregroundStyle(.secondary))
         } else {
             RoundedRectangle(cornerRadius: 4)
                 .fill(.quaternary)
-                .frame(width: 48, height: 36)
+                .frame(width: 96, height: 64)
                 .overlay(Image(systemName: "photo").foregroundStyle(.secondary))
         }
     }
 
     /// Decode a downsampled thumbnail directly via ImageIO, so a 4K+ screenshot
-    /// is never fully decoded just to render at 48×36 (maxPixel 96 covers Retina).
+    /// is never fully decoded just to render at 96×64 (maxPixel 192 covers Retina).
     /// Videos return nil here (ImageIO can't decode a video frame) → the film
     /// fallback above; `MIMEType.isVideo` (LumeshotCore) is the single source of truth.
     static func downsampled(path: String, maxPixel: Int) -> NSImage? {

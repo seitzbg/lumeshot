@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import SQLite3
 @testable import LumeshotCore
 
 private func tempDB() -> URL {
@@ -14,6 +15,35 @@ private func entry(id: String, at seconds: TimeInterval, url: String? = nil) -> 
 }
 
 @Suite struct HistoryStoreTests {
+    @Test func legacyDatabaseMigratesWithoutLosingHistory() throws {
+        let url = tempDB()
+        defer { try? FileManager.default.removeItem(at: url.deletingLastPathComponent()) }
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        var db: OpaquePointer?
+        #expect(sqlite3_open(url.path, &db) == SQLITE_OK)
+        let sql = """
+            CREATE TABLE history (id TEXT PRIMARY KEY, captured_at REAL NOT NULL,
+                file_path TEXT, url TEXT, deletion_url TEXT, destination TEXT,
+                upload_failed INTEGER NOT NULL DEFAULT 0);
+            INSERT INTO history VALUES ('old', 100, '/tmp/old.png', 'https://example.com/old',
+                'https://example.com/delete', 'Original', 0);
+            """
+        #expect(sqlite3_exec(db, sql, nil, nil, nil) == SQLITE_OK)
+        sqlite3_close(db)
+        do {
+            let store = try HistoryStore(fileURL: url)
+            let original = try #require(store.all(limit: 10).first)
+            #expect(original.id == "old")
+            #expect(original.deletionURL == "https://example.com/delete")
+            #expect(original.destinationID == nil)
+            var updated = original
+            updated.destinationID = "stable-destination-id"
+            try store.insert(updated)
+        }
+        let reopened = try HistoryStore(fileURL: url)
+        #expect(try reopened.all(limit: 10).first?.destinationID == "stable-destination-id")
+    }
+
     @Test func insertAndReadBackNewestFirst() throws {
         let store = try HistoryStore(fileURL: tempDB())
         try store.insert(entry(id: "a", at: 100))

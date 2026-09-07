@@ -3,6 +3,9 @@ import AppKit
 @MainActor
 final class StatusItemController {
     private let statusItem: NSStatusItem
+    private var recording = false
+    private var uploading = false
+    private var uploadFailed = false
 
     init(menu: NSMenu) {
         statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
@@ -50,6 +53,19 @@ final class StatusItemController {
     /// Swaps the menu-bar icon between idle (camera) and recording (red
     /// stop-circle) state. Clears the elapsed-time title on return to idle.
     func setRecording(_ recording: Bool) {
+        self.recording = recording
+        updateIcon()
+        if !recording { statusItem.button?.title = "" }
+    }
+
+    func setUploadActivity(_ activity: UploadActivity) {
+        uploading = !activity.running.isEmpty
+        uploadFailed = activity.latest?.error != nil
+        statusItem.button?.toolTip = activity.summary ?? "Lumeshot"
+        updateIcon()
+    }
+
+    private func updateIcon() {
         guard let button = statusItem.button else { return }
         if recording {
             let config = NSImage.SymbolConfiguration(paletteColors: [.systemRed])
@@ -57,9 +73,8 @@ final class StatusItemController {
                                    accessibilityDescription: "Recording")?
                 .withSymbolConfiguration(config)
         } else {
-            button.image = NSImage(systemSymbolName: "camera.viewfinder",
-                                   accessibilityDescription: "Lumeshot")
-            button.title = ""
+            button.image = NSImage(systemSymbolName: uploading ? "arrow.up.circle" : uploadFailed ? "exclamationmark.circle" : "camera.viewfinder",
+                                   accessibilityDescription: uploading ? "Uploading" : uploadFailed ? "Upload failed" : "Lumeshot")
         }
     }
 
