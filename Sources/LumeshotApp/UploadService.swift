@@ -112,10 +112,12 @@ struct UploadService {
 
     /// File-backed entry point: the payload stays on disk, so a long recording
     /// is never materialized just to be uploaded.
-    func upload(part: FilePart, destination: UploadDestination, sourcePath: String? = nil) async throws -> UploadResult {
+    func upload(part: FilePart, destination: UploadDestination, sourcePath: String? = nil,
+                historyEntryID: String? = nil) async throws -> UploadResult {
         let filePath: String?
         if case .file(let url, _) = part.source { filePath = url.path } else { filePath = sourcePath }
-        let operation = await activity?.begin(filename: part.filename, destination: destination.name, filePath: filePath)
+        let operation = await activity?.begin(filename: part.filename, destination: destination.name,
+                                              filePath: filePath, historyEntryID: historyEntryID)
         do {
             let result = try await uploader(for: destination).upload(part)
             if let operation { await activity?.finish(operation, url: result.url) }

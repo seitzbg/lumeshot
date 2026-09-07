@@ -161,6 +161,10 @@ final class HistoryModel: ObservableObject {
         guard !isBusy(entry) else { return }
         do { try store.delete(id: entry.id) }
         catch { deleteError = "Couldn’t remove the history entry." }
+        // UploadActivity is a separate in-memory model; deleting the row alone left
+        // it holding a failure the user had just dismissed, which the menu-bar icon
+        // and the History banner both kept rendering.
+        UploadActivity.shared.forgetEntry(id: entry.id)
         reload()
     }
 

@@ -38,7 +38,7 @@ public enum RecordingDelivery {
         mime: String,
         history: HistoryStore?,
         effects: any PipelineEffects,
-        upload: @escaping (FilePart, String) async throws -> DeliveredUpload
+        upload: @escaping (_ part: FilePart, _ filename: String, _ historyEntryID: String) async throws -> DeliveredUpload
     ) async {
         let entryID = UUID().uuidString
         // History row first: the artifact is already on disk, so recording the
@@ -65,7 +65,7 @@ public enum RecordingDelivery {
                                          filename: fileURL.lastPathComponent,
                                          mimeType: mime, url: fileURL)
             let clipboardChangeCount = effects.clipboardChangeCount
-            let result = try await upload(part, fileURL.lastPathComponent)
+            let result = try await upload(part, fileURL.lastPathComponent, entryID)
             // Match still-image delivery: detect copies during the upload.
             // Best effort across apps; NSPasteboard cannot atomically compare
             // the ownership generation and replace its contents.
