@@ -4,6 +4,8 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
+- Removing an upload from History now clears its status. Deleting a failed upload used
+  to leave the menu-bar warning and the History banner still reporting a failure.
 - **Check for Updates…** can now download the update for you. It checks the download
   against the checksum published with the release and reveals it in Finder; you still
   drag it to Applications.
