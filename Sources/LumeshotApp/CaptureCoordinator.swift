@@ -250,7 +250,7 @@ final class CaptureCoordinator {
                                      filePath: savedURL?.path, url: nil, deletionURL: nil,
                                      // Only attribute a destination when we actually upload to it.
                                      destinationName: willUpload ? destination?.name : nil,
-                                     uploadFailed: false)
+                                     uploadFailed: false, destinationID: willUpload ? destination?.id : nil)
             do { try store.insert(entry) } catch { AppLog.log("History insert failed: \(error)") }
         }
 
@@ -266,9 +266,8 @@ final class CaptureCoordinator {
         let clipboardChangeCount = effects.clipboardChangeCount
         Task { @MainActor in
             do {
-                let uploader = try uploadService.uploader(for: destination)
                 let file = UploadService.filePart(pngData: pngData, filename: filename)
-                let result = try await uploader.upload(file)
+                let result = try await uploadService.upload(part: file, destination: destination, sourcePath: savedURL?.path)
                 AppLog.log("Upload succeeded: \(result.url)")
                 // Skip replacement if another copy occurred during the upload.
                 // MainActor serializes our own copies. Across apps this is best
@@ -290,7 +289,7 @@ final class CaptureCoordinator {
                     ? "Local file kept."
                     : "No local copy was saved."   // don't claim a file we never wrote
                 effects.notify(title: "Upload failed",
-                               body: "\(error) \(fate)", fileURL: savedURL)
+                               body: "\(UploadFeedback.message(for: error)) \(fate)", fileURL: savedURL)
                 updateHistory(id: entryID, url: nil, deletionURL: nil, failed: true)
             }
         }
@@ -327,6 +326,7 @@ final class CaptureCoordinator {
                 fileURL: fileURL,
                 capturedAt: Date(),
                 destinationName: destination?.name,
+                destinationID: destination?.id,
                 shouldUpload: shouldUpload,
                 showNotification: settings.showNotification,
                 mime: mime,

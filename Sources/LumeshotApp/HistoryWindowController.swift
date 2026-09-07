@@ -26,13 +26,14 @@ final class HistoryWindowController {
             return
         }
         let recording = settingsStore.loadOrDefault().0.recording
-        let model = HistoryModel(store: store, recordingSettings: recording)
+        let model = HistoryModel(store: store, recordingSettings: recording, settingsStore: settingsStore)
         self.model = model
         let hosting = NSHostingController(rootView: HistoryView(model: model))
         let w = NSWindow(contentViewController: hosting)
         w.title = "History"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        w.setContentSize(NSSize(width: 560, height: 460))
+        w.setContentSize(NSSize(width: 780, height: 600))
+        w.contentMinSize = NSSize(width: 700, height: 480)
         w.isReleasedWhenClosed = false
         window = w
         NSApp.activate(ignoringOtherApps: true)

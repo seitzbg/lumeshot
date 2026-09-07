@@ -8,12 +8,14 @@ struct UploadService {
     /// Where a trust-on-first-use SSH host key gets pinned. Optional so tests
     /// and non-app callers can skip persistence entirely.
     private let settingsStore: SettingsStore?
+    private let activity: UploadActivity?
 
     init(http: HTTPClient = URLSessionHTTPClient(), credentials: CredentialStore,
-        settingsStore: SettingsStore? = nil) {
+        settingsStore: SettingsStore? = nil, activity: UploadActivity? = nil) {
         self.http = http
         self.credentials = credentials
         self.settingsStore = settingsStore
+        self.activity = activity
     }
 
     static func filePart(pngData: Data, filename: String) -> FilePart {
@@ -110,7 +112,17 @@ struct UploadService {
 
     /// File-backed entry point: the payload stays on disk, so a long recording
     /// is never materialized just to be uploaded.
-    func upload(part: FilePart, destination: UploadDestination) async throws -> UploadResult {
-        try await uploader(for: destination).upload(part)
+    func upload(part: FilePart, destination: UploadDestination, sourcePath: String? = nil) async throws -> UploadResult {
+        let filePath: String?
+        if case .file(let url, _) = part.source { filePath = url.path } else { filePath = sourcePath }
+        let operation = await activity?.begin(filename: part.filename, destination: destination.name, filePath: filePath)
+        do {
+            let result = try await uploader(for: destination).upload(part)
+            if let operation { await activity?.finish(operation, url: result.url) }
+            return result
+        } catch {
+            if let operation { await activity?.finish(operation, error: UploadFeedback.message(for: error)) }
+            throw error
+        }
     }
 }

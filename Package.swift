@@ -13,7 +13,8 @@ let package = Package(
         .package(url: "https://github.com/Wellz26/swift-nio-ssh.git", from: "0.3.4"),
     ],
     targets: [
-        .executableTarget(name: "LumeshotApp", dependencies: ["LumeshotCore", "LumeshotCapture", "LumeshotUpload", "LumeshotAnnotate", "LumeshotRecord"]),
+        .executableTarget(name: "LumeshotApp", dependencies: ["LumeshotCore", "LumeshotCapture", "LumeshotUpload", "LumeshotAnnotate", "LumeshotRecord"],
+                          resources: [.copy("Resources/OpenSourceCredits.json")]),
         .target(name: "LumeshotCore"),
         .target(name: "LumeshotCapture", dependencies: ["LumeshotCore"]),
         .systemLibrary(name: "Clibcurl", providers: [.brew(["curl"])]),
