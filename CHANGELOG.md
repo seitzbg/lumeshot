@@ -4,19 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- Blur and pixelate effects stack when they overlap instead of the last one replacing
-  the others.
-- The editor stays responsive while dragging over a blurred or pixelated region.
-- Text no longer reflows when you finish typing it.
-- Stroke colour and width apply to the selected annotation, and a colour change is one
-  undo step rather than one per movement of the colour wheel.
-- New **Check for Updates…** in the Lumeshot menu tells you when a newer release is
-  published and links to it.
-- The Screen Recording permission window no longer clips its instructions at larger
-  system text sizes.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.9](docs/releases/v0.1.9.md) — Stacked blur/pixelate, editor fixes, and a Check for Updates command.
 - [v0.1.8](docs/releases/v0.1.8.md) — Align assigned and unset shortcut controls.
 - [v0.1.7](docs/releases/v0.1.7.md) — About and open source credits, roomier uploader selection, upload status and testing, History improvements, retry, and authenticated remote deletion.
 - [v0.1.6](docs/releases/v0.1.6.md)
