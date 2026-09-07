@@ -44,7 +44,7 @@ import Foundation
     }
 
     @Test func reportsAnUpdateWhenThePublishedTagIsNewer() throws {
-        let result = try UpdateCheck.result(currentVersion: "0.1.8",
+        let result = try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
                                             latestReleaseJSON: payload(tag: "v0.2.0"))
         guard case .updateAvailable(let latest, let page) = result else {
             Issue.record("expected updateAvailable, got \(result)"); return
@@ -54,7 +54,7 @@ import Foundation
     }
 
     @Test func reportsUpToDateWhenTheTagMatches() throws {
-        let result = try UpdateCheck.result(currentVersion: "0.1.8",
+        let result = try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
                                             latestReleaseJSON: payload(tag: "v0.1.8"))
         #expect(result == .upToDate(current: ReleaseVersion("0.1.8")!))
     }
@@ -62,24 +62,41 @@ import Foundation
     /// Running ahead of the published release (a local build of an unreleased commit)
     /// must not advertise a downgrade.
     @Test func reportsUpToDateWhenRunningAheadOfTheRelease() throws {
-        let result = try UpdateCheck.result(currentVersion: "0.2.0",
+        let result = try UpdateCheck.result(currentVersion: "0.2.0", isReleaseBuild: true,
                                             latestReleaseJSON: payload(tag: "v0.1.8"))
         #expect(result == .upToDate(current: ReleaseVersion("0.2.0")!))
     }
 
-    /// scripts/bundle.sh leaves a dev bundle without a real version; it must never be
-    /// told to update.
+    /// A version string that cannot be parsed at all — an unsubstituted template, or
+    /// the placeholder used when the bundle has no version key.
     @Test func aBuildWithNoUsableVersionIsNeverOutOfDate() throws {
         for current in ["@VERSION@", "Development", ""] {
-            let result = try UpdateCheck.result(currentVersion: current,
+            let result = try UpdateCheck.result(currentVersion: current, isReleaseBuild: true,
                                                 latestReleaseJSON: payload(tag: "v9.9.9"))
-            #expect(result == .unknownCurrentVersion)
+            #expect(result == .notAReleaseBuild)
         }
+    }
+
+    /// scripts/bundle.sh defaults VERSION to 0.1.0 and stamps it into the plist, so a
+    /// local build of newer code parses as a valid *older* release. Only the release
+    /// channel can tell the difference, and without it the developer is offered an
+    /// "update" that would downgrade them.
+    @Test func aDevelopmentBuildStampedWithTheBundleDefaultIsNotOfferedAnUpdate() throws {
+        let asRelease = try UpdateCheck.result(currentVersion: "0.1.0", isReleaseBuild: true,
+                                               latestReleaseJSON: payload(tag: "v0.1.8"))
+        guard case .updateAvailable = asRelease else {
+            Issue.record("a real 0.1.0 release should be offered 0.1.8"); return
+        }
+        // Same version string, development channel: no offer.
+        let asDevelopment = try UpdateCheck.result(currentVersion: "0.1.0", isReleaseBuild: false,
+                                                   latestReleaseJSON: payload(tag: "v0.1.8"))
+        #expect(asDevelopment == .notAReleaseBuild)
     }
 
     @Test func draftsAndPrereleasesAreNotOffered() throws {
         for json in [payload(tag: "v9.9.9", draft: true), payload(tag: "v9.9.9", prerelease: true)] {
-            let result = try UpdateCheck.result(currentVersion: "0.1.8", latestReleaseJSON: json)
+            let result = try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
+                                                latestReleaseJSON: json)
             #expect(result == .upToDate(current: ReleaseVersion("0.1.8")!))
         }
     }
@@ -87,14 +104,16 @@ import Foundation
     @Test func malformedPayloadsThrowRatherThanGuess() {
         for bad in [Data("not json".utf8), Data("{}".utf8), Data(), Data("[]".utf8)] {
             #expect(throws: UpdateCheckError.self) {
-                try UpdateCheck.result(currentVersion: "0.1.8", latestReleaseJSON: bad)
+                try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
+                                       latestReleaseJSON: bad)
             }
         }
     }
 
     @Test func aTagThatIsNotAVersionThrows() {
         #expect(throws: UpdateCheckError.unusableTag("nightly")) {
-            try UpdateCheck.result(currentVersion: "0.1.8", latestReleaseJSON: payload(tag: "nightly"))
+            try UpdateCheck.result(currentVersion: "0.1.8", isReleaseBuild: true,
+                                       latestReleaseJSON: payload(tag: "nightly"))
         }
     }
 }

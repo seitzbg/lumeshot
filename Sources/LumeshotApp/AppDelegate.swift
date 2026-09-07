@@ -260,6 +260,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         settingsItem.target = self
         menu.addItem(settingsItem)
         menu.addItem(menuItem("About Lumeshot", #selector(showAbout)))
+        // Also in the main menu, but Lumeshot runs as an accessory app: that menu bar
+        // only appears while Settings is open, so the status menu is the real home.
+        menu.addItem(menuItem("Check for Updates…", #selector(checkForUpdates)))
         menu.addItem(NSMenuItem(title: "Quit Lumeshot",
                                 action: #selector(NSApplication.terminate(_:)),
                                 keyEquivalent: "q"))

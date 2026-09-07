@@ -3,9 +3,9 @@ import Foundation
 public enum UpdateCheckResult: Equatable, Sendable {
     case upToDate(current: ReleaseVersion)
     case updateAvailable(latest: ReleaseVersion, releasePage: URL)
-    /// The running build has no comparable version — a local `scripts/bundle.sh`
-    /// build, or an unsubstituted `@VERSION@`. Never reported as out of date.
-    case unknownCurrentVersion
+    /// Not a published release: a local `scripts/bundle.sh` bundle, or a version
+    /// string that is not comparable. Never reported as out of date.
+    case notAReleaseBuild
 }
 
 public enum UpdateCheckError: Error, Equatable, Sendable {
@@ -30,8 +30,15 @@ public enum UpdateCheck {
         let prerelease: Bool?
     }
 
+    /// `isReleaseBuild` comes from the bundle's `LumeshotReleaseChannel`, which only
+    /// the release workflow sets. It is not enough to look at the version string:
+    /// `scripts/bundle.sh` defaults VERSION to 0.1.0, so a local build of newer code
+    /// parses as a perfectly valid — and older — release and would be offered an
+    /// "update" to whatever is published.
     public static func result(currentVersion: String,
+                              isReleaseBuild: Bool,
                               latestReleaseJSON: Data) throws -> UpdateCheckResult {
+        // Decode first, so a broken response is reported even on a development build.
         guard let payload = try? JSONDecoder().decode(Payload.self, from: latestReleaseJSON),
               let page = URL(string: payload.html_url) else {
             throw UpdateCheckError.malformedResponse
@@ -39,14 +46,15 @@ public enum UpdateCheck {
         guard let latest = ReleaseVersion(payload.tag_name) else {
             throw UpdateCheckError.unusableTag(payload.tag_name)
         }
+        guard isReleaseBuild, let current = ReleaseVersion(currentVersion) else {
+            return .notAReleaseBuild
+        }
         // A draft or pre-release is not something to point users at. GitHub's
         // `releases/latest` already excludes both, so this only matters if the
         // endpoint or the repo's release process changes.
         if payload.draft == true || payload.prerelease == true {
-            guard let current = ReleaseVersion(currentVersion) else { return .unknownCurrentVersion }
             return .upToDate(current: current)
         }
-        guard let current = ReleaseVersion(currentVersion) else { return .unknownCurrentVersion }
         return latest > current
             ? .updateAvailable(latest: latest, releasePage: page)
             : .upToDate(current: current)

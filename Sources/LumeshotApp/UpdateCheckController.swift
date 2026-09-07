@@ -15,11 +15,16 @@ import LumeshotCore
 final class UpdateCheckController {
     private var inFlight = false
 
-    /// The running build's version, or a placeholder that `UpdateCheck` treats as
-    /// "not comparable" so a dev build is never told it is out of date.
     private var currentVersion: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? "Development"
+    }
+
+    /// Set only by the release workflow (see `scripts/bundle.sh`). The version string
+    /// alone cannot tell us this: a local bundle defaults to 0.1.0, which reads as a
+    /// valid older release.
+    private var isReleaseBuild: Bool {
+        Bundle.main.object(forInfoDictionaryKey: "LumeshotReleaseChannel") as? String == "release"
     }
 
     func checkForUpdates() {
@@ -42,6 +47,7 @@ final class UpdateCheckController {
                     return
                 }
                 let result = try UpdateCheck.result(currentVersion: self?.currentVersion ?? "",
+                                                    isReleaseBuild: self?.isReleaseBuild ?? false,
                                                     latestReleaseJSON: data)
                 self?.present(result)
             } catch {
@@ -64,11 +70,11 @@ final class UpdateCheckController {
         case .upToDate(let current):
             alert.messageText = "Lumeshot is up to date"
             alert.informativeText = "You are running \(current)."
-        case .unknownCurrentVersion:
-            alert.messageText = "This build has no release version"
+        case .notAReleaseBuild:
+            alert.messageText = "This is not a published build"
             alert.informativeText = """
-            Local builds are not stamped with a version, so there is nothing to compare \
-            against a published release.
+            Update checks compare published releases. This copy was built locally, so \
+            there is nothing meaningful to compare it against.
             """
         }
         alert.addButton(withTitle: "OK")

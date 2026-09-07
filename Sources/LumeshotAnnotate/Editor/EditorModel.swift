@@ -81,7 +81,7 @@ public final class EditorModel: ObservableObject {
     }
 
     /// The annotation currently absorbing a run of style edits, or nil when no run
-    /// is open. See `applyStrokeStyleToSelection`.
+    /// is open. See `applyStrokeColorToSelection`.
     private var styleEditRun: Annotation.ID?
 
     private var currentStyle: AnnotationStyle {
@@ -171,6 +171,7 @@ public final class EditorModel: ObservableObject {
         guard let previous = history.undo(current: annotations) else { return }
         annotations = previous
         clampSelection()
+        syncInspectorToSelection()
         refreshHistoryFlags()
     }
 
@@ -179,6 +180,7 @@ public final class EditorModel: ObservableObject {
         guard let next = history.redo(current: annotations) else { return }
         annotations = next
         clampSelection()
+        syncInspectorToSelection()
         refreshHistoryFlags()
     }
 
@@ -193,30 +195,52 @@ public final class EditorModel: ObservableObject {
         styleEditRun = nil
     }
 
-    /// Pushes the toolbar's stroke colour and width onto the selected annotation.
+    /// Pushes the toolbar's stroke colour onto the selected annotation.
     ///
     /// `ColorPicker` has no `onEditingChanged`, so dragging through the colour wheel
     /// emits a continuous stream of values with no release event to commit on. One
-    /// history entry per value would bury the undo stack under intermediate colours,
-    /// so consecutive style edits to the *same* annotation coalesce: the first edit of
-    /// a run snapshots history, the rest mutate in place. A run ends on selection
-    /// change, undo/redo, any other edit, or `endingRun` from a control that does have
-    /// a release event.
+    /// history entry per value would bury the undo stack, so consecutive colour edits
+    /// to the *same* annotation coalesce: the first snapshots history, the rest mutate
+    /// in place. A run ends on selection change, undo/redo, any other edit, or
+    /// `endStrokeStyleRun()`.
     ///
     /// The accepted cost: two deliberate colour picks with nothing in between merge
-    /// into one undo entry. Without a release event from `ColorPicker`, the
-    /// alternative is a timer, which buys little for a cosmetic edit.
-    public func applyStrokeStyleToSelection(endingRun: Bool = false) {
-        defer { if endingRun { styleEditRun = nil } }
+    /// into one undo entry. Without a release event the alternative is a timer, which
+    /// buys little for a cosmetic edit.
+    public func applyStrokeColorToSelection() {
+        applyStroke(coalescing: true) { $0.strokeColor = self.strokeColor }
+    }
+
+    /// Pushes the toolbar's stroke width onto the selected annotation as its own undo
+    /// entry. The slider has a real release event, so there is no reason to coalesce —
+    /// and coalescing here would let a width edit swallow a preceding colour change.
+    public func applyStrokeWidthToSelection() {
+        applyStroke(coalescing: false) { $0.strokeWidth = self.strokeWidth }
+    }
+
+    /// Ends any open style-edit run. Call when a new interaction begins (a slider
+    /// grab), so the edit that follows cannot merge backwards into it.
+    public func endStrokeStyleRun() { styleEditRun = nil }
+
+    /// Applies ONE property. Applying both would be wrong: undo restores `annotations`
+    /// but not the toolbar's published values, so after undoing a colour change the
+    /// picker still holds the new colour — and copying it alongside a width edit would
+    /// silently re-apply the colour the user just undid.
+    private func applyStroke(coalescing: Bool, _ mutate: (inout AnnotationStyle) -> Void) {
         guard let id = selectedID,
-              let index = annotations.firstIndex(where: { $0.id == id }) else { return }
+              let index = annotations.firstIndex(where: { $0.id == id }) else {
+            styleEditRun = nil
+            return
+        }
         var style = annotations[index].style
-        style.strokeColor = strokeColor
-        style.strokeWidth = strokeWidth
-        guard style != annotations[index].style else { return }
-        if styleEditRun != id {
-            commitHistory(annotations)
-            styleEditRun = id
+        mutate(&style)
+        guard style != annotations[index].style else {
+            if !coalescing { styleEditRun = nil }
+            return
+        }
+        if !(coalescing && styleEditRun == id) {
+            commitHistory(annotations)              // also clears styleEditRun
+            styleEditRun = coalescing ? id : nil
         }
         annotations[index].style = style
         refreshHistoryFlags()
@@ -405,6 +429,13 @@ public final class EditorModel: ObservableObject {
             commitHistory(before)
             refreshHistoryFlags()
         }
+    }
+
+    /// Re-reads the toolbar from whatever is selected. Undo/redo replace the document
+    /// wholesale, and without this the inspector keeps describing the state that was
+    /// just undone.
+    private func syncInspectorToSelection() {
+        if let selected = selectedAnnotation { syncInspector(to: selected) }
     }
 
     private func clampSelection() {
