@@ -215,8 +215,9 @@ Rough priority order — revisit when picking up again:
 
 Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
 Done: **editor polish pass** — effect stacking + caching, text-font fidelity and the
-stroke push all landed. **Per-kind upload destinations** — recordings can target their
-own uploader; see Unreleased.
+stroke push all landed. **Per-kind upload destinations** — implemented and unit-tested;
+the picker and an actual upload to the second destination still need a hands-on pass with
+two uploaders configured. See Unreleased.
 
 ## How to resume
 
