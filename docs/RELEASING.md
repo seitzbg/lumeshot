@@ -75,9 +75,26 @@ login Keychain with `generate_keys -x`. **Back up the Keychain copy.** Losing it
 installed copies can never verify another update — recovery requires shipping a new public
 key in a build users install by hand.
 
-Note that `generate_appcast` omits `sparkle:edSignature` for a Developer ID signed and
-notarized dmg: Sparkle validates those through Apple code signing instead. That is
-expected, not a misconfiguration — an ad-hoc build of the same app does get a signature.
+To confirm the secret still matches what the app ships, run the `verify-sparkle-key`
+workflow. It derives the public half of the secret and compares it, without publishing
+anything. Worth doing before a release and after any key rotation, because a mismatch does
+not fail the release — see below.
+
+**A missing `sparkle:edSignature` is a broken release, not a quirk.** `generate_appcast`
+signs an archive when the `SUPublicEDKey` inside the app matches the public half of the
+private key it was given. On a mismatch it prints a *warning* and carries on, producing a
+feed whose entry has no signature — which installed copies then refuse. Notarization has
+nothing to do with it; there is no notarization check in that code path
+(`generate_appcast/Appcast.swift`, the `publicEdKey == expectedPublicKey` branch).
+
+An earlier version of this document claimed the omission was expected for notarized dmgs.
+That came from comparing a released dmg against an ad-hoc build of newer source, which
+varied two things at once: the released build predated Sparkle and carried no
+`SUPublicEDKey` at all, and an app without that key is skipped silently by the same code.
+Believing the old explanation would mean shrugging off the one symptom a key mismatch
+produces.
+
+So after a release, check that the new `appcast.xml` entry has a `sparkle:edSignature`.
 
 The version in `Info.plist` and the dmg filename come from the tag (`GITHUB_REF_NAME` with
 the leading `v` stripped) — no separate version bump is needed.
@@ -144,8 +161,12 @@ See `docs/smoke-signing.md`. The short version, on a Mac that has never run Lume
 
 Local builds use the self-signed `lumeshot-dev` identity from `scripts/setup-signing.sh`,
 not the Developer ID certificate — the real private key stays in GitHub secrets and never
-reaches the dev Mac. They still get the hardened runtime and the same entitlements, so the
-dev loop exercises the runtime restrictions the shipped app runs under.
+reaches the dev Mac. They get the hardened runtime, so the dev loop exercises the runtime
+restrictions the shipped app runs under, with one exception: they sign with
+`Resources/Lumeshot-dev.entitlements`, which disables library validation. That check
+requires the app and Sparkle.framework to share a Team ID, and `codesign` derives one only
+from an Apple-issued certificate, so no local build can satisfy it. Release builds use the
+empty `Resources/Lumeshot.entitlements`; `scripts/bundle.sh` picks by `DEVELOPER_ID_SIGNING`.
 
 ## Why notarization matters here
 
