@@ -42,7 +42,24 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
-_Nothing yet._
+- Every upload failure now logs the underlying error, including the Test sheet's. Only
+  `RecordingDelivery` logged one; the Test and still paths surfaced `UploadFeedback`'s
+  friendly text, and for `.transport` that is "Couldn't complete the connection", which
+  discards the reason. `UploadService.upload` is the single funnel all three pass through,
+  so the raw error is recorded there once, with the destination name and kind.
+
+- The uploader Test now sends what the destination will actually carry: a short clip to
+  hosts that accept video, the generated image to image-only ones. Testing an image host
+  with video only proves it says no; testing a file transport with an image exercised less
+  than the destination was chosen for.
+
+**Watching — SFTP Test failed once on a new build, then never again (2026-09-07).** One
+failure immediately after installing a new build; not reproducible afterwards. Ruled out:
+trust-on-first-use (the host key was already pinned) and the image-host-rejects-video
+cause (the Test sent an image to SFTP, which accepts anything). Nothing was logged, so the
+cause is unknown and now unrecoverable. Deliberately **not** being chased further: a
+single unreproducible failure is not worth speculative changes. The funnel logging above
+means a recurrence records its own reason; revisit only with a real log line in hand.
 
 ## v0.1.14 — released
 

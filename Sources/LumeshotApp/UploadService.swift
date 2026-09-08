@@ -123,6 +123,12 @@ struct UploadService {
             if let operation { await activity?.finish(operation, url: result.url) }
             return result
         } catch {
+            // Every upload — Test sheet, still capture, recording — funnels through here,
+            // so this is the one place that sees the raw error. What the user is shown
+            // is UploadFeedback's friendly text, and for `.transport` that is
+            // "Couldn't complete the connection", which discards the actual reason. A
+            // failing SFTP uploader was undiagnosable for exactly that.
+            AppLog.log("Upload failed via \(destination.name) (\(destination.kind.rawValue)): \(error)")
             if let operation { await activity?.finish(operation, error: UploadFeedback.message(for: error)) }
             throw error
         }
