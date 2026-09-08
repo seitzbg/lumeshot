@@ -165,11 +165,13 @@ jobs:
           # generate_appcast picks up release notes from a file named after the
           # archive, so the published notes become the update's description.
           #
-          # Note on signatures: generate_appcast omits sparkle:edSignature for a
-          # Developer ID signed and notarized dmg, because Sparkle validates those
-          # through Apple code signing instead. Verified by comparing against an
-          # ad-hoc signed build, which does get a signature. The key is still
-          # required — it signs the feed itself.
+          # Note on signatures: generate_appcast signs the archive when the
+          # SUPublicEDKey inside the app matches the public half of the key given
+          # here. A mismatch is only a warning — it still writes a feed, minus the
+          # sparkle:edSignature, and installed copies then refuse the update. So a
+          # released entry without a signature means the key is wrong, not that
+          # notarization replaced it. Run the verify-sparkle-key workflow to check
+          # the secret before relying on this step.
           DMG_BASE="$(basename dist/*.dmg .dmg)"
           cp "docs/releases/${GITHUB_REF_NAME}.md" "/tmp/appcast/${DMG_BASE}.md"
 
