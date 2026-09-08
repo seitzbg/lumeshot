@@ -74,7 +74,8 @@ struct UploadService {
             }
             let secret = try SFTPCredentials.load(id: destination.id, from: credentials)
             return SFTPUploader(config: cfg, secret: secret,
-                                rememberHostKey: hostKeyPinner(for: destination.id))
+                                rememberHostKey: hostKeyPinner(for: destination.id,
+                                                               host: cfg.host, port: cfg.port))
         }
     }
 
@@ -82,7 +83,14 @@ struct UploadService {
     /// later connection is checked against it instead of trusting anything.
     /// Re-reads settings at call time because the pin arrives mid-upload, well
     /// after any snapshot we might have taken.
-    private func hostKeyPinner(for destinationID: String) -> @Sendable (String) -> Void {
+    ///
+    /// `host` and `port` are the endpoint that actually presented the key. They
+    /// are checked again at write time because the destination can be edited to
+    /// point somewhere else while the upload is still connecting: the id alone
+    /// would then staple this server's fingerprint onto a different one, and
+    /// every later connection there would fail as a host-key mismatch.
+    private func hostKeyPinner(for destinationID: String, host: String,
+                               port: Int) -> @Sendable (String) -> Void {
         guard let settingsStore else { return { _ in } }
         return { fingerprint in
             // One transaction, because this runs on a NIO event-loop thread while
@@ -93,7 +101,9 @@ struct UploadService {
                 try settingsStore.mutate { settings in
                     guard let index = settings.upload.destinations
                         .firstIndex(where: { $0.id == destinationID }),
-                          (settings.upload.destinations[index].sftpConfig?.knownHostKey ?? "").isEmpty
+                          let current = settings.upload.destinations[index].sftpConfig,
+                          current.host == host, current.port == port,
+                          (current.knownHostKey ?? "").isEmpty
                     else { return }
                     settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
                     pinned = true

@@ -64,13 +64,17 @@ public struct SettingsStore: Sendable {
     /// too rare for the contention to matter.
     private static let transaction = NSRecursiveLock()
 
+    /// A body that changes nothing writes nothing, so an action that inspects
+    /// the current settings and then declines to proceed can do both inside the
+    /// transaction without rewriting the file to bail out.
     @discardableResult
     public func mutate(_ body: (inout AppSettings) throws -> Void) throws -> AppSettings {
         Self.transaction.lock()
         defer { Self.transaction.unlock() }
-        var settings = loadOrDefault().0
+        let original = loadOrDefault().0
+        var settings = original
         try body(&settings)
-        try save(settings)
+        if settings != original { try save(settings) }
         return settings
     }
 

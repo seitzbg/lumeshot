@@ -421,14 +421,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         do {
             let data = try Data(contentsOf: url)
             let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
-            var (settings, _) = store.loadOrDefault()
             let id = UUID().uuidString
             let credentials = KeychainCredentialStore()
             let destination = try SxcuImporter.makeDestination(
                 from: data, id: id, credentials: credentials)
-            settings.upload = settings.upload.addingOrUpdating(destination)
+            let settings: AppSettings
             do {
-                try store.save(settings)
+                // One transaction, so an import cannot overwrite a host-key pin
+                // or a Preferences save that lands while the file is being read.
+                settings = try store.mutate { $0.upload = $0.upload.addingOrUpdating(destination) }
             } catch {
                 // The Keychain writes already happened inside makeDestination.
                 // Without this the secrets would linger with no destination
@@ -452,16 +453,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleUploadAfterCapture() {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
-        var (settings, _) = store.loadOrDefault()
-        if !settings.upload.uploadAfterCapture && settings.upload.activeDestination == nil {
-            effects.notify(title: "Choose an active uploader",
-                           body: "Add and select an uploader in Preferences → Uploads first.", fileURL: nil)
-            return
-        }
-        settings.upload = settings.upload.settingUploadAfterCapture(!settings.upload.uploadAfterCapture)
         do {
-            try store.save(settings)
-            AppLog.log("Upload after capture: \(settings.upload.uploadAfterCapture)")
+            // The guard runs inside the transaction, against the same snapshot
+            // the toggle is applied to — checking it beforehand would decide on
+            // settings that could change before the write. Declining leaves the
+            // snapshot untouched, and an unchanged transaction writes nothing.
+            var refused = false
+            let saved = try store.mutate { settings in
+                if !settings.upload.uploadAfterCapture && settings.upload.activeDestination == nil {
+                    refused = true
+                    return
+                }
+                settings.upload = settings.upload
+                    .settingUploadAfterCapture(!settings.upload.uploadAfterCapture)
+            }
+            if refused {
+                effects.notify(title: "Choose an active uploader",
+                               body: "Add and select an uploader in Preferences → Uploads first.",
+                               fileURL: nil)
+                return
+            }
+            AppLog.log("Upload after capture: \(saved.upload.uploadAfterCapture)")
         } catch {
             AppLog.log("Failed to save upload-after-capture toggle: \(error)")
         }

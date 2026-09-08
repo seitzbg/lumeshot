@@ -82,10 +82,15 @@ public struct AfterCapturePipeline {
     ///
     /// The rendered template alone does not fix it: its finest unit is the
     /// second, so two captures in the same second still collide, and a template
-    /// without a time token collides always. The random suffix is what actually
-    /// carries the uniqueness, across sessions as well as within one.
+    /// without a time token collides always. The suffix is what actually carries
+    /// the uniqueness, across sessions as well as within one.
+    ///
+    /// The whole UUID, not a prefix of it. A template carrying no time token
+    /// leaves the suffix as the only thing separating two uploads, and a
+    /// collision here overwrites someone's earlier capture on a filename-keyed
+    /// destination — too poor a trade for a shorter name.
     private func unsavedUploadName(artifact: CaptureArtifact) -> String {
-        let suffix = String(UUID().uuidString.prefix(8)).lowercased()
+        let suffix = UUID().uuidString.lowercased()
         return "\(renderName(artifact: artifact, increment: 0))-\(suffix).png"
     }
 

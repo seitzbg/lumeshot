@@ -1,7 +1,7 @@
 import Foundation
 import Testing
 import LumeshotCore
-import LumeshotUpload
+@testable import LumeshotUpload
 @testable import LumeshotApp
 
 /// A credential store whose writes can be made to fail for one chosen account,
@@ -139,6 +139,51 @@ private final class FlakyCredentials: CredentialStore, @unchecked Sendable {
         let saved = store.loadOrDefault().0.upload.destinations[0]
         #expect(saved.name == "Renamed")
         #expect(saved.sftpConfig?.knownHostKey == "SHA256:pinned")
+    }
+
+    /// The fingerprint belongs to the endpoint that presented it. An upload can
+    /// still be connecting when the destination is edited to point elsewhere, and
+    /// keying the write on the id alone stapled this server's key onto the new
+    /// one — after which every connection there failed as a host-key mismatch.
+    @Test func aPinIsNotWrittenOntoAnEndpointThatDidNotPresentIt() throws {
+        let dir = try directory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))
+        let destination = UploadDestination(id: "dest", name: "SFTP", kind: .sftp,
+                                            sftpConfig: sftpConfig())
+        var settings = AppSettings.default
+        settings.upload = settings.upload.addingOrUpdating(destination)
+        try store.save(settings)
+
+        let service = UploadService(credentials: FlakyCredentials(), settingsStore: store)
+        let uploader = try #require(try service.uploader(for: destination) as? SFTPUploader)
+
+        // The destination is repointed while the upload is still connecting.
+        settings.upload.destinations[0].sftpConfig?.host = "elsewhere.example.com"
+        try store.save(settings)
+
+        uploader.rememberHostKey("SHA256:from-the-original-host")
+
+        let saved = store.loadOrDefault().0.upload.destinations[0].sftpConfig
+        #expect(saved?.host == "elsewhere.example.com")
+        #expect(saved?.knownHostKey == nil)
+    }
+
+    /// The ordinary case still pins: same destination, same endpoint, no pin yet.
+    @Test func aPinIsWrittenWhenTheEndpointIsUnchanged() throws {
+        let dir = try directory(); defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))
+        let destination = UploadDestination(id: "dest", name: "SFTP", kind: .sftp,
+                                            sftpConfig: sftpConfig())
+        var settings = AppSettings.default
+        settings.upload = settings.upload.addingOrUpdating(destination)
+        try store.save(settings)
+
+        let service = UploadService(credentials: FlakyCredentials(), settingsStore: store)
+        let uploader = try #require(try service.uploader(for: destination) as? SFTPUploader)
+        uploader.rememberHostKey("SHA256:learned")
+
+        #expect(store.loadOrDefault().0.upload.destinations[0].sftpConfig?.knownHostKey
+                == "SHA256:learned")
     }
 
     /// Moving the destination to a different server must not carry the old
