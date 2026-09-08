@@ -8,6 +8,7 @@ _Nothing yet._
 
 ## Releases
 
+- [v0.1.16](docs/releases/v0.1.16.md) — Identical to v0.1.15; published so the automatic updater has a newer release to install.
 - [v0.1.15](docs/releases/v0.1.15.md) — Automatic updates, and twelve code-review fixes covering lost uploads, credential edits, crops and redactions.
 - [v0.1.14](docs/releases/v0.1.14.md) — Guard rails for upload destinations: image-only hosts, untested uploaders, and logged recording failures.
 - [v0.1.13](docs/releases/v0.1.13.md) — Fix the Download button in the update alert doing nothing.
