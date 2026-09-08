@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import LumeshotCore
 import LumeshotUpload
@@ -44,12 +45,79 @@ final class UploaderTestModel: ObservableObject {
                         mimeType: "image/png", data: data)
     }
 
+    /// A one-second 160x90 H.264 clip, written to a temporary file because
+    /// AVAssetWriter only writes to disk, then read back and the file removed.
+    ///
+    /// Small on purpose: this is a reachability and acceptance check, not a
+    /// throughput benchmark, and it lands in someone's bucket or home directory.
+    static func sampleVideo() async throws -> FilePart {
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent("lumeshot-test-\(UUID().uuidString).mp4")
+        defer { try? FileManager.default.removeItem(at: url) }
+
+        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
+            AVVideoCodecKey: AVVideoCodecType.h264,
+            AVVideoWidthKey: 160,
+            AVVideoHeightKey: 90,
+        ])
+        input.expectsMediaDataInRealTime = false
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input,
+                                                           sourcePixelBufferAttributes: nil)
+        guard writer.canAdd(input) else {
+            throw UploadError.unsupported("Couldn’t create a test video")
+        }
+        writer.add(input)
+        guard writer.startWriting() else {
+            throw UploadError.unsupported("Couldn’t create a test video")
+        }
+        writer.startSession(atSourceTime: .zero)
+
+        for frame in 0..<8 {
+            guard let pool = adaptor.pixelBufferPool else { break }
+            var buffer: CVPixelBuffer?
+            guard CVPixelBufferPoolCreatePixelBuffer(nil, pool, &buffer) == kCVReturnSuccess,
+                  let buffer else { break }
+            CVPixelBufferLockBaseAddress(buffer, [])
+            // A shifting grey so successive frames differ; an all-identical clip
+            // can encode to something a server treats as degenerate.
+            if let base = CVPixelBufferGetBaseAddress(buffer) {
+                memset(base, Int32(40 + frame * 20), CVPixelBufferGetBytesPerRow(buffer)
+                       * CVPixelBufferGetHeight(buffer))
+            }
+            CVPixelBufferUnlockBaseAddress(buffer, [])
+            while !input.isReadyForMoreMediaData { await Task.yield() }
+            adaptor.append(buffer, withPresentationTime: CMTime(value: Int64(frame), timescale: 8))
+        }
+        input.markAsFinished()
+        await writer.finishWriting()
+        guard writer.status == .completed else {
+            throw UploadError.unsupported("Couldn’t encode a test video")
+        }
+        let data = try Data(contentsOf: url)
+        return FilePart(fieldName: "file", filename: "lumeshot-test-\(UUID().uuidString).mp4",
+                        mimeType: "video/mp4", data: data)
+    }
+
+    /// Tests what the destination will actually be asked to carry. A host that
+    /// takes video is a general file transport, so a clip exercises strictly more
+    /// than a PNG would — size, MIME handling, and any upload limits. An image-only
+    /// host gets the image, since sending it a clip only proves it says no.
+    static func sampleArtifact(for destination: UploadDestination) async throws -> FilePart {
+        destination.kind.acceptsRecordings ? try await sampleVideo() : try sampleImage()
+    }
+
+    /// What this test will upload, for the sheet to say so before it runs.
+    var artifactDescription: String {
+        destination.kind.acceptsRecordings ? "a short test video" : "a generated test image"
+    }
+
     func run() async {
         guard !isRunning, result == nil else { return }
         isRunning = true
         error = nil
         defer { isRunning = false }
-        do { result = try await upload(Self.sampleImage(), destination) }
+        do { result = try await upload(Self.sampleArtifact(for: destination), destination) }
         catch { self.error = UploadFeedback.message(for: error) }
     }
 
@@ -77,6 +145,9 @@ struct UploaderTestSheet: View {
             VStack(alignment: .leading, spacing: 6) {
                 Text("Test uploader").font(.title2.bold())
                 Text(model.destination.name).foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+                Text("Uploads \(model.artifactDescription) — no screen content.")
+                    .font(.callout).foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
             }
             Divider()
