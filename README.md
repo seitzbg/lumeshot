@@ -78,7 +78,7 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 
 **Distribution**
 - Compact About window with GitHub and release links, plus bundled open source credits; also accessible from Settings
-- Developer ID signed, notarized and stapled `.dmg`, built by a `v*`-tag-triggered GitHub Actions release; hardened runtime with no entitlement exceptions in shipped builds (local builds disable library validation, which the hardened runtime cannot satisfy without an Apple-issued certificate). Signing is opt-in on secret presence, so a fork without credentials still publishes an (ad-hoc) dmg. One-time setup: `scripts/setup-developer-id.sh` — see `docs/RELEASING.md`
+- Developer ID signed, notarized and stapled `.dmg`, built by a `v*`-tag-triggered GitHub Actions release; hardened runtime with no entitlement exceptions in a signed release. Builds without a Developer ID — local ones, and a fork's unsigned dmg — disable library validation instead, because the hardened runtime cannot satisfy it without an Apple-issued certificate to take a Team ID from, and Sparkle would not load at all. Signing is opt-in on secret presence, so a fork without credentials still publishes an (ad-hoc) dmg. One-time setup: `scripts/setup-developer-id.sh` — see `docs/RELEASING.md`
 
 ## Security
 
