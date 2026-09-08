@@ -50,6 +50,16 @@ _Nothing yet._
   install, which is the only way to exercise the download-and-install half of the Sparkle
   integration — a copy of v0.1.15 finds only its own entry in the feed.
 
+  **It worked (2026-09-08).** An installed v0.1.15 offered the update, downloaded it,
+  verified the signature and installed in place. That closes the last unproven part of
+  the auto-update work.
+
+  One false alarm on the way, worth knowing about: the update did not appear immediately
+  after publishing. GitHub Pages serves `appcast.xml` with `cache-control: max-age=600`,
+  so for up to ten minutes the CDN keeps handing out the previous feed even though
+  `gh-pages` already has the new entry — here the branch was correct within three seconds
+  of the release. Nothing is wrong in that window; wait it out before diagnosing.
+
   Step 9 of the release workflow ran for the first time in v0.1.15 and the published
   entry carried a `sparkle:edSignature`, which also settled the question of when that
   attribute is omitted: on a key mismatch, not for notarized dmgs.
@@ -319,10 +329,9 @@ Run these when convenient (each is a checklist):
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Auto-update: shipped in v0.1.15, via Sparkle. Updates install in place; the
-  manual download-and-drag step is gone. v0.1.15 is the first build whose own
-  update flow cannot be tested by installing it — an installed v0.1.15 finds only
-  its own entry in the feed — so the first end-to-end proof is v0.1.16.
+- Auto-update: shipped in v0.1.15, via Sparkle, and proven end to end on 2026-09-08 by
+  updating an installed v0.1.15 to v0.1.16. Updates install in place; the manual
+  download-and-drag step is gone.
 - v0.1.16 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.16 in `docs/smoke-signing.md`.
 
 **Uploaders**
@@ -354,7 +363,7 @@ Run these when convenient (each is a checklist):
 Rough priority order — revisit when picking up again:
 
 1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.16 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
-2. **Prove the update flow end to end** — v0.1.16 exists for this. An installed v0.1.15 should see it, download it, verify its signature and install in place. Until that has been done by hand, the updater is shipped but unproven; record the outcome here.
+2. ~~**Prove the update flow end to end**~~ — **done, 2026-09-08.** An installed v0.1.15 offered v0.1.16, downloaded it, verified its EdDSA signature and installed in place. The Sparkle integration is proven, not merely shipped.
 3. **First-run / onboarding refinement** — the remaining half of distribution polish (app icon shipped in v0.1.6; auto-update shipped in v0.1.15).
 
 Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
