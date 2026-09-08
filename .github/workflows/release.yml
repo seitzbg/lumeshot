@@ -133,6 +133,68 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" dist/*.dmg dist/SHA256SUMS.txt
           --title "${GITHUB_REF_NAME}" --notes-file "docs/releases/${GITHUB_REF_NAME}.md"
 
+      # The feed lives on gh-pages; the dmg stays on the release CDN, so only
+      # appcast.xml is pushed. Gated on SIGNING_ENABLED: an unsigned build must
+      # never be advertised to installed copies, which would offer users an
+      # update Gatekeeper then refuses.
+      - name: Update the Sparkle appcast
+        if: env.SIGNING_ENABLED == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY is not set; installed copies would never see this release"
+            exit 1
+          fi
+          # Pinned to the version in Package.resolved, so the tool that signs the
+          # feed matches the framework that verifies it.
+          SPARKLE_VERSION=2.9.6
+          curl -fsSL -o /tmp/sparkle.tar.xz \
+            "https://github.com/sparkle-project/Sparkle/releases/download/${SPARKLE_VERSION}/Sparkle-${SPARKLE_VERSION}.tar.xz"
+          mkdir -p /tmp/sparkle && tar -xf /tmp/sparkle.tar.xz -C /tmp/sparkle
+
+          # The checkout has persist-credentials: false, so clone the feed branch
+          # with an explicit token rather than re-arming the main working tree.
+          git clone --depth 1 --branch gh-pages \
+            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" /tmp/pages
+          mkdir -p /tmp/appcast
+          cp /tmp/pages/appcast.xml /tmp/appcast/
+          cp dist/*.dmg /tmp/appcast/
+          # generate_appcast picks up release notes from a file named after the
+          # archive, so the published notes become the update's description.
+          #
+          # Note on signatures: generate_appcast omits sparkle:edSignature for a
+          # Developer ID signed and notarized dmg, because Sparkle validates those
+          # through Apple code signing instead. Verified by comparing against an
+          # ad-hoc signed build, which does get a signature. The key is still
+          # required — it signs the feed itself.
+          DMG_BASE="$(basename dist/*.dmg .dmg)"
+          cp "docs/releases/${GITHUB_REF_NAME}.md" "/tmp/appcast/${DMG_BASE}.md"
+
+          # --embed-release-notes puts the notes inline as CDATA. Without it the feed
+          # points at a sibling .md file, and only appcast.xml is published, so the
+          # notes would 404 in the update dialog.
+          printf '%s' "$SPARKLE_PRIVATE_KEY" | /tmp/sparkle/bin/generate_appcast \
+            --ed-key-file - \
+            --embed-release-notes \
+            --download-url-prefix "https://github.com/${GITHUB_REPOSITORY}/releases/download/${GITHUB_REF_NAME}/" \
+            --link "https://github.com/${GITHUB_REPOSITORY}" \
+            /tmp/appcast
+
+          cp /tmp/appcast/appcast.xml /tmp/pages/appcast.xml
+          cd /tmp/pages
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add appcast.xml
+          if git diff --cached --quiet; then
+            echo "::error::appcast.xml did not change; the release would be invisible to installed copies"
+            exit 1
+          fi
+          git commit -m "Add ${GITHUB_REF_NAME} to the appcast"
+          git push
+
       - name: Remove the signing keychain
         if: always()
         run: |

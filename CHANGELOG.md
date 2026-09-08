@@ -4,6 +4,8 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
+- Lumeshot now updates itself. It checks daily and on demand, then downloads, verifies and
+  installs the update — no more downloading a dmg and dragging it to Applications.
 - Testing an uploader now sends what that destination will actually carry — a short video
   to uploaders that accept video, a generated image to image-only ones. The Test sheet says
   which before it runs.

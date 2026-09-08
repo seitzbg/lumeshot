@@ -56,6 +56,28 @@ Pushing a `v*` tag triggers the `Release` workflow on `macos-15`, which:
 7. `scripts/notarize.sh` — submits to Apple's notary service, waits for the verdict, staples
    the ticket into the dmg, and runs a Gatekeeper assessment.
 8. Publishes the tag as a GitHub Release with the dmg and `SHA256SUMS.txt` attached.
+9. Adds the release to the Sparkle appcast on the `gh-pages` branch, which GitHub Pages
+   serves at `https://seitzbg.github.io/lumeshot/appcast.xml`. Only that file is pushed —
+   the dmg stays on the release CDN and the feed points at it.
+
+Installed copies check that feed, so **a release that fails at step 9 is invisible to
+existing users** even though the GitHub Release exists. The step fails loudly rather than
+skipping if `SPARKLE_PRIVATE_KEY` is missing or the feed comes back unchanged.
+
+Step 9 is skipped for unsigned builds. Advertising an ad-hoc build to installed copies
+would offer an update Gatekeeper then refuses.
+
+### Sparkle keys
+
+`SUPublicEDKey` in `Resources/Info.plist` is public and verifies signatures.
+`SPARKLE_PRIVATE_KEY` is a repository secret holding the private half, exported from the
+login Keychain with `generate_keys -x`. **Back up the Keychain copy.** Losing it means
+installed copies can never verify another update — recovery requires shipping a new public
+key in a build users install by hand.
+
+Note that `generate_appcast` omits `sparkle:edSignature` for a Developer ID signed and
+notarized dmg: Sparkle validates those through Apple code signing instead. That is
+expected, not a misconfiguration — an ad-hoc build of the same app does get a signature.
 
 The version in `Info.plist` and the dmg filename come from the tag (`GITHUB_REF_NAME` with
 the leading `v` stripped) — no separate version bump is needed.
