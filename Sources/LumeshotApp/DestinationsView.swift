@@ -20,11 +20,11 @@ final class DestinationsModel: ObservableObject {
     /// Reload full settings, mutate `.upload`, persist, and refresh the menu.
     @discardableResult
     private func persist(_ mutate: (inout AppSettings) -> Void) -> Bool {
-        var (all, _) = store.loadOrDefault()
-        mutate(&all)
         do {
-            try store.save(all)
-            settings = all.upload
+            // A single transaction: a background host-key pin can land between a
+            // separate load and save, and whichever wrote second used to win.
+            let saved = try store.mutate(mutate)
+            settings = saved.upload
             onChange()
             return true
         } catch {

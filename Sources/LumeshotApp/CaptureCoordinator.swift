@@ -291,7 +291,7 @@ final class CaptureCoordinator {
                 updateHistory(id: entryID, url: result.url, deletionURL: result.deletionURL,
                               failed: false)
             } catch {
-                AppLog.log("Upload failed: \(error)")
+                AppLog.log("Upload failed: " + UploadFeedback.diagnostic(for: error))
                 let fate = savedURL != nil
                     ? "Local file kept."
                     : "No local copy was saved."   // don't claim a file we never wrote

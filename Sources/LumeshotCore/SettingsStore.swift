@@ -19,6 +19,8 @@ public struct SettingsStore: Sendable {
     }
 
     public func loadOrDefault() -> (AppSettings, SettingsLoadIssue?) {
+        Self.transaction.lock()
+        defer { Self.transaction.unlock() }
         guard FileManager.default.fileExists(atPath: fileURL.path) else {
             return (.default, nil)
         }
@@ -46,7 +48,35 @@ public struct SettingsStore: Sendable {
         }
     }
 
+    /// Serializes complete load/modify/save transactions across the process.
+    ///
+    /// Writing the file atomically stops a reader ever seeing half a document; it
+    /// does nothing for two writers. The SSH host-key callback persists a new pin
+    /// from a NIO event-loop thread while Preferences and the menu save on the
+    /// main actor, so the sequences interleave: the callback loads A, the user
+    /// saves B, the callback writes A plus the fingerprint, and B is gone. The
+    /// reverse order loses the pin, and two first connections lose each other's.
+    ///
+    /// Recursive because a body that reaches back into settings is a mistake but
+    /// should not be a deadlock. It is a process-wide lock rather than a per-file
+    /// one: `SettingsStore` is a value type created wherever it is needed, so
+    /// there is no per-file owner to hang a lock on, and settings writes are far
+    /// too rare for the contention to matter.
+    private static let transaction = NSRecursiveLock()
+
+    @discardableResult
+    public func mutate(_ body: (inout AppSettings) throws -> Void) throws -> AppSettings {
+        Self.transaction.lock()
+        defer { Self.transaction.unlock() }
+        var settings = loadOrDefault().0
+        try body(&settings)
+        try save(settings)
+        return settings
+    }
+
     public func save(_ settings: AppSettings) throws {
+        Self.transaction.lock()
+        defer { Self.transaction.unlock() }
         try FileManager.default.createDirectory(at: fileURL.deletingLastPathComponent(),
                                                 withIntermediateDirectories: true)
         let encoder = JSONEncoder()

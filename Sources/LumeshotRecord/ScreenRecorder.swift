@@ -57,7 +57,7 @@ public final class ScreenRecorder {
                       capturesAudio: Bool,
                       codec: AVVideoCodecType,
                       outputURL url: URL,
-                      onFinish: @escaping (Result<URL, RecordingError>) -> Void) async throws {
+                      onFinish: @escaping (Result<URL, RecordingError>) -> Void) async throws -> Bool {
         let session = try beginSession()
 
         let config = SCStreamConfiguration()
@@ -105,8 +105,14 @@ public final class ScreenRecorder {
         // .idle *without* bumping the id, so committing .recording here would
         // relatch the recorder with a nil stream — the same stuck state the
         // .starting claim exists to prevent.
-        guard sessionID == session, state == .starting else { return }
+        // Returning false rather than nothing: the caller drives the menu-bar
+        // icon and elapsed timer, and used to switch them on unconditionally
+        // once start returned. On this path the recorder is already back at
+        // .idle, so it showed a recording that did not exist — and stop() will
+        // not clear it, because stop() rejects an idle recorder.
+        guard sessionID == session, state == .starting else { return false }
         state = .recording
+        return true
     }
 
     /// Synchronously claim the recorder for a new session. Called before any

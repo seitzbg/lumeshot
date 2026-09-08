@@ -323,11 +323,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleSystemAudio() {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
-        var (settings, _) = store.loadOrDefault()
-        settings.recording.systemAudio.toggle()
         do {
-            try store.save(settings)
-            AppLog.log("System audio recording: \(settings.recording.systemAudio)")
+            // One transaction: this toggle reads, changes and writes the whole
+            // settings document, and so does the SFTP host-key pin on a
+            // background thread.
+            let saved = try store.mutate { $0.recording.systemAudio.toggle() }
+            AppLog.log("System audio recording: \(saved.recording.systemAudio)")
         } catch {
             AppLog.log("Failed to save system-audio toggle: \(error)")
         }
@@ -469,11 +470,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func toggleAnnotateBeforeShare() {
         let store = SettingsStore(fileURL: SettingsStore.defaultFileURL)
-        var (settings, _) = store.loadOrDefault()
-        settings.editor.annotateBeforeShare.toggle()
         do {
-            try store.save(settings)
-            AppLog.log("Annotate before sharing: \(settings.editor.annotateBeforeShare)")
+            let saved = try store.mutate { $0.editor.annotateBeforeShare.toggle() }
+            AppLog.log("Annotate before sharing: \(saved.editor.annotateBeforeShare)")
         } catch {
             AppLog.log("Failed to save annotate-before-sharing toggle: \(error)")
         }
