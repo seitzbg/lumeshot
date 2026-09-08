@@ -3,9 +3,9 @@
 #
 # The release workflow signs the appcast in its very last step, after the
 # GitHub Release is published and the dmg notarized, so a bad key surfaces at
-# the worst possible moment. It may not surface at all: generate_appcast omits
-# sparkle:edSignature for a notarized dmg, so the wrong key can still produce a
-# plausible feed that installed copies then refuse. Hence a separate check.
+# the worst possible moment. It may not surface at all: on a key mismatch
+# generate_appcast only warns, then writes an entry with no sparkle:edSignature,
+# which installed copies refuse. Hence a separate check.
 #
 # The secret is never printed. Only the derived public half is, and that is
 # public by design — it ships in Info.plist.
@@ -13,11 +13,18 @@ name: verify-sparkle-key
 
 on:
   workflow_dispatch:
-  push:
-    branches: [verify-sparkle-key]
+
+# Only what actions/checkout needs; nothing here writes.
+permissions:
+  contents: read
 
 jobs:
   verify:
+    # workflow_dispatch lets the caller pick the ref, and the checked-out ref is
+    # what supplies scripts/derive-sparkle-public-key.py — the program the secret
+    # is handed to. Pinning the job to main means dispatching against a branch
+    # with a doctored script runs nothing at all.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -22,14 +22,14 @@ def inv(x):
 
 
 D = -121665 * inv(121666) % P
-I = pow(2, (P - 1) // 4, P)
+SQRT_MINUS_ONE = pow(2, (P - 1) // 4, P)  # sqrt(-1) mod p
 
 
 def xrecover(y):
     xx = (y * y - 1) * inv(D * y * y + 1)
     x = pow(xx, (P + 3) // 8, P)
     if (x * x - xx) % P != 0:
-        x = (x * I) % P
+        x = (x * SQRT_MINUS_ONE) % P
     if x % 2 != 0:
         x = P - x
     return x

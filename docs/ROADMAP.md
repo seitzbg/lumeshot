@@ -76,10 +76,12 @@ _Nothing yet._
 
   Sparkle ships ad-hoc signed with nested code (Updater.app, Autoupdate), so `bundle.sh`
   re-signs it innermost-first; the XPC services are deleted rather than signed, since they
-  exist for sandboxed apps and Lumeshot is not one. `generate_appcast` omits
-  `sparkle:edSignature` for a Developer ID signed and notarized dmg because Sparkle
-  validates those through Apple code signing — confirmed by comparing against an ad-hoc
-  build, which does get one.
+  exist for sandboxed apps and Lumeshot is not one. `generate_appcast` signs an archive
+  only when the `SUPublicEDKey` inside it matches the key it is given, and merely warns
+  otherwise — so a feed entry with no `sparkle:edSignature` means a key mismatch, which
+  installed copies reject. An earlier note here blamed notarization; that came from
+  comparing a pre-Sparkle dmg (no `SUPublicEDKey`, skipped silently) against a current
+  ad-hoc build, which varied two things at once.
 
   This removed `UpdateCheck`, `ReleaseVersion`, `ReleaseChecksums`, `UpdateDownloader`,
   `UpdateCheckController` and `UpdateAlertChoice`, and 28 tests with them.

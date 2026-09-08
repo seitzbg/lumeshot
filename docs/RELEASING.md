@@ -77,14 +77,24 @@ key in a build users install by hand.
 
 To confirm the secret still matches what the app ships, run the `verify-sparkle-key`
 workflow. It derives the public half of the secret and compares it, without publishing
-anything. Worth doing before a release and after any key rotation: the appcast is signed in
-the release workflow's last step, after the dmg is notarized and published, and a wrong key
-does not necessarily fail there — `generate_appcast` omits `sparkle:edSignature` for a
-notarized dmg, so the feed can look fine and still be rejected by installed copies.
+anything. Worth doing before a release and after any key rotation, because a mismatch does
+not fail the release — see below.
 
-Note that `generate_appcast` omits `sparkle:edSignature` for a Developer ID signed and
-notarized dmg: Sparkle validates those through Apple code signing instead. That is
-expected, not a misconfiguration — an ad-hoc build of the same app does get a signature.
+**A missing `sparkle:edSignature` is a broken release, not a quirk.** `generate_appcast`
+signs an archive when the `SUPublicEDKey` inside the app matches the public half of the
+private key it was given. On a mismatch it prints a *warning* and carries on, producing a
+feed whose entry has no signature — which installed copies then refuse. Notarization has
+nothing to do with it; there is no notarization check in that code path
+(`generate_appcast/Appcast.swift`, the `publicEdKey == expectedPublicKey` branch).
+
+An earlier version of this document claimed the omission was expected for notarized dmgs.
+That came from comparing a released dmg against an ad-hoc build of newer source, which
+varied two things at once: the released build predated Sparkle and carried no
+`SUPublicEDKey` at all, and an app without that key is skipped silently by the same code.
+Believing the old explanation would mean shrugging off the one symptom a key mismatch
+produces.
+
+So after a release, check that the new `appcast.xml` entry has a `sparkle:edSignature`.
 
 The version in `Info.plist` and the dmg filename come from the tag (`GITHUB_REF_NAME` with
 the leading `v` stripped) — no separate version bump is needed.
