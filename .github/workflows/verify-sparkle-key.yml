@@ -1,0 +1,73 @@
+# Proves the SPARKLE_PRIVATE_KEY secret is the private half of the
+# SUPublicEDKey the app ships, without publishing anything.
+#
+# The release workflow signs the appcast in its very last step, after the
+# GitHub Release is published and the dmg notarized, so a bad key surfaces at
+# the worst possible moment. It may not surface at all: generate_appcast omits
+# sparkle:edSignature for a notarized dmg, so the wrong key can still produce a
+# plausible feed that installed copies then refuse. Hence a separate check.
+#
+# The secret is never printed. Only the derived public half is, and that is
+# public by design — it ships in Info.plist.
+name: verify-sparkle-key
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [verify-sparkle-key]
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      # Validate the deriver before trusting what it says about the secret: a
+      # broken implementation would report a mismatch for a perfectly good key,
+      # or worse, agree by accident.
+      - name: Check the deriver against the RFC 8032 test vector
+        run: |
+          set -euo pipefail
+          DERIVED="$(printf '%s' "nWGxne/9WmC6hEr0kuwsxERJxWl7MmkZcDusAxyuf2A=" \
+            | scripts/derive-sparkle-public-key.py)"
+          EXPECTED="11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo="
+          echo "derived:  $DERIVED"
+          echo "expected: $EXPECTED"
+          [ "$DERIVED" = "$EXPECTED" ] || {
+            echo "::error::the key deriver is broken; its verdict on the secret means nothing"
+            exit 1
+          }
+
+      - name: Compare the secret against the shipped public key
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SPARKLE_PRIVATE_KEY:-}" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY is not set"
+            exit 1
+          fi
+          # The release step pipes the secret through printf '%s', so stray
+          # whitespace would reach generate_appcast verbatim.
+          if [ "$SPARKLE_PRIVATE_KEY" != "$(printf '%s' "$SPARKLE_PRIVATE_KEY" | tr -d '[:space:]')" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY contains whitespace; generate_appcast receives it verbatim"
+            exit 1
+          fi
+
+          EXPECTED="$(grep -A1 'SUPublicEDKey' Resources/Info.plist | tr -d '\n' \
+            | sed 's/.*<string>\(.*\)<\/string>.*/\1/')"
+          if [ -z "$EXPECTED" ]; then
+            echo "::error::could not read SUPublicEDKey from Resources/Info.plist"
+            exit 1
+          fi
+
+          DERIVED="$(printf '%s' "$SPARKLE_PRIVATE_KEY" | scripts/derive-sparkle-public-key.py)"
+          echo "SUPublicEDKey in Info.plist: $EXPECTED"
+          echo "derived from the secret:     $DERIVED"
+          if [ "$DERIVED" != "$EXPECTED" ]; then
+            echo "::error::SPARKLE_PRIVATE_KEY does not match SUPublicEDKey — installed copies would reject this feed"
+            exit 1
+          fi
+          echo "Match: the secret is the private half of the shipped public key."
