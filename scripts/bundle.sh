@@ -60,6 +60,33 @@ cp Sources/LumeshotApp/Resources/OpenSourceCredits.json "$APP/Contents/Resources
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@CHANNEL@/$RELEASE_CHANNEL/g" \
     Resources/Info.plist > "$APP/Contents/Info.plist"
 
+# Sparkle ships ad-hoc signed and contains nested code — Updater.app and the
+# Autoupdate helper — so it must be re-signed with our identity, innermost first.
+# Signing the outer app does not reach inside a nested bundle, and notarization
+# rejects anything left ad-hoc.
+#
+# The XPC services are removed rather than signed: they exist for sandboxed apps,
+# Lumeshot is not sandboxed (Resources/Lumeshot.entitlements is deliberately
+# empty), and deleting them drops two more nested bundles from the signing surface.
+SPARKLE_SRC=".build/release/Sparkle.framework"
+if [ -d "$SPARKLE_SRC" ]; then
+    mkdir -p "$APP/Contents/Frameworks"
+    rm -rf "$APP/Contents/Frameworks/Sparkle.framework"
+    cp -R "$SPARKLE_SRC" "$APP/Contents/Frameworks/Sparkle.framework"
+    FW="$APP/Contents/Frameworks/Sparkle.framework"
+    rm -rf "$FW/Versions/B/XPCServices"
+    for nested in "$FW/Versions/B/Updater.app" "$FW/Versions/B/Autoupdate" "$FW/Versions/B"; do
+        [ -e "$nested" ] || continue
+        codesign --force --sign "$CODESIGN_ID" \
+            --options runtime \
+            "${TIMESTAMP_ARG[@]}" \
+            ${SIGN_KC_ARGS[@]+"${SIGN_KC_ARGS[@]}"} \
+            "$nested"
+    done
+else
+    echo "warning: $SPARKLE_SRC not found — bundling without the updater" >&2
+fi
+
 # --options runtime is what notarization actually requires. It is applied on
 # every path, not just releases, so the dev loop exercises the same runtime
 # restrictions the shipped app will run under instead of discovering a library
