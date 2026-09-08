@@ -20,6 +20,28 @@ register the capture hotkeys. The bundle script uses the local `lumeshot-dev`
 signing identity when configured; otherwise it signs ad hoc. Ad-hoc rebuilds
 can require a new Screen Recording grant.
 
+`scripts/bundle.sh` finishes by running the bundled binary with `--version`,
+which prints the stamped version and channel and exits before the app starts:
+
+```sh
+dist/test/Lumeshot.app/Contents/MacOS/LumeshotApp --version
+# Lumeshot 0.1.14 (development)
+```
+
+That is a launch smoke test, not a formality. `codesign --verify` passes on a
+bundle that cannot start, so packaging checks dynamic-library resolution by
+actually executing it. `--version` touches no capture API, so unlike opening the
+app it cannot re-point the installed copy's Screen Recording grant.
+
+Local builds sign with `Resources/Lumeshot-dev.entitlements`, which disables
+library validation; release builds use the empty `Resources/Lumeshot.entitlements`.
+The hardened runtime requires the app and Sparkle.framework to share a Team ID,
+and `codesign` only derives one from an Apple-issued certificate — both an
+ad-hoc signature and the self-signed `lumeshot-dev` identity report
+`TeamIdentifier=not set`, which does not match itself. Without that one
+exception a local bundle cannot load Sparkle at all. `scripts/bundle.sh` picks
+the file from `DEVELOPER_ID_SIGNING`, so nothing shipped carries it.
+
 Use one consistent location for local test apps: `dist/test/Lumeshot.app`.
 Update that bundle for each iteration instead of creating another named test
 directory. Quit the running test copy before packaging, then reopen the same path:
