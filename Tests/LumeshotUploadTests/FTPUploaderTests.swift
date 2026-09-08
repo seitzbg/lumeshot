@@ -33,11 +33,33 @@ private final class FakeFTPTransport: FTPTransport, @unchecked Sendable {
         FilePart(fieldName: "file", filename: "shot.png", mimeType: "image/png", data: Data([1, 2, 3]))
     }
 
+    /// A directory without a leading slash is meant to be relative to the login
+    /// directory, and must stay that way.
+    @Test func relativeDirectoryStaysRelativeToTheLoginDirectory() async throws {
+        let fake = FakeFTPTransport()
+        var relative = config
+        relative.remoteDirectory = "uploads"
+        _ = try await FTPUploader(config: relative, secret: secret, transport: fake).upload(png())
+        #expect(fake.receivedURL == "ftp://ftp.example.com:21/uploads/shot.png")
+    }
+
+    /// No directory at all means the login directory itself.
+    @Test func emptyDirectoryUploadsIntoTheLoginDirectory() async throws {
+        let fake = FakeFTPTransport()
+        var none = config
+        none.remoteDirectory = ""
+        _ = try await FTPUploader(config: none, secret: secret, transport: fake).upload(png())
+        #expect(fake.receivedURL == "ftp://ftp.example.com:21/shot.png")
+    }
+
     @Test func uploadsToTheDerivedFTPURLAndReturnsResultURL() async throws {
         let fake = FakeFTPTransport()
         let uploader = FTPUploader(config: config, secret: secret, transport: fake)
         let result = try await uploader.upload(png())
-        #expect(fake.receivedURL == "ftp://ftp.example.com:21/uploads/shot.png")
+        // Double slash after the host: in curl's FTP URL syntax a single slash
+        // is relative to the login directory, so "/uploads" was reaching
+        // <login>/uploads while the public link claimed otherwise.
+        #expect(fake.receivedURL == "ftp://ftp.example.com:21//uploads/shot.png")
         #expect(fake.receivedData == Data([1, 2, 3]))
         #expect(fake.receivedUsername == "bob")
         #expect(fake.receivedPassword == "s3cr3t")

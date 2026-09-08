@@ -190,6 +190,29 @@ struct UploadWorkflowTests {
         #expect(rows.contains { $0.id != original.id && $0.url == "https://example.com/another" })
     }
 
+    /// A new attempt used to be a copy of the original row, remote links
+    /// included. A *failed* attempt therefore held the earlier upload's deletion
+    /// token, so "Delete remote upload" on the failure destroyed the upload that
+    /// had actually succeeded — whose own row still advertised a working link.
+    @Test func failedReuploadInheritsNoLinkFromTheOriginal() async throws {
+        let fixture = try HistoryFixture()
+        defer { fixture.cleanUp() }
+        let original = fixture.entry(url: "https://example.com/original")
+        try fixture.store.insert(original)
+        let model = HistoryModel(store: fixture.store, effects: CaptureTestEffects()) { _, _ in
+            throw UploadError.transport("Injected reupload failure")
+        }
+        await model.upload(original, to: fixture.destination)
+
+        let rows = try fixture.store.all(limit: 10)
+        let failed = try #require(rows.first { $0.id != original.id })
+        #expect(failed.uploadFailed)
+        #expect(failed.url == nil)
+        #expect(failed.deletionURL == nil)
+        // The successful upload is untouched and still deletable on its own row.
+        #expect(rows.first { $0.id == original.id } == original)
+    }
+
     @Test func failedRetryKeepsHistoryAndDoesNotExposeServerResponse() async throws {
         let fixture = try HistoryFixture()
         defer { fixture.cleanUp() }

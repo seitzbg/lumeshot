@@ -216,6 +216,7 @@ final class CaptureCoordinator {
                 .process(artifact, savePolicy: savePolicy)
             AppLog.log("Capture delivered: \(result.savedURL?.path ?? "clipboard only")")
             recordAndMaybeUpload(settings: settings, savedURL: result.savedURL,
+                                 uploadFilename: result.uploadFilename,
                                  pngData: png, capturedAt: artifact.capturedAt, upload: upload)
             return result.savedURL != nil
         } catch {
@@ -238,6 +239,7 @@ final class CaptureCoordinator {
     /// asynchronously and updates the row with the URL or a failure marker.
     /// Runs after the synchronous disk save, preserving the local-first invariant.
     private func recordAndMaybeUpload(settings: AppSettings, savedURL: URL?,
+                                      uploadFilename: String,
                                       pngData: Data, capturedAt: Date, upload: Bool) {
         let entryID = UUID().uuidString
         let destination = settings.upload.activeDestination(for: .image)
@@ -262,7 +264,10 @@ final class CaptureCoordinator {
                            fileURL: savedURL)
             return
         }
-        let filename = savedURL?.lastPathComponent ?? "capture.png"
+        // Named by the pipeline, which guarantees a distinct name even when no
+        // file was written — a constant name here made path-keyed destinations
+        // overwrite the previous capture.
+        let filename = uploadFilename
         let clipboardChangeCount = effects.clipboardChangeCount
         Task { @MainActor in
             do {
@@ -286,7 +291,7 @@ final class CaptureCoordinator {
                 updateHistory(id: entryID, url: result.url, deletionURL: result.deletionURL,
                               failed: false)
             } catch {
-                AppLog.log("Upload failed: \(error)")
+                AppLog.log("Upload failed: " + UploadFeedback.diagnostic(for: error))
                 let fate = savedURL != nil
                     ? "Local file kept."
                     : "No local copy was saved."   // don't claim a file we never wrote

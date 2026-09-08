@@ -42,6 +42,29 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
+- **Second code review (2026-09-08): all 12 findings fixed.** The packaged app could
+  not launch at all. SwiftPM links the executable with `@loader_path` only, so once
+  `bundle.sh` moved it into `Contents/MacOS` it never found Sparkle; adding the framework
+  runpath then exposed a hardened-runtime library-validation failure underneath, because
+  `codesign` derives a Team ID only from an Apple-issued certificate and a local build has
+  none. Packaging now ends in a launch smoke test — `codesign --verify` passes happily on a
+  bundle that cannot start, so the signature check was never going to catch either one.
+  No released build was affected: Sparkle landed after v0.1.14.
+
+  Data loss and privacy: uploads are named per capture instead of a constant
+  `capture.png`, which had every capture overwriting the last on S3/SFTP/FTP whenever
+  "Save a copy" was off; credential edits roll back to an exact snapshot, so a failed edit
+  cannot destroy working credentials or leave a rejected key beside a restored password;
+  an SFTP host-key pin survives an unrelated edit; a failed reupload no longer inherits the
+  original's deletion token; an invalid crop or a failed redaction stops the export instead
+  of quietly delivering the full, unredacted image.
+
+  Correctness: an unresolvable response token is a failed upload rather than a
+  plausible-looking `https://host/i/.png`; a leading `/` in an FTP directory now means an
+  absolute server path, as configured; a failed recording start no longer leaves the menu
+  bar claiming to record; settings read/modify/write is serialized, so a background
+  host-key pin and a Preferences save stop discarding each other.
+
 - Automatic updates via Sparkle 2.9.6, replacing the hand-rolled check. Lumeshot now
   downloads, verifies and installs an update in place instead of revealing a dmg in Finder
   for a manual drag. The feed is published to `gh-pages` by the release workflow and served
@@ -60,7 +83,8 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
   `RecordingDelivery` logged one; the Test and still paths surfaced `UploadFeedback`'s
   friendly text, and for `.transport` that is "Couldn't complete the connection", which
   discards the reason. `UploadService.upload` is the single funnel all three pass through,
-  so the raw error is recorded there once, with the destination name and kind.
+  so the error is recorded there once, with the destination name and kind — minus the
+  server's response body, which can echo a credential back on an error.
 
 - The uploader Test now sends what the destination will actually carry: a short clip to
   hosts that accept video, the generated image to image-only ones. Testing an image host
@@ -286,7 +310,7 @@ Run these when convenient (each is a checklist):
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
 - SFTP/FTP transports still start from a complete `Data`, so a large recording is resident for those two destinations (bounded now, but not streamed). Streaming needs a chunked transport API on both.
-- Minor: FTP paths are libcurl login-relative (`//` for filesystem-absolute — UX gotcha); discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
+- Minor: discarded `clibcurl_set_*` return codes; `SFTPUploader`≈`FTPUploader` structural duplication.
 - Imgur OAuth / authenticated albums: **not planned** (decided 2026-09-07). Anonymous
   upload stays. OAuth would need a registered app whose client secret cannot be kept
   secret in a distributed binary, plus a redirect scheme or a loopback listener inside

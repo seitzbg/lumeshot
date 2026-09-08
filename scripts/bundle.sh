@@ -8,7 +8,16 @@ VERSION="${VERSION:-0.1.0}"
 # which the in-app update check refuses to compare against published releases —
 # the VERSION default above would otherwise look like a real, older release.
 RELEASE_CHANNEL="${RELEASE_CHANNEL:-development}"
-ENTITLEMENTS="Resources/Lumeshot.entitlements"
+# Release builds ship the empty entitlements. Local builds need one hardened
+# runtime exception (library validation) because they have no Apple-issued
+# certificate and therefore no Team ID to match Sparkle's — see the comment in
+# Resources/Lumeshot-dev.entitlements. Selected by the same flag that gates the
+# secure timestamp, so "real signing" is one decision, not two.
+if [ "${DEVELOPER_ID_SIGNING:-0}" = "1" ]; then
+    ENTITLEMENTS="Resources/Lumeshot.entitlements"
+else
+    ENTITLEMENTS="Resources/Lumeshot-dev.entitlements"
+fi
 
 # Signing identity resolution, in priority order:
 #
@@ -55,6 +64,18 @@ fi
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp .build/release/LumeshotApp "$APP/Contents/MacOS/LumeshotApp"
+
+# SwiftPM links the executable with @loader_path only, which resolves
+# @rpath/Sparkle.framework while the binary sits next to the framework in
+# .build/release. Moving it into Contents/MacOS breaks that: the framework goes
+# to Contents/Frameworks, so the executable must also search there. Without this
+# the bundle builds, signs and verifies cleanly, then dies at exec with
+# "Library not loaded: @rpath/Sparkle.framework/Versions/B/Sparkle".
+# Done here rather than in Package.swift because it is a fact about the app
+# bundle layout, which only this script knows. Must precede codesign: editing
+# load commands invalidates any existing signature.
+install_name_tool -add_rpath @executable_path/../Frameworks \
+    "$APP/Contents/MacOS/LumeshotApp"
 cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 cp Sources/LumeshotApp/Resources/OpenSourceCredits.json "$APP/Contents/Resources/"
 sed -e "s/@VERSION@/$VERSION/g" -e "s/@CHANNEL@/$RELEASE_CHANNEL/g" \
@@ -84,7 +105,11 @@ if [ -d "$SPARKLE_SRC" ]; then
             "$nested"
     done
 else
-    echo "warning: $SPARKLE_SRC not found — bundling without the updater" >&2
+    # Sparkle is a mandatory link-time dependency: a bundle without it cannot
+    # launch at all, so shipping one is worse than failing the build here.
+    echo "error: $SPARKLE_SRC not found — the executable links Sparkle and" \
+         "cannot start without it. Run 'swift build -c release' first." >&2
+    exit 1
 fi
 
 # --options runtime is what notarization actually requires. It is applied on
@@ -100,4 +125,21 @@ codesign --force --sign "$CODESIGN_ID" \
     "$APP"
 
 codesign --verify --strict --verbose=2 "$APP" 2>&1 | sed 's/^/  /'
+
+# Launch smoke test. A valid signature says nothing about whether dyld can
+# resolve the bundle's dynamic libraries: the rpath bug above produced a bundle
+# that built, signed and verified, and then failed at exec. This runs the real
+# signed binary, so an unresolvable @rpath fails the build instead of shipping.
+#
+# --version exits before NSApplication starts and touches no capture API, so it
+# cannot register with TCC or re-point the installed app's Screen Recording
+# grant the way a genuine second instance would.
+echo "Launch smoke test:"
+if ! SMOKE="$("$APP/Contents/MacOS/LumeshotApp" --version 2>&1)"; then
+    echo "  FAILED: the bundled executable did not start" >&2
+    echo "$SMOKE" | sed 's/^/  /' >&2
+    exit 1
+fi
+echo "  $SMOKE"
+
 echo "Built $APP (version $VERSION, channel: $RELEASE_CHANNEL, sign: $CODESIGN_ID)"

@@ -26,6 +26,9 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 
 **Capture** (menu-bar resident, hotkey-driven)
 - Fullscreen (all displays), Region (drag-to-select), Window (hover-to-highlight)
+- Every capture uploads under its own name, following the filename template even when
+  "Save a copy" is off, so nothing overwrites an earlier upload on filename-addressed
+  destinations (S3, SFTP, FTP)
 - After-capture pipeline: save to disk → copy image → optional upload → history. Upload success copies the uploaded URL, skipping replacement when it detects a newer copy; upload failure leaves the current clipboard intact. Preservation across apps is best effort.
 - Permission gating for the TCC Screen Recording grant on first run
 - Automatic updates via [Sparkle](https://sparkle-project.org): Lumeshot checks daily and
@@ -37,6 +40,8 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
   overlapping effects stack rather than replacing each other
 - Non-destructive crop; select/move/resize; unlimited* undo/redo (*bounded to the last 50 edits)
 - Non-destructive document (base image + ordered shape list) flattened via CoreGraphics on Copy / Save / Upload
+- If a blur, pixelate or crop cannot be applied, the export stops and the editor stays
+  open with an error — it never falls back to the unredacted or uncropped image
 
 **Screen recording**
 - ScreenCaptureKit `.mp4` recording — region, window, or display
@@ -51,7 +56,9 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 - **Picsur** — self-hosted image host; API-key auth, choice of serving format and direct-image vs viewer-page links
 - **S3-compatible** — hand-rolled SigV4 (AWS / Cloudflare R2 / MinIO / Backblaze B2); path + virtual-host addressing; optional ACL; custom result-URL domain
 - **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH); host key pinned on first connection and verified thereafter
-- **FTP / FTPS** — libcurl
+- **FTP / FTPS** — libcurl. A remote directory beginning with `/` is an absolute
+  server path; one without is relative to the login directory (as is leaving it
+  empty). Many servers chroot the login to `/`, where the two are the same place
 
 **Preferences window** (⌘,)
 - Appears in the Dock and app switcher while open; closing Settings returns Lumeshot to menu-bar-only mode.
@@ -71,13 +78,17 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 
 **Distribution**
 - Compact About window with GitHub and release links, plus bundled open source credits; also accessible from Settings
-- Developer ID signed, notarized and stapled `.dmg`, built by a `v*`-tag-triggered GitHub Actions release; hardened runtime with no entitlement exceptions. Signing is opt-in on secret presence, so a fork without credentials still publishes an (ad-hoc) dmg. One-time setup: `scripts/setup-developer-id.sh` — see `docs/RELEASING.md`
+- Developer ID signed, notarized and stapled `.dmg`, built by a `v*`-tag-triggered GitHub Actions release; hardened runtime with no entitlement exceptions in a signed release. Builds without a Developer ID — local ones, and a fork's unsigned dmg — disable library validation instead, because the hardened runtime cannot satisfy it without an Apple-issued certificate to take a Team ID from, and Sparkle would not load at all. Signing is opt-in on secret presence, so a fork without credentials still publishes an (ad-hoc) dmg. One-time setup: `scripts/setup-developer-id.sh` — see `docs/RELEASING.md`
 
 ## Security
 
 Secrets (API keys, Picsur API keys, S3 keys, SFTP/FTP passwords and private keys) are stored **only in the login Keychain** (`org.lumeshot.app`), never in `settings.json`.
 
 For imported `.sxcu` custom uploaders the guarantee is narrower, because the format lets a credential sit anywhere. Two surfaces are protected unconditionally — the JSON body template, and a `RequestURL` carrying a query string or user-info, both stored in full. Headers, arguments and query parameters are matched against a key-name heuristic (`authorization`, `token`, `api_key`, `signature`, …). That heuristic is deliberately over-eager, but a secret under a genuinely innocuous key can still reach `settings.json` — treat an untrusted `.sxcu` accordingly.
+
+Upload failures are logged to `~/Library/Logs/Lumeshot.log` without the server's
+response body, which can echo an API key, a signed URL or a deletion token back
+on an error. The status code and the app's own transport messages are kept.
 
 ## License
 

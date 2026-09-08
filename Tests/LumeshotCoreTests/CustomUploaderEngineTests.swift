@@ -120,4 +120,30 @@ private let png = FilePart(fieldName: "IGNORED", filename: "shot.png",
         // Better to fail loudly than copy an HTML error page to the clipboard.
         #expect(throws: UploadError.emptyURL) { try parse(url: nil, body: body) }
     }
+
+    /// An HTTP 200 carrying an error body used to assemble the literal parts of
+    /// the template into a plausible URL — "https://example.com/i/.png" — which
+    /// was recorded as a success and put on the clipboard in place of the image.
+    @Test func aTemplateTokenMissingFromTheResponseFailsTheUpload() throws {
+        var config = CustomUploaderConfig(requestURL: "https://example.com/upload")
+        config.url = "https://example.com/i/{json:data.id}.png"
+        #expect(throws: UploadError.self) {
+            try CustomUploaderEngine.parseResult(
+                config: config, status: 200,
+                body: Data(#"{"success":false,"error":"quota exceeded"}"#.utf8), headers: [:])
+        }
+    }
+
+    /// A thumbnail or deletion link that cannot be extracted is dropped, not
+    /// fatal: the upload itself succeeded.
+    @Test func optionalLinksAreDroppedWhenTheirTokensAreMissing() throws {
+        var config = CustomUploaderConfig(requestURL: "https://example.com/upload")
+        config.url = "{json:link}"
+        config.deletionURL = "https://example.com/d/{json:delete_key}"
+        let result = try CustomUploaderEngine.parseResult(
+            config: config, status: 200,
+            body: Data(#"{"link":"https://example.com/i/abc.png"}"#.utf8), headers: [:])
+        #expect(result.url == "https://example.com/i/abc.png")
+        #expect(result.deletionURL == nil)
+    }
 }

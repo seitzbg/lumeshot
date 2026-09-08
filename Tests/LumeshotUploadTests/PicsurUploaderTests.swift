@@ -51,7 +51,9 @@ import Testing
     }
 
     @Test func rejectsResponseWithoutAnID() async throws {
-        await #expect(throws: UploadError.emptyURL) {
+        // The id token cannot be extracted from an error body, which the engine
+        // now reports directly rather than leaving to the empty-URL guard.
+        await #expect(throws: UploadError.self) {
             try await upload(config: PicsurConfig(host: "https://pic.bsd-unix.net"),
                              body: #"{"success":false,"data":{"message":"nope"}}"#)
         }

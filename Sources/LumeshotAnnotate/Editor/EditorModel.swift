@@ -114,19 +114,23 @@ public final class EditorModel: ObservableObject {
             draft = updatedDraft(anchor: anchor, to: point)
         } else if let handle = activeHandle, let id = selectedID,
                   let index = annotations.firstIndex(where: { $0.id == id }) {
-            annotations[index] = annotations[index].resized(handle: handle, to: point)
+            let resized = annotations[index].resized(handle: handle, to: point)
+            // A crop dragged past an edge stops at it instead of leaving the
+            // image; anything that would leave nothing behind is not applied.
+            if let clamped = clampedToImage(resized) { annotations[index] = clamped }
         } else if let last = lastDragPoint, let id = selectedID,
                   let index = annotations.firstIndex(where: { $0.id == id }) {
             let delta = CGVector(dx: point.x - last.x, dy: point.y - last.y)
-            annotations[index] = annotations[index].moved(by: delta)
+            let moved = annotations[index].moved(by: delta)
+            if let clamped = clampedToImage(moved) { annotations[index] = clamped }
             lastDragPoint = point
         }
     }
 
     public func pointerUp(at point: CGPoint) {
         if draft != nil, let anchor = drawAnchor {
-            let finished = updatedDraft(anchor: anchor, to: point)
-            if isNonDegenerate(finished) {
+            let finished = clampedToImage(updatedDraft(anchor: anchor, to: point))
+            if let finished, isNonDegenerate(finished) {
                 if case .crop = finished.shape {
                     annotations.removeAll { if case .crop = $0.shape { return true }; return false }
                 }
@@ -406,6 +410,25 @@ public final class EditorModel: ObservableObject {
             current.shape = shape(for: activeTool, anchor: anchor, to: point)
         }
         return current
+    }
+
+    /// Confines a crop to the base image, returning nil when nothing of it is
+    /// left inside.
+    ///
+    /// The canvas maps clicks straight to image coordinates, margins included,
+    /// so a crop could be drawn or dragged entirely outside the bitmap. Export
+    /// intersected such a crop to nothing and fell through to the uncropped
+    /// image — handing over exactly the content the crop was meant to remove.
+    /// Non-crop shapes are returned untouched: an arrow may legitimately run
+    /// past an edge, because it is drawn, not used to select pixels.
+    private func clampedToImage(_ annotation: Annotation) -> Annotation? {
+        guard case .crop(let rect) = annotation.shape else { return annotation }
+        let bounds = CGRect(x: 0, y: 0, width: baseImage.width, height: baseImage.height)
+        let clamped = rect.standardized.intersection(bounds)
+        guard !clamped.isNull, !clamped.isEmpty else { return nil }
+        var result = annotation
+        result.shape = .crop(rect: clamped)
+        return result
     }
 
     private func isNonDegenerate(_ annotation: Annotation) -> Bool {

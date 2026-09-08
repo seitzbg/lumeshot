@@ -74,7 +74,8 @@ struct UploadService {
             }
             let secret = try SFTPCredentials.load(id: destination.id, from: credentials)
             return SFTPUploader(config: cfg, secret: secret,
-                                rememberHostKey: hostKeyPinner(for: destination.id))
+                                rememberHostKey: hostKeyPinner(for: destination.id,
+                                                               host: cfg.host, port: cfg.port))
         }
     }
 
@@ -82,18 +83,34 @@ struct UploadService {
     /// later connection is checked against it instead of trusting anything.
     /// Re-reads settings at call time because the pin arrives mid-upload, well
     /// after any snapshot we might have taken.
-    private func hostKeyPinner(for destinationID: String) -> @Sendable (String) -> Void {
+    ///
+    /// `host` and `port` are the endpoint that actually presented the key. They
+    /// are checked again at write time because the destination can be edited to
+    /// point somewhere else while the upload is still connecting: the id alone
+    /// would then staple this server's fingerprint onto a different one, and
+    /// every later connection there would fail as a host-key mismatch.
+    private func hostKeyPinner(for destinationID: String, host: String,
+                               port: Int) -> @Sendable (String) -> Void {
         guard let settingsStore else { return { _ in } }
         return { fingerprint in
-            var (settings, _) = settingsStore.loadOrDefault()
-            guard let index = settings.upload.destinations
-                .firstIndex(where: { $0.id == destinationID }),
-                  (settings.upload.destinations[index].sftpConfig?.knownHostKey ?? "").isEmpty
-            else { return }
-            settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
+            // One transaction, because this runs on a NIO event-loop thread while
+            // the main actor may be saving a settings edit of its own. Loading and
+            // saving separately let the two interleave and drop one of the writes.
             do {
-                try settingsStore.save(settings)
-                AppLog.log("SFTP: pinned host key for \(destinationID): \(fingerprint)")
+                var pinned = false
+                try settingsStore.mutate { settings in
+                    guard let index = settings.upload.destinations
+                        .firstIndex(where: { $0.id == destinationID }),
+                          let current = settings.upload.destinations[index].sftpConfig,
+                          current.host == host, current.port == port,
+                          (current.knownHostKey ?? "").isEmpty
+                    else { return }
+                    settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
+                    pinned = true
+                }
+                if pinned {
+                    AppLog.log("SFTP: pinned host key for \(destinationID): \(fingerprint)")
+                }
             } catch {
                 // Not fatal: the upload proceeds, we simply re-learn next time.
                 AppLog.log("SFTP: could not pin host key for \(destinationID): \(error)")
@@ -127,8 +144,11 @@ struct UploadService {
             // so this is the one place that sees the raw error. What the user is shown
             // is UploadFeedback's friendly text, and for `.transport` that is
             // "Couldn't complete the connection", which discards the actual reason. A
-            // failing SFTP uploader was undiagnosable for exactly that.
-            AppLog.log("Upload failed via \(destination.name) (\(destination.kind.rawValue)): \(error)")
+            // failing SFTP uploader was undiagnosable for exactly that. `diagnostic`
+            // keeps that reason while leaving out response bodies, which can echo a
+            // credential straight into the log file.
+            AppLog.log("Upload failed via \(destination.name) (\(destination.kind.rawValue)): "
+                       + UploadFeedback.diagnostic(for: error))
             if let operation { await activity?.finish(operation, error: UploadFeedback.message(for: error)) }
             throw error
         }

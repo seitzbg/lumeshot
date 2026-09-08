@@ -86,12 +86,12 @@ import Foundation
     }
 
     /// A cached bitmap must still be the correct bitmap, not just a fast one.
-    @Test func cachedResultMatchesAnUncachedBake() {
+    @Test func cachedResultMatchesAnUncachedBake() throws {
         let cache = EffectBakeCache()
         let b = base()
         let annotations = [blur(region), arrow(to: CGPoint(x: 5, y: 5))]
         let cached = cache.bakedImage(base: b, annotations: annotations)
-        let direct = AnnotationRenderer.bakeEffects(base: b, annotations: annotations)
+        let direct = try #require(AnnotationRenderer.bakeEffects(base: b, annotations: annotations))
         #expect(cached.width == direct.width && cached.height == direct.height)
         #expect(cached !== b)
     }

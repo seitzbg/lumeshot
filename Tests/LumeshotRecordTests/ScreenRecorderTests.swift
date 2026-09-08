@@ -134,8 +134,8 @@ import AVFoundation
         let outcome = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Result<URL, RecordingError>, Error>) in
             Task { @MainActor in
                 do {
-                    try await recorder.start(filter: filter, dimensions: dims, capturesAudio: false,
-                                             codec: .h264, outputURL: url) { result in
+                    _ = try await recorder.start(filter: filter, dimensions: dims, capturesAudio: false,
+                                                 codec: .h264, outputURL: url) { result in
                         cont.resume(returning: result)
                     }
                     try await Task.sleep(for: .seconds(1))
@@ -169,11 +169,11 @@ import AVFoundation
         let dims = RecordingDimensions.display(pointWidth: 640, pointHeight: 360, scale: 1)
         let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mp4")
         let recorder = ScreenRecorder()
-        try await recorder.start(filter: filter, dimensions: dims, capturesAudio: false,
-                                 codec: .h264, outputURL: url) { _ in }
-        await #expect(throws: RecordingError.alreadyRecording) {
-            try await recorder.start(filter: filter, dimensions: dims, capturesAudio: false,
+        _ = try await recorder.start(filter: filter, dimensions: dims, capturesAudio: false,
                                      codec: .h264, outputURL: url) { _ in }
+        await #expect(throws: RecordingError.alreadyRecording) {
+            _ = try await recorder.start(filter: filter, dimensions: dims, capturesAudio: false,
+                                         codec: .h264, outputURL: url) { _ in }
         }
         await recorder.stop()
         try? FileManager.default.removeItem(at: url)

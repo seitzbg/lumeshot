@@ -1,6 +1,38 @@
 import Foundation
 
 public enum UploadFeedback {
+    /// What to write to the log for a failed upload.
+    ///
+    /// Diagnostics need more than the user-facing text — "Couldn't complete the
+    /// connection" discards the reason an SFTP upload failed, which is what made
+    /// one undiagnosable — but they must not carry response bodies. A server can
+    /// echo the request back on an error, so a rejected upload's body may contain
+    /// an API key, a signed URL or a deletion token, and the log is an ordinary
+    /// file in ~/Library/Logs, outside the Keychain.
+    ///
+    /// So: keep the status, the case, and messages this app composed itself;
+    /// drop anything the server said.
+    public static func diagnostic(for error: Error) -> String {
+        guard let error = error as? UploadError else {
+            if let error = error as? URLError { return "URLError(\(error.code.rawValue))" }
+            return String(describing: type(of: error))
+        }
+        switch error {
+        // The body is deliberately dropped, not truncated: a credential can sit
+        // anywhere in it.
+        case .http(let status, _): return "HTTP \(status) (response body withheld)"
+        case .emptyURL: return "no usable URL in the response"
+        case .unsupported(let reason): return "unsupported: \(reason)"
+        case .missingCredential(let account): return "missing credential: \(account)"
+        // Composed by our own transports from the underlying network or SSH
+        // error, so it names the actual cause and carries nothing the server sent.
+        case .transport(let reason): return "transport: \(reason)"
+        case .badResponse(let reason): return "bad response: \(reason)"
+        case .hostKeyMismatch: return "SSH host key mismatch"
+        case .destinationRejectsVideo(let name): return "\(name) does not accept video"
+        }
+    }
+
     /// Never surface raw server responses: they can echo request credentials.
     public static func message(for error: Error) -> String {
         if let error = error as? UploadError {

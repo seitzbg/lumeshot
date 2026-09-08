@@ -21,6 +21,8 @@ struct EditorView: View {
     let onAction: (EditorResult) -> Void
     let onCancel: () -> Void
 
+    @State private var exportError: String?
+
     private struct ToolItem: Identifiable {
         let tool: EditorTool
         let label: String
@@ -51,6 +53,13 @@ struct EditorView: View {
                 .frame(minWidth: 480, minHeight: 360)
         }
         .frame(minWidth: 640, minHeight: 480)
+        .alert("Couldn’t produce the image",
+               isPresented: Binding(get: { exportError != nil },
+                                    set: { if !$0 { exportError = nil } })) {
+            Button("OK", role: .cancel) { exportError = nil }
+        } message: {
+            Text(exportError ?? "")
+        }
     }
 
     private var toolbar: some View {
@@ -120,14 +129,21 @@ struct EditorView: View {
         .padding(8)
     }
 
-    /// Flattens the document and reports the chosen action, or fails loud + cancels.
+    /// Flattens the document and reports the chosen action.
+    ///
+    /// A failure keeps the editor open. Flattening fails when a redaction could
+    /// not be rendered or a crop could not be applied, and in both cases the
+    /// image that would have been delivered shows content the user meant to
+    /// remove — so the one thing this must not do is hand it onward. Cancelling
+    /// instead, as it used to, threw the capture away on a transient error.
     private func commit(_ action: EditorAction) {
-        if let image = model.flatten() {
-            onAction(EditorResult(action: action, image: image))
-        } else {
-            AppLog.log("Editor: flatten failed; discarding capture")
-            onCancel()
+        guard let image = model.flatten() else {
+            AppLog.log("Editor: flatten failed; keeping the editor open")
+            exportError = "The blur, pixelate or crop regions couldn’t be applied, so "
+                + "nothing was copied, saved or uploaded. Adjust them and try again."
+            return
         }
+        onAction(EditorResult(action: action, image: image))
     }
 
     /// The tool the inspector should key on: the SELECTED annotation's own kind when

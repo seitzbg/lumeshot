@@ -27,7 +27,11 @@ public final class EffectBakeCache {
         if let cachedResult, let cachedBase, cachedBase === base, cachedEffects == effects {
             return cachedResult
         }
-        let result = AnnotationRenderer.bakeEffects(base: base, annotations: effects)
+        // Display-only fallback. A failed bake shows the un-baked image, which is
+        // visibly missing its redactions rather than quietly wrong. Export must
+        // not come through here: it goes via `AnnotationRenderer.flatten`, which
+        // bakes again and refuses to produce anything on failure.
+        let result = AnnotationRenderer.bakeEffects(base: base, annotations: effects) ?? base
         cachedEffects = effects
         cachedBase = base
         cachedResult = result

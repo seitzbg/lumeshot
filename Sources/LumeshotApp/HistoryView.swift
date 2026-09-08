@@ -135,6 +135,13 @@ final class HistoryModel: ObservableObject {
         }
         row.destinationID = destination.id
         row.destinationName = destination.name
+        // A new attempt owns neither link yet. Copying them from the original
+        // row gave a *failed* attempt the earlier upload's remote deletion
+        // token, so "Delete remote upload" on the failure deleted the upload
+        // that had succeeded — while its own row still showed a working link.
+        // Both are set below, and only from this attempt's own result.
+        row.url = nil
+        row.deletionURL = nil
         row.uploadFailed = true // A crash during transfer leaves a recoverable retry.
         do {
             let part = try FilePart.file(fieldName: "file", filename: fileURL.lastPathComponent,
