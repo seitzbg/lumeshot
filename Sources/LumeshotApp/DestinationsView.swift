@@ -104,37 +104,77 @@ final class DestinationsModel: ObservableObject {
     /// Shared add-or-update path for every kind.
     ///
     /// `storeSecrets` runs first; on an edit that left the secret fields blank
-    /// it is a no-op, so the Keychain entry is kept rather than re-entered. If
-    /// the settings write then fails, compensate: a new destination's secrets
-    /// are purged, an edited destination's are restored from the snapshot taken
-    /// before we overwrote them. The first destination becomes active; later
-    /// additions and edits preserve the selection.
+    /// it is a no-op, so the Keychain entry is kept rather than re-entered.
+    /// Either half can fail, and both are compensated the same way: a new
+    /// destination's accounts are purged, an edited destination's are put back
+    /// exactly as the snapshot found them. The first destination becomes active;
+    /// later additions and edits preserve the selection.
+    /// `reconcile` gets the last word on the destination, using the settings as
+    /// they are on disk at the moment of the write rather than the copy this
+    /// model loaded when it opened. Fields the app itself maintains in the
+    /// background — an SFTP host-key pin, say — must be carried across from
+    /// there, or an unrelated edit silently reverts them.
     private func save(_ dest: UploadDestination, isNew: Bool,
+                      reconcile: ((UploadDestination, UploadSettings) -> UploadDestination)? = nil,
                       storeSecrets: () throws -> Void) {
-        var previous: [String: String] = [:]
+        // Read the whole before-picture up front. An unreadable account aborts
+        // the edit: without a trustworthy snapshot there is no way to undo a
+        // failure, and proceeding would risk destroying a working credential
+        // that simply could not be read.
+        var snapshot: CredentialSnapshot?
         if !isNew {
-            for account in dest.secretAccounts {
-                if let value = try? credentials.secret(for: account) { previous[account] = value }
+            do {
+                snapshot = try CredentialTransaction.snapshot(dest.secretAccounts, in: credentials)
+            } catch {
+                AppLog.log("Destinations: reading existing credentials for \(dest.id) failed: \(error)")
+                saveError = "Couldn’t read the existing credentials from the Keychain, "
+                    + "so the change was not applied."
+                return
             }
         }
         do {
             try storeSecrets()
         } catch {
+            // Storing is not atomic across accounts, and both S3 and SFTP purge
+            // their whole account set when a write part-way through fails — so
+            // this path can arrive with the *previous* credentials already gone.
+            // Undoing it is what keeps a failed edit from destroying a working
+            // destination.
             AppLog.log("Destinations: storing credentials for \(dest.id) failed: \(error)")
             saveError = "Couldn’t store the credentials in the Keychain."
+                + rollback(snapshot, isNew: isNew, accounts: dest.secretAccounts)
             return
         }
         let ok = persist { all in
-            all.upload = all.upload.addingOrUpdating(dest)
+            all.upload = all.upload.addingOrUpdating(reconcile?(dest, all.upload) ?? dest)
         }
         if !ok {
-            if isNew {
-                _ = CredentialTransaction.purgeRestorable(dest.secretAccounts, in: credentials)
-            } else {
-                CredentialTransaction.restore(previous, into: credentials)
-            }
             saveError = "Couldn’t save settings, so the change was not applied."
+                + rollback(snapshot, isNew: isNew, accounts: dest.secretAccounts)
         }
+    }
+
+    /// Undoes whatever `storeSecrets` managed to write. A new destination owns
+    /// none of its accounts yet, so they are simply removed; an edit is returned
+    /// to its exact snapshot, additions included.
+    ///
+    /// Returns text to append to the error shown to the user. Compensation that
+    /// itself fails cannot be retried automatically, so it must be said out loud
+    /// rather than only logged — the Keychain is then in neither state.
+    private func rollback(_ snapshot: CredentialSnapshot?, isNew: Bool,
+                          accounts: [String]) -> String {
+        let failure: CredentialPurgeError?
+        if let snapshot {
+            failure = CredentialTransaction.rollback(to: snapshot, in: credentials)
+        } else if isNew {
+            failure = CredentialTransaction.purgeRestorable(accounts, in: credentials).error
+        } else {
+            failure = nil
+        }
+        guard let failure else { return "" }
+        AppLog.log("Destinations: credential rollback failed: \(failure.failedAccounts)")
+        return " Its previous credentials could not be restored either — "
+            + "re-enter them, or check Keychain Access."
     }
 
     /// Existing destination when editing, else nil. Used by every `save*` to
@@ -174,17 +214,25 @@ final class DestinationsModel: ObservableObject {
                   remoteDirectory: String, publicURLBase: String,
                   password: String, privateKeyPEM: String, passphrase: String) {
         let (id, isNew) = resolve(id)
-        // Preserve a pinned host key across edits; a host change clears it so
-        // the new server is trusted on first use rather than compared against
-        // the old one's fingerprint.
-        let existing = settings.destinations.first { $0.id == id }?.sftpConfig
-        let knownHostKey = (existing?.host == host) ? existing?.knownHostKey : nil
         let config = SFTPConfig(host: host, port: port, username: username,
                                 remoteDirectory: remoteDirectory, publicURLBase: publicURLBase,
-                                knownHostKey: knownHostKey)
+                                knownHostKey: nil)
         let dest = UploadDestination(id: id, name: name.isEmpty ? "SFTP" : name,
                                      kind: .sftp, sftpConfig: config)
-        save(dest, isNew: isNew) {
+        // Carry a pinned host key across edits, reading it from the settings
+        // being written rather than from this model's cached copy. An upload can
+        // pin a key at any time, including while Preferences sits open, and the
+        // cached copy would still say "unpinned" — so renaming the destination
+        // erased the fingerprint and the next connection trusted whatever the
+        // server presented. Host *and* port identify the endpoint: a port change
+        // reaches a different server, whose key must be learned afresh.
+        save(dest, isNew: isNew, reconcile: { dest, current in
+            guard let existing = current.destinations.first(where: { $0.id == dest.id })?.sftpConfig,
+                  existing.host == host, existing.port == port else { return dest }
+            var carried = dest
+            carried.sftpConfig?.knownHostKey = existing.knownHostKey
+            return carried
+        }) {
             // Any secret entered replaces the whole set, so a stale key can't
             // linger next to a new password.
             if !password.isEmpty || !privateKeyPEM.isEmpty || !passphrase.isEmpty {

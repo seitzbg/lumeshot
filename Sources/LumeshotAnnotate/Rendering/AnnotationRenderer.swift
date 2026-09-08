@@ -21,12 +21,18 @@ public enum AnnotationRenderer {
     /// new CGImage. The base is never mutated. Effects composite BENEATH vector
     /// annotations (they bake into the image; vectors draw on top afterward).
     /// Rects are annotation space (top-left, y-down); converted to CI's bottom-left
-    /// space here. Returns `base` unchanged when there are no effect annotations.
+    /// space here. Returns `base` unchanged when there are no effect annotations,
+    /// and nil if Core Image cannot render the result.
+    ///
+    /// Nil rather than `base`: returning the base on a render failure hands back
+    /// an image with none of its redactions applied, and the later drawing pass
+    /// skips blur/pixelate shapes, so nothing would reapply them. Callers that
+    /// export must treat nil as a failure, never as "no effects".
     ///
     /// Effects **stack** in list order: each one samples the accumulated result, so
     /// blurring a region that was already pixelated operates on the pixelated pixels.
     /// Effects over disjoint regions are unaffected by this.
-    public static func bakeEffects(base: CGImage, annotations: [Annotation]) -> CGImage {
+    public static func bakeEffects(base: CGImage, annotations: [Annotation]) -> CGImage? {
         let effects = annotations.filter(\.shape.isEffect)
         guard !effects.isEmpty else { return base }
         let h = CGFloat(base.height)
@@ -55,15 +61,19 @@ public enum AnnotationRenderer {
             guard !ciRect.isNull, !ciRect.isEmpty else { continue }
             acc = filtered.cropped(to: ciRect).composited(over: acc)
         }
-        return ciContext.createCGImage(acc, from: baseCI.extent) ?? base
+        return ciContext.createCGImage(acc, from: baseCI.extent)
     }
 
     /// Composites `base` + `annotations` at native resolution: bakes blur/pixelate
     /// effects into the bitmap, draws base + vector/text/highlighter/step on top,
-    /// then crops the output to the single `.crop` rect if one is present. Returns
-    /// nil only if a bitmap context cannot be created.
+    /// then crops the output to the single `.crop` rect if one is present.
+    ///
+    /// Returns nil if the bitmap context cannot be created, if effect baking
+    /// fails, or if a crop is present but cannot be applied. Each of those used
+    /// to fall back to a full, uncropped or unredacted image, which is the one
+    /// outcome an export must never produce silently.
     public static func flatten(base: CGImage, annotations: [Annotation]) -> CGImage? {
-        let baked = bakeEffects(base: base, annotations: annotations)
+        guard let baked = bakeEffects(base: base, annotations: annotations) else { return nil }
         let w = baked.width, h = baked.height
         guard w > 0, h > 0,
               let cs = CGColorSpace(name: CGColorSpace.sRGB),
@@ -84,7 +94,8 @@ public enum AnnotationRenderer {
         if let crop = annotations.last(where: { if case .crop = $0.shape { return true }; return false }),
            case .crop(let r) = crop.shape {
             let px = r.standardized.intersection(CGRect(x: 0, y: 0, width: w, height: h))
-            if !px.isNull, !px.isEmpty, let cropped = full.cropping(to: px) { return cropped }
+            guard !px.isNull, !px.isEmpty, let cropped = full.cropping(to: px) else { return nil }
+            return cropped
         }
         return full
     }

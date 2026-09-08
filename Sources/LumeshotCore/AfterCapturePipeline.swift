@@ -37,6 +37,9 @@ public enum SavePolicy: Equatable, Sendable {
 public struct PipelineResult: Equatable, Sendable {
     public let savedURL: URL?
     public let copiedToClipboard: Bool
+    /// The name an upload of this capture should use. Always present, whether or
+    /// not a file was written, so no caller has to invent one.
+    public let uploadFilename: String
 }
 
 @MainActor
@@ -65,16 +68,36 @@ public struct AfterCapturePipeline {
             let what = savedURL?.lastPathComponent ?? "\(artifact.width)×\(artifact.height) capture"
             effects.notify(title: "Capture complete", body: what, fileURL: savedURL)
         }
-        return PipelineResult(savedURL: savedURL, copiedToClipboard: true)
+        return PipelineResult(savedURL: savedURL, copiedToClipboard: true,
+                             uploadFilename: savedURL?.lastPathComponent
+                                 ?? unsavedUploadName(artifact: artifact))
+    }
+
+    /// The upload name for a capture that was never written to disk.
+    ///
+    /// Uploads used to fall back to the constant "capture.png" whenever "Save a
+    /// copy" was off. Destinations that key off the filename — the S3 object
+    /// key, the SFTP/FTP remote path — then wrote every capture over the last
+    /// one, and with no local copy there was nothing left to recover from.
+    ///
+    /// The rendered template alone does not fix it: its finest unit is the
+    /// second, so two captures in the same second still collide, and a template
+    /// without a time token collides always. The random suffix is what actually
+    /// carries the uniqueness, across sessions as well as within one.
+    private func unsavedUploadName(artifact: CaptureArtifact) -> String {
+        let suffix = String(UUID().uuidString.prefix(8)).lowercased()
+        return "\(renderName(artifact: artifact, increment: 0))-\(suffix).png"
+    }
+
+    private func renderName(artifact: CaptureArtifact, increment: Int) -> String {
+        let ctx = NameContext(date: artifact.capturedAt, width: artifact.width,
+                              height: artifact.height, processName: artifact.appName,
+                              increment: increment)
+        return NameParser.sanitize(NameParser.render(settings.filenameTemplate, context: ctx))
     }
 
     private func resolveCollisions(in dir: URL, artifact: CaptureArtifact) -> URL {
-        func render(increment: Int) -> String {
-            let ctx = NameContext(date: artifact.capturedAt, width: artifact.width,
-                                  height: artifact.height, processName: artifact.appName,
-                                  increment: increment)
-            return NameParser.sanitize(NameParser.render(settings.filenameTemplate, context: ctx))
-        }
+        func render(increment: Int) -> String { renderName(artifact: artifact, increment: increment) }
         let usesIncrement = settings.filenameTemplate.contains("%i")
         let base = render(increment: 0)
         var url = dir.appendingPathComponent(base + ".png")
