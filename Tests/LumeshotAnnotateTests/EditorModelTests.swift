@@ -12,6 +12,30 @@ import CoreGraphics
         return ctx.makeImage()!
     }
 
+    /// The canvas maps clicks straight to image coordinates, margins included, so
+    /// a crop could be drawn entirely outside the bitmap. It must not become an
+    /// annotation at all.
+    @Test func aCropDrawnOutsideTheImageIsNotCreated() throws {
+        let model = EditorModel(baseImage: base(40, 40))
+        model.setTool(.crop)
+        model.pointerDown(at: CGPoint(x: -30, y: 10))
+        model.pointerUp(at: CGPoint(x: -10, y: 30))
+        #expect(model.annotations.isEmpty)
+    }
+
+    /// A crop that starts outside is kept, but only the part over the image.
+    @Test func aCropStraddlingTheEdgeIsConfinedToTheImage() throws {
+        let model = EditorModel(baseImage: base(40, 40))
+        model.setTool(.crop)
+        model.pointerDown(at: CGPoint(x: -10, y: -10))
+        model.pointerUp(at: CGPoint(x: 20, y: 20))
+        let annotation = try #require(model.annotations.first)
+        guard case .crop(let rect) = annotation.shape else {
+            Issue.record("expected a crop"); return
+        }
+        #expect(rect == CGRect(x: 0, y: 0, width: 20, height: 20))
+    }
+
     @Test func drawingARectangleAppendsOneAnnotation() {
         let m = EditorModel(baseImage: base())
         m.setTool(.rectangle)

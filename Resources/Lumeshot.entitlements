@@ -13,10 +13,14 @@
           by the TCC Screen Recording grant, not by an entitlement.
         * The app is not sandboxed, so writing captures to ~/Pictures, reaching
           the network, and using the login Keychain all work unentitled.
-        * Every dependency (Citadel, SwiftNIO, swift-crypto) is statically
-          linked, and libcurl resolves to Apple's /usr/lib/libcurl.4.dylib, so
-          library validation has nothing to reject — no
-          com.apple.security.cs.disable-library-validation needed.
+        * Citadel, SwiftNIO and swift-crypto are statically linked, and libcurl
+          resolves to Apple's /usr/lib/libcurl.4.dylib.
+
+      Sparkle is the one dynamically linked dependency, so library validation
+      does apply to it. It needs no exception HERE: a Developer ID signature
+      gives the app and the framework the same Team ID, which is exactly what
+      library validation asks for. Local builds are the ones that cannot satisfy
+      it, and they use Resources/Lumeshot-dev.entitlements instead.
 
       If a future change needs an exception, add it here with a comment saying
       what required it, rather than reaching for disable-library-validation.

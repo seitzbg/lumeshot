@@ -218,7 +218,7 @@ final class RecordingCoordinator {
         // all three callers already log + notify exactly once in their own
         // do/catch around `try await beginRecording(...)`. A local catch here
         // would double the user-facing "Recording failed" notification.
-        try await recorder.start(filter: filter, dimensions: dimensions,
+        let started = try await recorder.start(filter: filter, dimensions: dimensions,
                                  capturesAudio: settings.recording.systemAudio,
                                  codec: codec, outputURL: url) { [weak self] result in
             self?.onStateChange(false)
@@ -233,6 +233,11 @@ final class RecordingCoordinator {
                                      body: String(describing: error), fileURL: nil)
             }
         }
-        onStateChange(true)
+        // Only when the recorder actually committed a live session. A delegate
+        // failure arriving during the ScreenCaptureKit handshake delivers,
+        // resets to .idle and has already called onStateChange(false) through
+        // the closure above — so switching the indicator on here regardless left
+        // the menu bar showing a recording that was not running.
+        if started { onStateChange(true) }
     }
 }

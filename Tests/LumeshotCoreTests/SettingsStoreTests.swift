@@ -69,4 +69,31 @@ private func tempFile() -> URL {
         #expect(d.hotkeys.window == HotkeyCombo(keyCode: 23, modifiers: 2560))     // ⌥⇧5
         #expect(d.schemaVersion == 2)
     }
+
+    /// Atomic file writes stop a reader seeing half a document; they do nothing
+    /// for two writers. The SSH host-key callback runs a load/modify/save from a
+    /// background thread while the main actor saves a settings edit, and
+    /// separate load and save calls let those interleave and drop one update.
+    @Test func concurrentTransactionsDoNotLoseUpdates() async throws {
+        let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: dir) }
+        let store = SettingsStore(fileURL: dir.appendingPathComponent("settings.json"))
+        try store.save(.default)
+
+        // Each task adds one destination. Every one must survive.
+        let count = 24
+        await withTaskGroup(of: Void.self) { group in
+            for i in 0..<count {
+                group.addTask {
+                    try? store.mutate { settings in
+                        settings.upload = settings.upload.addingOrUpdating(
+                            UploadDestination(id: "dest-\(i)", name: "D\(i)", kind: .imgur,
+                                              imgurClientID: "client"))
+                    }
+                }
+            }
+        }
+        #expect(store.loadOrDefault().0.upload.destinations.count == count)
+    }
 }

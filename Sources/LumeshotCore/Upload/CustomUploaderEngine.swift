@@ -67,26 +67,42 @@ public enum CustomUploaderEngine {
         }
         let context = ResponseContext(body: String(data: body, encoding: .utf8) ?? "",
                                       headers: headers, regexList: config.regexList)
-        func resolve(_ template: String?) -> String? {
+        // Optional extras: a thumbnail or deletion link that cannot be extracted
+        // is dropped. The upload itself succeeded, and losing a deletion token is
+        // not worth failing it over.
+        func resolveOptional(_ template: String?) -> String? {
             guard let template, !template.isEmpty else { return nil }
-            let value = ResponseURLParser.resolve(template, context: context)
-            return value.isEmpty ? nil : value
+            guard let value = ResponseURLParser.resolve(template, context: context),
+                  !value.isEmpty else { return nil }
+            return value
+        }
+        // The result URL is not optional. A template that cannot be filled in is
+        // a failed upload, however healthy the status code looked: the literal
+        // parts of the template would otherwise assemble into a plausible but
+        // wrong link, which then replaces the screenshot on the clipboard.
+        func resolveRequired(_ template: String) throws -> String {
+            guard let value = ResponseURLParser.resolve(template, context: context),
+                  !value.isEmpty else {
+                throw UploadError.badResponse(
+                    "The response did not contain the values the URL template asks for.")
+            }
+            return value
         }
         // An absent/empty .sxcu URL template means "the response body is
         // already the URL", so a response-only uploader is a valid .sxcu. Fall
         // back to the trimmed body, but only when it really parses as an http(s)
         // URL -- otherwise an HTML error page would be copied to the clipboard.
         let url: String
-        if let resolved = resolve(config.url) {
-            url = resolved
+        if let template = config.url, !template.isEmpty {
+            url = try resolveRequired(template)
         } else if let fromBody = Self.responseBodyAsURL(context.body) {
             url = fromBody
         } else {
             throw UploadError.emptyURL
         }
         return UploadResult(url: url,
-                            thumbnailURL: resolve(config.thumbnailURL),
-                            deletionURL: resolve(config.deletionURL))
+                            thumbnailURL: resolveOptional(config.thumbnailURL),
+                            deletionURL: resolveOptional(config.deletionURL))
     }
 
     /// The trimmed response body when it is a usable http(s) URL, else nil.

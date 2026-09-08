@@ -63,6 +63,32 @@ private func settings() -> AppSettings {
         #expect(fx.notifications.first?.1 == result.savedURL)
     }
 
+    /// With "Save a copy" off there is no file to take an upload name from, and
+    /// the old constant "capture.png" made every capture overwrite the last one
+    /// on any destination keyed by filename.
+    @Test func uploadNameIsDistinctForEveryUnsavedCapture() throws {
+        var s = settings()
+        s.saveToDisk = false
+        let pipeline = AfterCapturePipeline(settings: s, effects: MockEffects())
+        // Same artifact both times: same timestamp, same template, no file written.
+        let first = try pipeline.process(artifact())
+        let second = try pipeline.process(artifact())
+        #expect(first.savedURL == nil)
+        #expect(second.savedURL == nil)
+        #expect(first.uploadFilename != second.uploadFilename)
+        #expect(first.uploadFilename.hasPrefix("shot_20260710"))
+        #expect(first.uploadFilename.hasSuffix(".png"))
+    }
+
+    /// When a file is written the upload must address that same name, so the
+    /// history row, the local file and the remote object all agree.
+    @Test func uploadNameMatchesTheSavedFileWhenOneIsWritten() throws {
+        let result = try AfterCapturePipeline(settings: settings(), effects: MockEffects())
+            .process(artifact())
+        #expect(result.uploadFilename == result.savedURL?.lastPathComponent)
+        #expect(result.uploadFilename == "shot_20260710.png")
+    }
+
     @Test func collisionAppendsSuffix() throws {
         let fx = MockEffects()
         fx.existing = ["shot_20260710.png", "shot_20260710_1.png"]
