@@ -4,16 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- Lumeshot now updates itself. It checks daily and on demand, then downloads, verifies and
-  installs the update — no more downloading a dmg and dragging it to Applications.
-- Testing an uploader now sends what that destination will actually carry — a short video
-  to uploaders that accept video, a generated image to image-only ones. The Test sheet says
-  which before it runs.
-- Upload failures now record the underlying reason in `~/Library/Logs/Lumeshot.log`,
-  including failures from the uploader Test sheet.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.15](docs/releases/v0.1.15.md) — Automatic updates, and twelve code-review fixes covering lost uploads, credential edits, crops and redactions.
 - [v0.1.14](docs/releases/v0.1.14.md) — Guard rails for upload destinations: image-only hosts, untested uploaders, and logged recording failures.
 - [v0.1.13](docs/releases/v0.1.13.md) — Fix the Download button in the update alert doing nothing.
 - [v0.1.12](docs/releases/v0.1.12.md) — Separate upload destination for screen recordings, and an uncut menu-bar timer.

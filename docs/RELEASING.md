@@ -75,6 +75,13 @@ login Keychain with `generate_keys -x`. **Back up the Keychain copy.** Losing it
 installed copies can never verify another update — recovery requires shipping a new public
 key in a build users install by hand.
 
+To confirm the secret still matches what the app ships, run the `verify-sparkle-key`
+workflow. It derives the public half of the secret and compares it, without publishing
+anything. Worth doing before a release and after any key rotation: the appcast is signed in
+the release workflow's last step, after the dmg is notarized and published, and a wrong key
+does not necessarily fail there — `generate_appcast` omits `sparkle:edSignature` for a
+notarized dmg, so the feed can look fine and still be rejected by installed copies.
+
 Note that `generate_appcast` omits `sparkle:edSignature` for a Developer ID signed and
 notarized dmg: Sparkle validates those through Apple code signing instead. That is
 expected, not a misconfiguration — an ad-hoc build of the same app does get a signature.
@@ -144,8 +151,12 @@ See `docs/smoke-signing.md`. The short version, on a Mac that has never run Lume
 
 Local builds use the self-signed `lumeshot-dev` identity from `scripts/setup-signing.sh`,
 not the Developer ID certificate — the real private key stays in GitHub secrets and never
-reaches the dev Mac. They still get the hardened runtime and the same entitlements, so the
-dev loop exercises the runtime restrictions the shipped app runs under.
+reaches the dev Mac. They get the hardened runtime, so the dev loop exercises the runtime
+restrictions the shipped app runs under, with one exception: they sign with
+`Resources/Lumeshot-dev.entitlements`, which disables library validation. That check
+requires the app and Sparkle.framework to share a Team ID, and `codesign` derives one only
+from an Apple-issued certificate, so no local build can satisfy it. Release builds use the
+empty `Resources/Lumeshot.entitlements`; `scripts/bundle.sh` picks by `DEVELOPER_ID_SIGNING`.
 
 ## Why notarization matters here
 

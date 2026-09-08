@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.14 is the current release; the manual signed-build smoke recorded under
+  v0.1.15 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -41,6 +41,10 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **Rebrand + rename** | Lumeshot throughout the app, bundle ID (`org.lumeshot.app`), Keychain service, settings/capture/log paths, signing scripts, and documentation. Clean break: no automatic migration; existing data is left untouched. |
 
 ## Unreleased
+
+_Nothing yet._
+
+## v0.1.15 — released
 
 - **Second code review (2026-09-08): all 12 findings fixed.** The packaged app could
   not launch at all. SwiftPM links the executable with `@loader_path` only, so once
@@ -297,15 +301,17 @@ Run these when convenient (each is a checklist):
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.
-- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.14 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
+- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.15 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Auto-update: shipped, via Sparkle — see Unreleased. Updates install in place; the
-  manual download-and-drag step is gone.
-- v0.1.14 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.14 in `docs/smoke-signing.md`.
+- Auto-update: shipped in v0.1.15, via Sparkle. Updates install in place; the
+  manual download-and-drag step is gone. v0.1.15 is the first build whose own
+  update flow cannot be tested by installing it — an installed v0.1.15 finds only
+  its own entry in the feed — so the first end-to-end proof is the release after it.
+- v0.1.15 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.15 in `docs/smoke-signing.md`.
 
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
@@ -335,14 +341,15 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.14 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
-2. **Distribution polish** — auto-update and first-run/onboarding refinement (app icon shipped in v0.1.6).
+1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.15 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
+2. **Prove the update flow end to end** — v0.1.15 ships Sparkle but cannot test itself, since an installed copy finds only its own entry in the feed. The release after it is the first real check that an installed copy sees, downloads and installs an update.
+3. **First-run / onboarding refinement** — the remaining half of distribution polish (app icon shipped in v0.1.6; auto-update shipped in v0.1.15).
 
 Dropped: **uploader auth (Imgur OAuth)** — see the backlog note under Uploaders.
 Done: **editor polish pass** — effect stacking + caching, text-font fidelity and the
 stroke push all landed. **Per-kind upload destinations** — implemented and unit-tested;
 the picker and an actual upload to the second destination still need a hands-on pass with
-two uploaders configured. See Unreleased.
+two uploaders configured. See v0.1.12.
 
 ## How to resume
 
