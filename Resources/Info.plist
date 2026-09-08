@@ -13,6 +13,14 @@
     <key>CFBundleShortVersionString</key><string>@VERSION@</string>
     <key>CFBundleVersion</key><string>@VERSION@</string>
     <key>LumeshotReleaseChannel</key><string>@CHANNEL@</string>
+    <!-- Sparkle. SUPublicEDKey is public by design: it only verifies signatures,
+         and the private half lives in the login Keychain and a repo secret. -->
+    <key>SUFeedURL</key><string>https://seitzbg.github.io/lumeshot/appcast.xml</string>
+    <key>SUPublicEDKey</key><string>ql+EebjVbjlyapBiaK+mUaHLrJfUxhANs8h23j+6jD8=</string>
+    <!-- Set explicitly so Sparkle does not open a permission dialog on first launch.
+         Checking for updates is the whole point of shipping it. -->
+    <key>SUEnableAutomaticChecks</key><true/>
+    <key>SUScheduledCheckInterval</key><integer>86400</integer>
     <key>LSMinimumSystemVersion</key><string>15.0</string>
     <key>LSUIElement</key><true/>
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>

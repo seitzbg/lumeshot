@@ -3,6 +3,7 @@ import Combine
 import LumeshotCore
 import LumeshotRecord
 import UniformTypeIdentifiers
+import Sparkle
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -12,7 +13,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var coordinator: CaptureCoordinator?
     private var preferencesWindow: PreferencesWindowController?
     private let aboutWindow = AboutWindowController()
-    private let updateChecker = UpdateCheckController()
+    /// Sparkle's standard controller: it owns the scheduled checks, the download,
+    /// EdDSA verification against SUPublicEDKey, installation and relaunch. Started
+    /// eagerly so the scheduled check runs without the menu ever being opened.
+    private let updaterController = SPUStandardUpdaterController(
+        startingUpdater: true, updaterDelegate: nil, userDriverDelegate: nil)
     private var historyStore: HistoryStore?
     private var historyWindow: HistoryWindowController?
     private let editorWindow = EditorWindowController()
@@ -375,7 +380,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func showAbout() { aboutWindow.show() }
 
-    @objc private func checkForUpdates() { updateChecker.checkForUpdates() }
+    @objc private func checkForUpdates() { updaterController.checkForUpdates(nil) }
 
     @objc private func copyLastUploadLink() { UploadActivity.shared.copyLatestLink() }
 

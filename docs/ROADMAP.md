@@ -42,6 +42,20 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 
 ## Unreleased
 
+- Automatic updates via Sparkle 2.9.6, replacing the hand-rolled check. Lumeshot now
+  downloads, verifies and installs an update in place instead of revealing a dmg in Finder
+  for a manual drag. The feed is published to `gh-pages` by the release workflow and served
+  at `https://seitzbg.github.io/lumeshot/appcast.xml`.
+
+  Sparkle ships ad-hoc signed with nested code (Updater.app, Autoupdate), so `bundle.sh`
+  re-signs it innermost-first; the XPC services are deleted rather than signed, since they
+  exist for sandboxed apps and Lumeshot is not one. `generate_appcast` omits
+  `sparkle:edSignature` for a Developer ID signed and notarized dmg because Sparkle
+  validates those through Apple code signing — confirmed by comparing against an ad-hoc
+  build, which does get one.
+
+  This removed `UpdateCheck`, `ReleaseVersion`, `ReleaseChecksums`, `UpdateDownloader`,
+  `UpdateCheckController` and `UpdateAlertChoice`, and 28 tests with them.
 - Every upload failure now logs the underlying error, including the Test sheet's. Only
   `RecordingDelivery` logged one; the Test and still paths surfaced `UploadFeedback`'s
   friendly text, and for `.transport` that is "Couldn't complete the connection", which
@@ -265,16 +279,9 @@ Run these when convenient (each is a checklist):
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
-- Auto-update: **Check for Updates…** reports whether a newer release exists, and can
-  download the dmg, verify it against the release's `SHA256SUMS.txt`, mark it quarantined
-  so Gatekeeper assesses it, and reveal it in Finder. Installing is still manual by
-  design: replacing the running app is a privileged code path, and doing it safely means
-  Sparkle — an EdDSA key pair, a hosted appcast and update-signing in the release
-  workflow — which is a separate decision with its own key-management burden.
-  Note the checksum proves the download arrived intact, not that it is genuine (both
-  files come from the same release); the quarantine attribute is what makes macOS check
-  the Developer ID signature and notarization on first open.
-- v0.1.14 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.9 in `docs/smoke-signing.md`.
+- Auto-update: shipped, via Sparkle — see Unreleased. Updates install in place; the
+  manual download-and-drag step is gone.
+- v0.1.14 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.14 in `docs/smoke-signing.md`.
 
 **Uploaders**
 - Custom-uploader `ErrorMessage` (`{json:data.message}`) is decoded but never applied. User-facing failures now use generic messages that omit raw server responses; safely supporting uploader-specific messages remains deferred.
