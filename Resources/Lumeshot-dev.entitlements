@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+      LOCAL DEVELOPMENT ONLY. Never used for a release build: scripts/bundle.sh
+      selects this file only when DEVELOPER_ID_SIGNING is unset, and the release
+      workflow always sets it. Shipped builds use the empty
+      Resources/Lumeshot.entitlements.
+
+      Why it exists. Sparkle is a dynamically linked framework inside the app
+      bundle, so the hardened runtime's library validation applies to it: the
+      loading process and the framework must share a Team ID. codesign takes the
+      Team ID from an Apple-issued certificate, so a Developer ID signature gives
+      both halves the same one and release builds load Sparkle normally.
+
+      A local build has no such certificate. Both the self-signed lumeshot-dev
+      identity and an ad-hoc signature report "TeamIdentifier=not set", and two
+      absent Team IDs do not match, so dyld refuses to map the framework:
+
+        Library not loaded: @rpath/Sparkle.framework/Versions/B/Sparkle
+        ... not valid for use in process: mapping process and mapped file
+        (non-platform) have different Team IDs
+
+      Adding an OU to the self-signed certificate does not help — codesign only
+      derives a Team ID from Apple-issued certificates. So this single exception
+      is the narrowest way to keep the dev loop runnable. The rest of the
+      hardened runtime stays switched on locally, which is the point: everything
+      that CAN be exercised without a real certificate still is.
+    -->
+    <key>com.apple.security.cs.disable-library-validation</key>
+    <true/>
+</dict>
+</plist>
