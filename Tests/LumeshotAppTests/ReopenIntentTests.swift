@@ -33,6 +33,21 @@ import Testing
             reopenedAt: t, lastNotificationResponse: t.addingTimeInterval(-0.51)))
     }
 
+    /// The deferral has to outlast the window it depends on. Waiting less means a
+    /// response arriving late in the window finds Settings already on screen, and
+    /// cancelling a work item that has run does nothing — which quietly shortens
+    /// the window to however long the deferral happened to be.
+    @Test func theRevealOutlastsTheWindowItDependsOn() {
+        #expect(ReopenIntent.revealDelay >= ReopenIntent.responseWindow)
+    }
+
+    /// A response late in the window still counts, which is the case the short
+    /// deferral used to miss.
+    @Test func aResponseLateInTheWindowStillSuppressesSettings() {
+        #expect(!ReopenIntent.shouldRevealSettings(
+            reopenedAt: t, lastNotificationResponse: t.addingTimeInterval(0.4)))
+    }
+
     /// The boundary belongs to the notification: exactly at the edge counts as
     /// too close to call, and the safe answer is not to hijack the click.
     @Test func theWindowEdgeIsTreatedAsANotificationActivation() {

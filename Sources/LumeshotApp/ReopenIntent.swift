@@ -18,6 +18,14 @@ enum ReopenIntent {
     /// notification still opens Settings.
     static let responseWindow: TimeInterval = 0.5
 
+    /// How long to wait before acting on a reopen.
+    ///
+    /// Must be at least `responseWindow`. A response arriving inside the window
+    /// has to be able to cancel the reveal, and cancelling cannot un-show a
+    /// window that has already been shown — so deferring for less than the window
+    /// silently shortens it. `theRevealOutlastsTheWindowItDependsOn` pins this.
+    static let revealDelay: TimeInterval = responseWindow + 0.05
+
     static func shouldRevealSettings(reopenedAt: Date,
                                      lastNotificationResponse: Date?,
                                      window: TimeInterval = responseWindow) -> Bool {

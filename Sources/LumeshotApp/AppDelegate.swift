@@ -173,8 +173,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             self.preferencesWindow?.show()
         }
         pendingSettingsReveal = reveal
-        DispatchQueue.main.asyncAfter(deadline: .now() + ReopenIntent.responseWindow * 0.7,
-                                      execute: reveal)
+        DispatchQueue.main.asyncAfter(deadline: .now() + ReopenIntent.revealDelay, execute: reveal)
         return false
     }
 
