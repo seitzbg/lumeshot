@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.16 is the current release; the manual signed-build smoke recorded under
+  v0.1.17 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -43,6 +43,20 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 ## Unreleased
 
 _Nothing yet._
+
+## v0.1.17 — released
+
+- Clicking a notification no longer opens Settings on top of what it just opened.
+  macOS reports a notification-driven activation through the same callback as a Dock
+  click, and a menu-bar app has no visible windows either way, so the branch that
+  recovers Settings for a Dock click fired for every notification click too. Found by
+  running the signed-build smoke check on v0.1.16 — the notification actions themselves
+  were correct all along.
+
+  The response can arrive either side of the reopen, so the reveal is deferred and
+  re-checked rather than decided once, and the deferral is pinned by test to outlast the
+  window it depends on. A first attempt deferred for less than the window, which silently
+  shortened it.
 
 ## v0.1.16 — released
 
@@ -323,7 +337,7 @@ Run these when convenient (each is a checklist):
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.
-- [ ] **Signed release capture and notifications** — grant Screen Recording access to the signed v0.1.16 build, capture, and verify the notification appears and its action works. Authorization alone does not prove delivery.
+- [x] **Signed release capture and notifications** — verified on the signed v0.1.16 build (2026-09-09). A capture posts a visible banner; **Capture complete** reveals the file in Finder and **Uploaded** opens the link. This also found the notification-click bug fixed in v0.1.17: both actions worked, but Settings opened on top of them. Worth one more click on v0.1.17 to confirm the Settings window is gone — the fix could not be exercised locally, since launching a dev copy beside the installed release re-points the Screen Recording grant.
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
@@ -362,7 +376,7 @@ Run these when convenient (each is a checklist):
 
 Rough priority order — revisit when picking up again:
 
-1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.16 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
+1. **Finish signed-release smoke checks** — launch was verified on v0.1.7; re-run against the shipping v0.1.17 build, then confirm capture permissions and visible notifications using `docs/smoke-signing.md`. The checklists were audited against the shipped UI on 2026-09-07; only the hands-on passes remain.
 2. ~~**Prove the update flow end to end**~~ — **done, 2026-09-08.** An installed v0.1.15 offered v0.1.16, downloaded it, verified its EdDSA signature and installed in place. The Sparkle integration is proven, not merely shipped.
 3. **First-run / onboarding refinement** — the remaining half of distribution polish (app icon shipped in v0.1.6; auto-update shipped in v0.1.15).
 
