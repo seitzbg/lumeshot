@@ -12,6 +12,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var hotkeys: HotkeyManager?
     private var coordinator: CaptureCoordinator?
     private var preferencesWindow: PreferencesWindowController?
+    /// When the user last acted on a notification; see ReopenIntent.
+    private var lastNotificationResponse: Date?
+    private var pendingSettingsReveal: DispatchWorkItem?
     private let aboutWindow = AboutWindowController()
     /// Sparkle's standard controller: it owns the scheduled checks, the download,
     /// EdDSA verification against SUPublicEDKey, installation and relaunch. Started
@@ -42,6 +45,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
 
         effects.setUpNotifications()
+        effects.onNotificationResponse = { [weak self] in
+            self?.lastNotificationResponse = Date()
+            // The reveal may already be scheduled; this activation was not a
+            // request for Settings.
+            self?.pendingSettingsReveal?.cancel()
+            self?.pendingSettingsReveal = nil
+        }
         let historyStore = try? HistoryStore(
             fileURL: SettingsStore.defaultFileURL.deletingLastPathComponent()
                 .appendingPathComponent("history.sqlite"))
@@ -144,7 +154,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         // Reopening from Finder should also give a menu-bar app a visible window.
         // A Dock click recovers Settings even when it was minimized or hidden.
         guard preferencesWindow?.isOpen == true || !flag else { return true }
-        preferencesWindow?.show()
+        // ...but a notification click activates the app and lands here too, which
+        // put Settings on top of the Finder window or browser tab the notification
+        // had just opened. See ReopenIntent. The response can arrive after this
+        // call, so decide once now and again when the reveal is due.
+        let reopenedAt = Date()
+        guard ReopenIntent.shouldRevealSettings(
+            reopenedAt: reopenedAt, lastNotificationResponse: lastNotificationResponse) else {
+            return true
+        }
+        pendingSettingsReveal?.cancel()
+        let reveal = DispatchWorkItem { [weak self] in
+            guard let self else { return }
+            self.pendingSettingsReveal = nil
+            guard ReopenIntent.shouldRevealSettings(
+                reopenedAt: reopenedAt,
+                lastNotificationResponse: self.lastNotificationResponse) else { return }
+            self.preferencesWindow?.show()
+        }
+        pendingSettingsReveal = reveal
+        DispatchQueue.main.asyncAfter(deadline: .now() + ReopenIntent.revealDelay, execute: reveal)
         return false
     }
 
