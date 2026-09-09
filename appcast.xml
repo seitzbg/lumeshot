@@ -14,6 +14,32 @@
         <description>Updates for Lumeshot, a screenshot and screen-recording tool for macOS.</description>
         <language>en</language>
         <item>
+            <title>0.1.17</title>
+            <pubDate>Wed, 09 Sep 2026 23:53:11 +0000</pubDate>
+            <link>https://github.com/seitzbg/lumeshot</link>
+            <sparkle:version>0.1.17</sparkle:version>
+            <sparkle:shortVersionString>0.1.17</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[One fix, to something you would have seen every time you clicked a notification.
+
+## Clicking a notification no longer opens Settings
+
+Clicking **Capture complete** revealed the screenshot in Finder and then put the
+Settings window in front of it. Clicking **Uploaded** opened the link and did the
+same. Both notifications were doing the right thing — the Settings window was
+uninvited, and it covered the thing you had just asked for.
+
+macOS reports the app being activated by a notification click the same way it
+reports a click on the Dock icon, and Lumeshot opens Settings for the latter
+because a menu-bar app has no other window to show. It now tells the two apart.
+
+Clicking the Dock icon still opens Settings, including straight after dismissing
+a notification.
+]]></description>
+            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.17/Lumeshot-0.1.17.dmg" length="8278800" type="application/octet-stream" sparkle:edSignature="guB6sxCDt/oF7qR49lVp+ehynZS/m2Pz3re2ii9hcGe9GQUBFB7dXyD7QUzEl92GOi/4lYm7ojBTwxVr6hU4BQ=="/>
+        </item>
+        <item>
             <title>0.1.16</title>
             <pubDate>Tue, 08 Sep 2026 21:12:15 +0000</pubDate>
             <link>https://github.com/seitzbg/lumeshot</link>
