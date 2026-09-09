@@ -7,6 +7,12 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
     // UNUserNotificationCenter requires a real bundle; bare `swift run` has none.
     private var notificationsAvailable: Bool { Bundle.main.bundleIdentifier != nil }
 
+    /// Called when the user acts on a notification. Clicking one activates the
+    /// app, and that activation reaches `applicationShouldHandleReopen`
+    /// indistinguishably from a Dock click — which opens Settings. The delegate
+    /// uses this to tell the two apart.
+    var onNotificationResponse: (@MainActor () -> Void)?
+
     func setUpNotifications() {
         guard notificationsAvailable else {
             AppLog.log("Notifications unavailable (not running from a bundle)")
@@ -118,19 +124,32 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
                                             didReceive response: UNNotificationResponse,
                                             withCompletionHandler completionHandler: @escaping () -> Void) {
         let userInfo = response.notification.request.content.userInfo
+        // Logged because a report like "clicking it did the wrong thing" is
+        // otherwise undiagnosable: the post is logged, the response was not.
         if let urlString = userInfo["url"] as? String, let url = URL(string: urlString) {
-            DispatchQueue.main.async { NSWorkspace.shared.open(url) }
+            AppLog.log("Notification action: open URL")
+            DispatchQueue.main.async {
+                self.notedResponse()
+                NSWorkspace.shared.open(url)
+            }
             completionHandler()
             return
         }
         if let path = userInfo["path"] as? String {
             let url = URL(fileURLWithPath: path)
+            AppLog.log("Notification action: reveal file")
             DispatchQueue.main.async {
+                self.notedResponse()
                 NSWorkspace.shared.activateFileViewerSelecting([url])
             }
+        } else {
+            AppLog.log("Notification action: no payload; nothing to open")
+            DispatchQueue.main.async { self.notedResponse() }
         }
         completionHandler()
     }
+
+    private func notedResponse() { onNotificationResponse?() }
 
     nonisolated func userNotificationCenter(_ center: UNUserNotificationCenter,
                                             willPresent notification: UNNotification,
