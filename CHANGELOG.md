@@ -8,6 +8,7 @@ _Nothing yet._
 
 ## Releases
 
+- [v0.1.17](docs/releases/v0.1.17.md) — Clicking a notification no longer opens Settings on top of the file or link it just opened.
 - [v0.1.16](docs/releases/v0.1.16.md) — Identical to v0.1.15; published so the automatic updater has a newer release to install.
 - [v0.1.15](docs/releases/v0.1.15.md) — Automatic updates, and twelve code-review fixes covering lost uploads, credential edits, crops and redactions.
 - [v0.1.14](docs/releases/v0.1.14.md) — Guard rails for upload destinations: image-only hosts, untested uploaders, and logged recording failures.
