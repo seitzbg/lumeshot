@@ -96,6 +96,28 @@ produces.
 
 So after a release, check that the new `appcast.xml` entry has a `sparkle:edSignature`.
 
+### The feed is cached for ten minutes
+
+**No update offered right after publishing is normal, not a fault.** GitHub Pages serves
+`appcast.xml` with `cache-control: max-age=600`, so the CDN keeps handing out the previous
+feed for up to ten minutes after the workflow pushes a new one. The workflow's own guard
+only proves the file it pushed to `gh-pages` changed; it says nothing about what Pages is
+currently serving.
+
+That gap produced a false alarm on v0.1.16: `gh-pages` had the new entry within three
+seconds of the release, Pages reported `built` three seconds after that, and the served
+feed still advertised only the previous version — so **Check for Updates…** correctly
+reported nothing. Compare against the branch, not the URL, before concluding anything:
+
+    # what is actually deployed
+    gh api "repos/seitzbg/lumeshot/contents/appcast.xml?ref=gh-pages" --jq .content | base64 -d
+
+    # what the world is being served, and how stale it is
+    curl -sI https://seitzbg.github.io/lumeshot/appcast.xml | grep -iE 'age|x-cache'
+
+If the branch has the entry and the served copy does not, wait for the window to expire.
+Sparkle keeps its own URL cache too, so relaunch the app before retrying.
+
 The version in `Info.plist` and the dmg filename come from the tag (`GITHUB_REF_NAME` with
 the leading `v` stripped) — no separate version bump is needed.
 
