@@ -53,7 +53,7 @@ final class EditorWindowController: NSObject, EditorPresenting, NSWindowDelegate
         let w = NSWindow(contentViewController: hosting)
         w.title = "Edit Capture"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        w.setContentSize(NSSize(width: 1200, height: 640))
+        w.setContentSize(NSSize(width: 960, height: 640))
         w.isReleasedWhenClosed = false
         w.delegate = self
         window = w
