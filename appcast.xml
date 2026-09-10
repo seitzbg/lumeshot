@@ -14,6 +14,41 @@
         <description>Updates for Lumeshot, a screenshot and screen-recording tool for macOS.</description>
         <language>en</language>
         <item>
+            <title>0.1.18</title>
+            <pubDate>Thu, 10 Sep 2026 18:27:24 +0000</pubDate>
+            <link>https://github.com/seitzbg/lumeshot</link>
+            <sparkle:version>0.1.18</sparkle:version>
+            <sparkle:shortVersionString>0.1.18</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Two fixes: one to the annotation editor's finish buttons, one to the error an
+SFTP destination shows when it is given the wrong kind of key.
+
+## The editor's finish buttons are readable again
+
+After a capture, the editor's toolbar ends in four buttons — **Cancel**, **Copy**,
+**Save**, and **Upload** — that decide what happens to the annotated image. They
+had no icons and were packed into the same row as every drawing tool, so at the
+editor's window size their labels were squeezed down to about one letter each and
+read as a meaningless "C  C  …  U". There was no obvious way to say you were done.
+
+The four buttons now carry icons alongside full labels, **Save** and **Upload**
+are shown as prominent (blue) buttons, and the editor opens wide enough — and no
+longer shrinks below the width the toolbar needs — that the labels can never be
+truncated again. What each does is unchanged: **Save** writes to disk (and
+history), **Upload** saves and uploads, **Copy** puts the image on the clipboard,
+and **Cancel** discards the capture.
+
+## A clearer error for an RSA SFTP key
+
+An SFTP destination configured with an **RSA** private key used to fail with an
+opaque authentication error. It now names the cause — the SSH library can only
+sign with the legacy `ssh-rsa` (SHA-1) algorithm that OpenSSH 8.8 and newer reject
+by default — and points you at using an Ed25519 key instead.
+]]></description>
+            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.18/Lumeshot-0.1.18.dmg" length="8303606" type="application/octet-stream" sparkle:edSignature="hfHRMh2Vzkuzw0i+bbAzfcZo7Ud3eyVps+q2jPxvVjgRmV9nZMPzNE2AXfsncDWf7wYYwVDW+Go3i1Ftw6DPDQ=="/>
+        </item>
+        <item>
             <title>0.1.17</title>
             <pubDate>Wed, 09 Sep 2026 23:53:11 +0000</pubDate>
             <link>https://github.com/seitzbg/lumeshot</link>
@@ -63,85 +98,6 @@ If you are on v0.1.15 there is nothing to gain by updating, beyond confirming
 that updating works.
 ]]></description>
             <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.16/Lumeshot-0.1.16.dmg" length="8277935" type="application/octet-stream" sparkle:edSignature="TwpBQsF0Lbu5nf+xRiTC65pFrqArCgTxYLMyf1RpK6SIjfHdMrNPyUT+85+5wepsGRBfNiK9adLJK0xFaOpnBA=="/>
-        </item>
-        <item>
-            <title>0.1.15</title>
-            <pubDate>Tue, 08 Sep 2026 20:08:38 +0000</pubDate>
-            <link>https://github.com/seitzbg/lumeshot</link>
-            <sparkle:version>0.1.15</sparkle:version>
-            <sparkle:shortVersionString>0.1.15</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Lumeshot now updates itself, and a code review of the whole app turned up twelve
-defects — several of which could lose a capture, an upload, or a credential.
-
-Eleven of them are listed below. The twelfth stopped the app launching at all and
-never reached a published build, so no released version was affected by it.
-
-## Automatic updates
-
-Lumeshot checks for updates daily and on demand, then downloads, verifies and
-installs them in place. Downloading a dmg and dragging it to Applications is no
-longer part of updating.
-
-This release is the one you install by hand; from here on it updates itself.
-
-## Fixes that protect your data
-
-- **Uploads no longer overwrite each other.** With **Save a copy** switched off,
-  every capture was uploaded under the same name, so destinations addressed by
-  filename — S3, SFTP and FTP — replaced the previous capture each time, and with
-  no local copy there was nothing to recover. Each upload now gets its own name.
-- **A failed uploader edit no longer destroys working credentials.** If saving an
-  edited uploader failed part way, it could leave the destination with no
-  credentials at all, or with a rejected new key sitting beside the restored old
-  password — and SFTP would then use the rejected key.
-- **Editing an SFTP uploader keeps its pinned host key.** Renaming a destination
-  could silently discard the fingerprint learned on the first connection, after
-  which Lumeshot trusted whatever the server presented next. A pin is now kept
-  unless you point the destination at a different host or port.
-- **Re-uploading a capture cannot delete the earlier upload.** A failed second
-  upload inherited the first one's remote deletion link, so deleting the failure
-  deleted the copy that had worked.
-
-## Fixes that protect what you meant to hide
-
-- **A crop that cannot be applied stops the export.** Drawing a crop outside the
-  image — easy to do in the grey margins around it — used to export the whole,
-  uncropped screenshot instead. Crops are now confined to the image, and an
-  export that still cannot apply one shows an error rather than sending the
-  original.
-- **A redaction that fails to render stops the export.** If blur or pixelate
-  could not be drawn, the image was delivered without them. Copy, Save and
-  Upload now refuse, and the editor stays open so nothing is lost.
-- **Upload failures no longer log the server's reply.** A server that echoes your
-  request back in an error could write an API key or a deletion token into
-  `~/Library/Logs/Lumeshot.log`. The reason for the failure is still recorded.
-
-## Other fixes
-
-- **A failed upload is reported as a failure.** A custom uploader whose response
-  was missing the value its URL template asked for could report success and copy
-  a broken link to the clipboard.
-- **FTP directories starting with `/` are absolute.** They were being treated as
-  relative to the login directory, so uploads landed somewhere other than the
-  configured path while the copied link claimed otherwise. If you worked around
-  this by writing the path relative to your login directory, drop the leading
-  slash to keep the old behaviour. Servers that lock the login to `/` are
-  unaffected.
-- **The menu bar no longer claims to be recording after a failed start.** It
-  could show a running timer with no recording behind it, which stopping would
-  not clear.
-- **Settings changes no longer overwrite each other.** A background change, such
-  as learning an SSH host key mid-upload, could discard a preference saved at the
-  same moment.
-
-## Upgrading
-
-Download the dmg and replace your existing copy. Your settings, history and
-stored credentials are kept.
-]]></description>
-            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.15/Lumeshot-0.1.15.dmg" length="8277907" type="application/octet-stream" sparkle:edSignature="UAos9ua05z+gNzhd1SzMJ7kBOtHOhstqZQ1czl18q4UFgbeo1Pv6sJwn/Xr6rAwVlaytF+r5h5cJVNEcWm8QBg=="/>
         </item>
     </channel>
 </rss>
