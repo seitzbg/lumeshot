@@ -16,6 +16,22 @@ private extension RGBAColor {
     }
 }
 
+/// Hosts an `NSVisualEffectView` so the tool sidebar picks up the system's translucent
+/// sidebar material, the way native macOS sidebars do.
+private struct VisualEffectView: NSViewRepresentable {
+    let material: NSVisualEffectView.Material
+    func makeNSView(context: Context) -> NSVisualEffectView {
+        let view = NSVisualEffectView()
+        view.material = material
+        view.blendingMode = .behindWindow
+        view.state = .active
+        return view
+    }
+    func updateNSView(_ view: NSVisualEffectView, context: Context) {
+        view.material = material
+    }
+}
+
 struct EditorView: View {
     @ObservedObject var model: EditorModel
     let onAction: (EditorResult) -> Void
@@ -69,38 +85,69 @@ struct EditorView: View {
         }
     }
 
-    /// Vertical tool rail: each drawing tool as an icon + word, so its function is
-    /// obvious without hovering for a tooltip. The active tool is boxed and tinted.
+    /// The tools grouped for the sidebar, preserving `tools` as the single source of
+    /// each tool's label and symbol.
+    private var toolGroups: [(title: String, items: [ToolItem])] {
+        func pick(_ ts: [EditorTool]) -> [ToolItem] {
+            ts.compactMap { t in tools.first { $0.tool == t } }
+        }
+        return [
+            ("Shapes", pick([.select, .rectangle, .ellipse, .line, .arrow, .freehand])),
+            ("Redact", pick([.blur, .pixelate])),
+            ("Annotate", pick([.text, .highlighter, .step, .crop])),
+        ]
+    }
+
+    /// A native-feeling sidebar: a translucent material background, tools grouped under
+    /// quiet section headers, and the active tool shown as a Finder-style accent-filled
+    /// row. Each row is an icon + word, so a tool's function is clear without hovering.
     private var toolRail: some View {
         ScrollView {
-            VStack(alignment: .leading, spacing: 2) {
-                ForEach(tools) { item in
-                    let isActive = model.activeTool == item.tool
-                    Button {
-                        model.setTool(item.tool)
-                    } label: {
-                        HStack(spacing: 8) {
-                            Image(systemName: item.symbol)
-                                .frame(width: 18)
-                            Text(item.label)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.vertical, 6)
-                        .padding(.horizontal, 8)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .contentShape(Rectangle())
+            VStack(alignment: .leading, spacing: 14) {
+                ForEach(toolGroups, id: \.title) { group in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(group.title.uppercased())
+                            .font(.caption2).fontWeight(.semibold)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 16)
+                            .padding(.bottom, 3)
+                        ForEach(group.items) { item in toolRow(item) }
                     }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(isActive ? Color.accentColor : Color.primary)
-                    .background(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
-                    .cornerRadius(6)
-                    .help(item.label)
                 }
             }
-            .padding(6)
+            .padding(.vertical, 12)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
-        .frame(width: 148)
-        .background(Color(nsColor: .underPageBackgroundColor))
+        .frame(width: 190)
+        .background(VisualEffectView(material: .sidebar))
+    }
+
+    private func toolRow(_ item: ToolItem) -> some View {
+        let isActive = model.activeTool == item.tool
+        return Button {
+            model.setTool(item.tool)
+        } label: {
+            HStack(spacing: 9) {
+                Image(systemName: item.symbol)
+                    .font(.system(size: 13, weight: .medium))
+                    .frame(width: 20, alignment: .center)
+                Text(item.label)
+                    .font(.system(size: 13))
+                Spacer(minLength: 0)
+            }
+            .padding(.vertical, 5)
+            .padding(.horizontal, 9)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(isActive ? Color.white : Color.primary)
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isActive ? Color.accentColor : Color.clear)
+        )
+        .padding(.horizontal, 8)
+        .help(item.label)
     }
 
     private var topBar: some View {
