@@ -14,6 +14,30 @@
         <description>Updates for Lumeshot, a screenshot and screen-recording tool for macOS.</description>
         <language>en</language>
         <item>
+            <title>0.1.20</title>
+            <pubDate>Thu, 10 Sep 2026 20:32:24 +0000</pubDate>
+            <link>https://github.com/seitzbg/lumeshot</link>
+            <sparkle:version>0.1.20</sparkle:version>
+            <sparkle:shortVersionString>0.1.20</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[One change, refining the look of the annotation editor's tool list.
+
+## The editing tools now read as a native sidebar
+
+The tool rail on the left of the editor has been reworked to look and feel like a
+standard macOS sidebar. The tools are organised under quiet section headers —
+**Shapes** (Select, Rectangle, Ellipse, Line, Arrow, Freehand), **Redact** (Blur,
+Pixelate) and **Annotate** (Text, Highlighter, Step, Crop) — the sidebar carries
+the system's translucent material, and the active tool is shown as a full,
+accent-coloured row the way selection looks in Finder and Mail.
+
+Nothing about what the tools do has changed; the list is just easier to scan and
+more at home on macOS.
+]]></description>
+            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.20/Lumeshot-0.1.20.dmg" length="8303722" type="application/octet-stream" sparkle:edSignature="KExoKmXAGfxJwhKNfYUZ2dYKJFOb2zp/5Hh7Q0hvuG9OIlnUlcuxbjV39YKYpLxSdf/vviTz5DOYQmusGZsLBQ=="/>
+        </item>
+        <item>
             <title>0.1.19</title>
             <pubDate>Thu, 10 Sep 2026 19:47:50 +0000</pubDate>
             <link>https://github.com/seitzbg/lumeshot</link>
@@ -73,32 +97,6 @@ sign with the legacy `ssh-rsa` (SHA-1) algorithm that OpenSSH 8.8 and newer reje
 by default — and points you at using an Ed25519 key instead.
 ]]></description>
             <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.18/Lumeshot-0.1.18.dmg" length="8303606" type="application/octet-stream" sparkle:edSignature="hfHRMh2Vzkuzw0i+bbAzfcZo7Ud3eyVps+q2jPxvVjgRmV9nZMPzNE2AXfsncDWf7wYYwVDW+Go3i1Ftw6DPDQ=="/>
-        </item>
-        <item>
-            <title>0.1.17</title>
-            <pubDate>Wed, 09 Sep 2026 23:53:11 +0000</pubDate>
-            <link>https://github.com/seitzbg/lumeshot</link>
-            <sparkle:version>0.1.17</sparkle:version>
-            <sparkle:shortVersionString>0.1.17</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[One fix, to something you would have seen every time you clicked a notification.
-
-## Clicking a notification no longer opens Settings
-
-Clicking **Capture complete** revealed the screenshot in Finder and then put the
-Settings window in front of it. Clicking **Uploaded** opened the link and did the
-same. Both notifications were doing the right thing — the Settings window was
-uninvited, and it covered the thing you had just asked for.
-
-macOS reports the app being activated by a notification click the same way it
-reports a click on the Dock icon, and Lumeshot opens Settings for the latter
-because a menu-bar app has no other window to show. It now tells the two apart.
-
-Clicking the Dock icon still opens Settings, including straight after dismissing
-a notification.
-]]></description>
-            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.17/Lumeshot-0.1.17.dmg" length="8278800" type="application/octet-stream" sparkle:edSignature="guB6sxCDt/oF7qR49lVp+ehynZS/m2Pz3re2ii9hcGe9GQUBFB7dXyD7QUzEl92GOi/4lYm7ojBTwxVr6hU4BQ=="/>
         </item>
     </channel>
 </rss>
