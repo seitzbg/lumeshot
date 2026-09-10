@@ -52,7 +52,10 @@ struct EditorView: View {
             EditorCanvasView(model: model)
                 .frame(minWidth: 480, minHeight: 360)
         }
-        .frame(minWidth: 640, minHeight: 480)
+        // The single-row toolbar needs ~1163pt to lay out every control; holding the
+        // window to at least this width keeps the finish buttons from being clipped or
+        // truncated (the "C… C… … U…" symptom) when the user narrows the editor.
+        .frame(minWidth: 1180, minHeight: 480)
         .alert("Couldn’t produce the image",
                isPresented: Binding(get: { exportError != nil },
                                     set: { if !$0 { exportError = nil } })) {
@@ -116,15 +119,34 @@ struct EditorView: View {
 
             Spacer()
 
-            Button("Cancel", role: .cancel) { onCancel() }
-                .keyboardShortcut(.cancelAction)
-            Button("Copy") { commit(.copy) }
-                .help("Copy the annotated image to the clipboard")
-            Button("Save") { commit(.save) }
-                .help("Save to disk")
-                .keyboardShortcut(.defaultAction)
-            Button("Upload") { commit(.upload) }
-                .help("Save and upload")
+            // Icon+label buttons with .fixedSize() so the labels always render in
+            // full: crammed into this one toolbar, plain text buttons were being
+            // truncated to a single glyph ("C… C… … U…"), hiding the only way to
+            // finish. Save/Upload are emphasized as the primary finish actions.
+            Button(role: .cancel) { onCancel() } label: {
+                Label("Cancel", systemImage: "xmark")
+            }
+            .keyboardShortcut(.cancelAction)
+            .fixedSize()
+            .help("Discard this capture")
+            Button { commit(.copy) } label: {
+                Label("Copy", systemImage: "doc.on.doc")
+            }
+            .fixedSize()
+            .help("Copy the annotated image to the clipboard")
+            Button { commit(.save) } label: {
+                Label("Save", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderedProminent)
+            .keyboardShortcut(.defaultAction)
+            .fixedSize()
+            .help("Save to disk")
+            Button { commit(.upload) } label: {
+                Label("Upload", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.borderedProminent)
+            .fixedSize()
+            .help("Save and upload")
         }
         .padding(8)
     }
