@@ -14,6 +14,29 @@
         <description>Updates for Lumeshot, a screenshot and screen-recording tool for macOS.</description>
         <language>en</language>
         <item>
+            <title>0.1.21</title>
+            <pubDate>Thu, 10 Sep 2026 21:47:38 +0000</pubDate>
+            <link>https://github.com/seitzbg/lumeshot</link>
+            <sparkle:version>0.1.21</sparkle:version>
+            <sparkle:shortVersionString>0.1.21</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[One change, to how the annotation editor's window is sized.
+
+## The editor opens larger and remembers your size
+
+The editor window opened small enough that marking up a capture felt cramped, and
+if you resized it the size was forgotten by the next capture.
+
+It now opens at a generous default — up to 1200×780, capped to fit your screen and
+never smaller than 760×480 — and it **remembers the size and position you set**, so
+a one-time resize sticks for the next capture and the next launch. The window has
+always been resizable; this just gives it a roomier starting size and makes your
+own size stick.
+]]></description>
+            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.21/Lumeshot-0.1.21.dmg" length="8304545" type="application/octet-stream" sparkle:edSignature="Upy8XO4+Cpw4wGsG17x+quf+xDhi5WDMZy8V6MG3E0aga4xmQ1J5CDMbJbJypGPJzx46YbdyTx2LQ/H6KPW0Bg=="/>
+        </item>
+        <item>
             <title>0.1.20</title>
             <pubDate>Thu, 10 Sep 2026 20:32:24 +0000</pubDate>
             <link>https://github.com/seitzbg/lumeshot</link>
@@ -62,41 +85,6 @@ easier to tell apart. With the tools moved out of the top row, the editor window
 also opens at a more compact size again.
 ]]></description>
             <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.19/Lumeshot-0.1.19.dmg" length="8294782" type="application/octet-stream" sparkle:edSignature="Xw9U+dl6euGnAE5PrvlsATzQKf4+w+4GCqcCpMfx8xgD0vJhh6BAdnw41aZeaCCKJbky7VE6LhJymYCJT7lEAQ=="/>
-        </item>
-        <item>
-            <title>0.1.18</title>
-            <pubDate>Thu, 10 Sep 2026 18:27:24 +0000</pubDate>
-            <link>https://github.com/seitzbg/lumeshot</link>
-            <sparkle:version>0.1.18</sparkle:version>
-            <sparkle:shortVersionString>0.1.18</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Two fixes: one to the annotation editor's finish buttons, one to the error an
-SFTP destination shows when it is given the wrong kind of key.
-
-## The editor's finish buttons are readable again
-
-After a capture, the editor's toolbar ends in four buttons — **Cancel**, **Copy**,
-**Save**, and **Upload** — that decide what happens to the annotated image. They
-had no icons and were packed into the same row as every drawing tool, so at the
-editor's window size their labels were squeezed down to about one letter each and
-read as a meaningless "C  C  …  U". There was no obvious way to say you were done.
-
-The four buttons now carry icons alongside full labels, **Save** and **Upload**
-are shown as prominent (blue) buttons, and the editor opens wide enough — and no
-longer shrinks below the width the toolbar needs — that the labels can never be
-truncated again. What each does is unchanged: **Save** writes to disk (and
-history), **Upload** saves and uploads, **Copy** puts the image on the clipboard,
-and **Cancel** discards the capture.
-
-## A clearer error for an RSA SFTP key
-
-An SFTP destination configured with an **RSA** private key used to fail with an
-opaque authentication error. It now names the cause — the SSH library can only
-sign with the legacy `ssh-rsa` (SHA-1) algorithm that OpenSSH 8.8 and newer reject
-by default — and points you at using an Ed25519 key instead.
-]]></description>
-            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.18/Lumeshot-0.1.18.dmg" length="8303606" type="application/octet-stream" sparkle:edSignature="hfHRMh2Vzkuzw0i+bbAzfcZo7Ud3eyVps+q2jPxvVjgRmV9nZMPzNE2AXfsncDWf7wYYwVDW+Go3i1Ftw6DPDQ=="/>
         </item>
     </channel>
 </rss>
