@@ -4,7 +4,10 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-_Nothing yet._
+- An SFTP destination using an **RSA** private key now fails with an error that
+  names the cause — the SSH library can only sign with the legacy `ssh-rsa`
+  (SHA-1) algorithm that OpenSSH 8.8 and newer reject — and points at Ed25519,
+  instead of reporting an opaque authentication failure.
 
 ## Releases
 

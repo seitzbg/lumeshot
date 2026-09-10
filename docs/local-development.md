@@ -105,3 +105,22 @@ Existing `.sxcu` files can still be imported.
    the editor's Save action. Upload requires a configured destination.
 
 These GUI checks remain separate from the automated delivery regression.
+
+## Live upload tests
+
+`CitadelSFTPTransport` and `CurlFTPTransport` are the two pieces of the upload
+path a fake cannot exercise. `scripts/test-servers/` starts throwaway SFTP,
+FTP/FTPS and HTTP servers in Docker and prints the environment that switches the
+integration suites on:
+
+```sh
+scripts/test-servers/up.sh
+# export the printed LUMESHOT_LIVE_* variables where `swift test` runs
+swift test --filter "LiveSFTPTransportTests|LiveFTPTransportTests"
+scripts/test-servers/down.sh --clean
+```
+
+Docker and the Swift toolchain do not have to be on the same machine — `up.sh`
+binds to the LAN address, and `LUMESHOT_LIVE_KEY_DIR` can point anywhere the
+private keys were copied. With `LUMESHOT_LIVE_UPLOAD_HOST` unset the suites skip,
+so CI and a plain `swift test` are unchanged. See `scripts/test-servers/README.md`.

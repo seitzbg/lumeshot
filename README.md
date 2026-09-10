@@ -55,7 +55,11 @@ Shortcut controls stay aligned when only some shortcuts are assigned (v0.1.8 lay
 - **Imgur** — anonymous upload (share URL + deletion URL)
 - **Picsur** — self-hosted image host; API-key auth, choice of serving format and direct-image vs viewer-page links
 - **S3-compatible** — hand-rolled SigV4 (AWS / Cloudflare R2 / MinIO / Backblaze B2); path + virtual-host addressing; optional ACL; custom result-URL domain
-- **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH); host key pinned on first connection and verified thereafter
+- **SFTP** — password or private-key auth (Citadel / SwiftNIO-SSH); host key pinned on first connection and verified thereafter.
+  Use an **Ed25519** key: the SSH library can only sign with the legacy
+  `ssh-rsa` (SHA-1) algorithm, which OpenSSH 8.8 and newer reject by default,
+  so an RSA key that works with the `ssh` command will not authenticate here
+  (the upload error says so).
 - **FTP / FTPS** — libcurl. A remote directory beginning with `/` is an absolute
   server path; one without is relative to the login directory (as is leaving it
   empty). Many servers chroot the login to `/`, where the two are the same place
