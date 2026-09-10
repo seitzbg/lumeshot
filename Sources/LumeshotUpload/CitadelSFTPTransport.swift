@@ -114,8 +114,18 @@ public struct CitadelSFTPTransport: SFTPTransport {
                 throw UploadError.hostKeyMismatch(
                     HostKeyTrust.mismatchMessage(host: host, saved: saved, presented: presented))
             }
+            // The RSA note explains a *rejected key*. This catch also covers DNS
+            // failures, refused ports and timeouts, where no key was ever
+            // offered — appending it there would send the user after the wrong
+            // thing. Gate it on the error that means "the server turned down
+            // everything we offered".
+            var everyCredentialRejected = false
+            if case .allAuthenticationOptionsFailed? = error as? SSHClientError {
+                everyCredentialRejected = true
+            }
             throw UploadError.transport(
-                "SFTP connect failed: \(error)" + (usingRSAKey ? Self.rsaSHA1Note : ""))
+                "SFTP connect failed: \(error)"
+                + (usingRSAKey && everyCredentialRejected ? Self.rsaSHA1Note : ""))
         }
         do {
             try await client.withSFTP { sftp in

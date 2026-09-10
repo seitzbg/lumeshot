@@ -121,13 +121,39 @@ struct LiveSFTPTransportTests {
         }
     }
 
+    /// A key that will not decrypt is a credential problem, and has to be
+    /// reported as one — `.transport` here would send the user looking at the
+    /// network for a bad passphrase.
     @Test func aWrongPassphraseIsReportedAsABadCredentialNotAConnectionFailure() async throws {
         let secret = SFTPSecret(privateKeyPEM: try LiveUploadServers.privateKey("ed25519-pass"),
                                 passphrase: "not-the-passphrase")
         let uploader = SFTPUploader(config: config(), secret: secret)
-        await #expect(throws: UploadError.self) {
+        do {
             _ = try await uploader.upload(
                 LiveUploadServers.part(LiveUploadServers.filename("sftp-badpass"), bytes: Data("x".utf8)))
+            Issue.record("expected the undecryptable key to be rejected")
+        } catch let error as UploadError {
+            guard case .missingCredential = error else {
+                Issue.record("expected UploadError.missingCredential, got \(error)"); return
+            }
+        }
+    }
+
+    /// The note is about a key the server turned down. A refused port never got
+    /// as far as offering one, so telling the user their key type is wrong would
+    /// point them away from the actual problem.
+    @Test func aConnectionFailureWithAnRSAKeyDoesNotBlameTheKeyType() async throws {
+        let uploader = SFTPUploader(config: config(port: 1),
+                                    secret: SFTPSecret(privateKeyPEM: try LiveUploadServers.privateKey("rsa")))
+        do {
+            _ = try await uploader.upload(
+                LiveUploadServers.part(LiveUploadServers.filename("sftp-rsa-refused"), bytes: Data("x".utf8)))
+            Issue.record("expected the connection to be refused")
+        } catch let error as UploadError {
+            guard case .transport(let message) = error else {
+                Issue.record("expected UploadError.transport, got \(error)"); return
+            }
+            #expect(!message.contains("Ed25519"))
         }
     }
 

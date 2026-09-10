@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 # Start the live SFTP/FTP servers the LumeshotUpload integration tests need, and
 # print the environment that enables them. Everything it generates lands in
-# ./state, which is gitignored — no key or certificate is ever committed.
+# ./state, which is gitignored — no key, certificate or password is ever
+# committed.
 #
-#   ./up.sh                 # bind to this machine's LAN address
-#   LUMESHOT_TEST_HOST=…    # override the address the tests (and FTP passive
-#                           # mode) should use, e.g. when the tests run on
-#                           # another host
+#   ./up.sh                            # bind to loopback only
+#   LUMESHOT_TEST_HOST=192.0.2.1 ./up.sh   # reachable from another machine
+#
+# The servers hold a writable account, so LAN exposure is opt-in: pass the
+# address explicitly when the Swift toolchain and Docker are on different hosts.
 set -euo pipefail
 cd "$(dirname "$0")"
 
-HOST="${LUMESHOT_TEST_HOST:-$(hostname -I | awk '{print $1}')}"
+HOST="${LUMESHOT_TEST_HOST:-127.0.0.1}"
 SFTP_PORT="${LUMESHOT_TEST_SFTP_PORT:-2222}"
 FTP_PORT="${LUMESHOT_TEST_FTP_PORT:-2121}"
 HTTP_PORT="${LUMESHOT_TEST_HTTP_PORT:-8080}"
@@ -18,8 +20,18 @@ S=state
 
 mkdir -p "$S/keys/pub" "$S/sftp-upload" "$S/ftp-home" "$S/tls"
 # The container users are uid 1001; these are throwaway lab directories on a
-# bind mount, so widen them rather than requiring root to chown.
-chmod 777 "$S/sftp-upload" "$S/ftp-home"
+# bind mount, so widen them rather than requiring root to chown. After a run the
+# server owns them and chmod fails with nothing left to widen — a first-run
+# failure would surface as a failing upload test, not silence.
+chmod 777 "$S/sftp-upload" "$S/ftp-home" 2>/dev/null || true
+
+# One password per ./state, not a constant in the compose file — the servers are
+# throwaway, but a fixed credential on a published port is not something to ship
+# in a repo.
+if [ ! -f "$S/password" ]; then
+    (umask 077; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 > "$S/password")
+fi
+PASSWORD="$(cat "$S/password")"
 
 gen_key() {   # gen_key <name> <type> <passphrase-or-empty>
     local name=$1 type=$2 pass=$3
@@ -47,15 +59,24 @@ if [ ! -f "$S/tls/pure-ftpd.pem" ]; then
     chmod 644 "$S/tls/pure-ftpd.pem"
 fi
 
-LUMESHOT_TEST_HOST="$HOST" LUMESHOT_TEST_SFTP_PORT="$SFTP_PORT" \
-    LUMESHOT_TEST_FTP_PORT="$FTP_PORT" LUMESHOT_TEST_HTTP_PORT="$HTTP_PORT" \
-    docker compose up -d
+export LUMESHOT_TEST_HOST="$HOST" LUMESHOT_TEST_PASSWORD="$PASSWORD" \
+       LUMESHOT_TEST_SFTP_PORT="$SFTP_PORT" LUMESHOT_TEST_FTP_PORT="$FTP_PORT" \
+       LUMESHOT_TEST_HTTP_PORT="$HTTP_PORT"
+docker compose up -d
 
 echo
 echo "Waiting for the servers to accept connections…"
-for _ in $(seq 1 30); do
-    if nc -z "$HOST" "$SFTP_PORT" 2>/dev/null && nc -z "$HOST" "$FTP_PORT" 2>/dev/null; then
-        break
+ready() {   # every port a test touches, including the one that serves result URLs
+    for port in "$SFTP_PORT" "$FTP_PORT" "$HTTP_PORT"; do
+        nc -z "$HOST" "$port" 2>/dev/null || return 1
+    done
+}
+deadline=$((SECONDS + 60))
+until ready; do
+    if [ "$SECONDS" -ge "$deadline" ]; then
+        echo "Timed out waiting for $HOST ports $SFTP_PORT/$FTP_PORT/$HTTP_PORT." >&2
+        docker compose ps >&2
+        exit 1
     fi
     sleep 1
 done
@@ -69,7 +90,7 @@ export LUMESHOT_LIVE_UPLOAD_HOST=$HOST
 export LUMESHOT_LIVE_SFTP_PORT=$SFTP_PORT
 export LUMESHOT_LIVE_FTP_PORT=$FTP_PORT
 export LUMESHOT_LIVE_USER=lume
-export LUMESHOT_LIVE_PASSWORD=lumepass
+export LUMESHOT_LIVE_PASSWORD=$PASSWORD
 export LUMESHOT_LIVE_KEY_DIR=$(pwd)/$S/keys
 export LUMESHOT_LIVE_HTTP_BASE=http://$HOST:$HTTP_PORT
 ENV

@@ -13,9 +13,17 @@ plumbing — only shows up against a real server.
 ./down.sh --clean        # stop and delete ./state
 ```
 
-`up.sh` binds to this machine's first LAN address so the tests can run on another
-host (Swift builds happen on the Mac; Docker runs on the Linux box). Override it
-with `LUMESHOT_TEST_HOST=…`.
+Every port is published on `LUMESHOT_TEST_HOST`, which defaults to `127.0.0.1`.
+The servers hold a writable account, so reaching them from another machine is
+opt-in — set the address explicitly when the Swift toolchain and Docker are on
+different hosts (Swift builds happen on the Mac; Docker runs on the Linux box):
+
+```sh
+LUMESHOT_TEST_HOST=192.0.2.1 ./up.sh
+```
+
+The account password is generated on first `up.sh` and kept in `state/password`,
+so nothing publishes a credential that is also written down in this repo.
 
 Export what `up.sh` prints where `swift test` runs, then:
 
@@ -34,6 +42,7 @@ Generated on first `up.sh`, gitignored, never committed:
 | --- | --- |
 | `keys/ed25519`, `ed25519-pass`, `rsa` | throwaway client keys — one per branch of the transport's key handling |
 | `keys/pub/` | the matching public keys, mounted into the SFTP server as `authorized_keys` |
+| `password` | the generated account password, shared by both servers |
 | `tls/pure-ftpd.pem` | self-signed certificate + key for the FTP server's TLS |
 | `sftp-upload/`, `ftp-home/` | what the tests upload; also served by the HTTP container |
 
