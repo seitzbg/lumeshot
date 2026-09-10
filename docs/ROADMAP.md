@@ -47,6 +47,7 @@ _Nothing yet._
 ## v0.1.17 — released
 
 - Clicking a notification no longer opens Settings on top of what it just opened.
+  Confirmed on the shipped build.
   macOS reports a notification-driven activation through the same callback as a Dock
   click, and a menu-bar app has no visible windows either way, so the branch that
   recovers Settings for a Dock click fired for every notification click too. Found by
@@ -337,15 +338,15 @@ Run these when convenient (each is a checklist):
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.
-- [x] **Signed release capture and notifications** — verified on the signed v0.1.16 build (2026-09-09). A capture posts a visible banner; **Capture complete** reveals the file in Finder and **Uploaded** opens the link. This also found the notification-click bug fixed in v0.1.17: both actions worked, but Settings opened on top of them. Worth one more click on v0.1.17 to confirm the Settings window is gone — the fix could not be exercised locally, since launching a dev copy beside the installed release re-points the Screen Recording grant.
+- [x] **Signed release capture and notifications** — verified on the signed v0.1.16 build (2026-09-09). A capture posts a visible banner; **Capture complete** reveals the file in Finder and **Uploaded** opens the link. This also found the notification-click bug fixed in v0.1.17: both actions worked, but Settings opened on top of them. **Confirmed fixed on the signed v0.1.17 build (2026-09-09):** clicking a banner reveals the file with no Settings window, and the log now records the response (`Notification action: reveal file` / `open URL`) — the line whose absence made the original report untraceable.
 - [ ] **Preferences** — `docs/smoke-prefs.md` (⌘, opens; tabs persist; **live hotkey recorder** re-registers new combo / old combo goes dead; recorder monitor teardown on window close; Uploads add/remove stays Keychain-safe).
 
 ## Backlog / deferred (not blocking; grouped by theme)
 
 **Signing & distribution**
 - Auto-update: shipped in v0.1.15, via Sparkle, and proven end to end on 2026-09-08 by
-  updating an installed v0.1.15 to v0.1.16. Updates install in place; the manual
-  download-and-drag step is gone.
+  updating an installed v0.1.15 to v0.1.16 — then again unprompted to v0.1.17. Updates
+  install in place; the manual download-and-drag step is gone.
 - v0.1.16 is signed and notarized. v0.1.7 was the last build verified locally end to end; complete the remaining capture-permission and visible-notification checks against v0.1.16 in `docs/smoke-signing.md`.
 
 **Uploaders**
