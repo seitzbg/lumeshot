@@ -47,15 +47,19 @@ struct EditorView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            toolbar
+            topBar
             Divider()
-            EditorCanvasView(model: model)
-                .frame(minWidth: 480, minHeight: 360)
+            HStack(spacing: 0) {
+                toolRail
+                Divider()
+                EditorCanvasView(model: model)
+                    .frame(minWidth: 480, minHeight: 360)
+            }
         }
-        // The single-row toolbar needs ~1163pt to lay out every control; holding the
-        // window to at least this width keeps the finish buttons from being clipped or
-        // truncated (the "C… C… … U…" symptom) when the user narrows the editor.
-        .frame(minWidth: 1180, minHeight: 480)
+        // The top bar (colour, width, undo/redo/delete, finish buttons) sets the floor;
+        // the tools now live in the left rail, so the window no longer has to be wide
+        // enough to lay all of them out in one row.
+        .frame(minWidth: 760, minHeight: 480)
         .alert("Couldn’t produce the image",
                isPresented: Binding(get: { exportError != nil },
                                     set: { if !$0 { exportError = nil } })) {
@@ -65,24 +69,42 @@ struct EditorView: View {
         }
     }
 
-    private var toolbar: some View {
-        HStack(spacing: 12) {
-            ForEach(tools) { item in
-                Button {
-                    model.setTool(item.tool)
-                } label: {
-                    Image(systemName: item.symbol)
-                        .frame(width: 22, height: 22)
+    /// Vertical tool rail: each drawing tool as an icon + word, so its function is
+    /// obvious without hovering for a tooltip. The active tool is boxed and tinted.
+    private var toolRail: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(tools) { item in
+                    let isActive = model.activeTool == item.tool
+                    Button {
+                        model.setTool(item.tool)
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: item.symbol)
+                                .frame(width: 18)
+                            Text(item.label)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(isActive ? Color.accentColor : Color.primary)
+                    .background(isActive ? Color.accentColor.opacity(0.18) : Color.clear)
+                    .cornerRadius(6)
+                    .help(item.label)
                 }
-                .help(item.label)
-                .buttonStyle(.borderless)
-                .background(model.activeTool == item.tool
-                            ? Color.accentColor.opacity(0.25) : Color.clear)
-                .cornerRadius(4)
             }
+            .padding(6)
+        }
+        .frame(width: 148)
+        .background(Color(nsColor: .underPageBackgroundColor))
+    }
 
-            Divider().frame(height: 20)
-
+    private var topBar: some View {
+        HStack(spacing: 12) {
             // ColorPicker has no onEditingChanged, so every wheel movement lands here.
             // applyStrokeColorToSelection coalesces a run of them into one undo entry.
             ColorPicker("", selection: Binding(

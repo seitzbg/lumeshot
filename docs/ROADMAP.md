@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.18 is the current release; the manual signed-build smoke recorded under
+  v0.1.19 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -43,6 +43,14 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 ## Unreleased
 
 _Nothing yet._
+
+## v0.1.19 — released
+
+- The annotation editor's drawing tools moved from an icon-only top row into a
+  labelled vertical rail on the left (icon + name, active tool highlighted), so each
+  tool's function is obvious without hovering for a tooltip. The top bar keeps colour,
+  width, undo/redo/delete and the finish buttons, and the editor window opens compact
+  again. Not yet re-checked in a signed-build smoke.
 
 ## v0.1.18 — released
 

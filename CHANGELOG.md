@@ -8,6 +8,7 @@ _Nothing yet._
 
 ## Releases
 
+- [v0.1.19](docs/releases/v0.1.19.md) — The annotation editor's tools now sit in a labelled left-hand rail, so each tool's function is clear at a glance.
 - [v0.1.18](docs/releases/v0.1.18.md) — The editor's Cancel/Copy/Save/Upload buttons are readable again, and an SFTP RSA key now fails with a clear reason.
 - [v0.1.17](docs/releases/v0.1.17.md) — Clicking a notification no longer opens Settings on top of the file or link it just opened.
 - [v0.1.16](docs/releases/v0.1.16.md) — Identical to v0.1.15; published so the automatic updater has a newer release to install.
