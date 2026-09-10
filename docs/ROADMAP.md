@@ -1,6 +1,6 @@
 # Lumeshot — Status & Roadmap
 
-_Last updated: 2026-09-07._
+_Last updated: 2026-09-10._
 
 Single source of truth for where the project is and what's left. Per-milestone
 manual smoke checklists are `docs/smoke-*.md`.
@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.17 is the current release; the manual signed-build smoke recorded under
+  v0.1.18 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -43,6 +43,17 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 ## Unreleased
 
 _Nothing yet._
+
+## v0.1.18 — released
+
+- The annotation editor's finish buttons (Cancel / Copy / Save / Upload) now carry
+  icons and full labels, Save/Upload are prominent, and the editor window holds a
+  minimum width so the labels can no longer be truncated to single letters. They had
+  been squeezed into the same row as every drawing tool and rendered as "C  C  …  U",
+  hiding how to finish a capture. Not yet re-checked in a signed-build smoke.
+- An SFTP destination given an RSA private key now fails with an error naming the
+  cause (the SSH library signs only with legacy `ssh-rsa`/SHA-1, which modern OpenSSH
+  rejects) and pointing at Ed25519, instead of an opaque authentication failure.
 
 ## v0.1.17 — released
 

@@ -4,13 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- An SFTP destination using an **RSA** private key now fails with an error that
-  names the cause — the SSH library can only sign with the legacy `ssh-rsa`
-  (SHA-1) algorithm that OpenSSH 8.8 and newer reject — and points at Ed25519,
-  instead of reporting an opaque authentication failure.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.18](docs/releases/v0.1.18.md) — The editor's Cancel/Copy/Save/Upload buttons are readable again, and an SFTP RSA key now fails with a clear reason.
 - [v0.1.17](docs/releases/v0.1.17.md) — Clicking a notification no longer opens Settings on top of the file or link it just opened.
 - [v0.1.16](docs/releases/v0.1.16.md) — Identical to v0.1.15; published so the automatic updater has a newer release to install.
 - [v0.1.15](docs/releases/v0.1.15.md) — Automatic updates, and twelve code-review fixes covering lost uploads, credential edits, crops and redactions.
