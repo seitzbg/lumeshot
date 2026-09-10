@@ -53,13 +53,30 @@ final class EditorWindowController: NSObject, EditorPresenting, NSWindowDelegate
         let w = NSWindow(contentViewController: hosting)
         w.title = "Edit Capture"
         w.styleMask = [.titled, .closable, .miniaturizable, .resizable]
-        w.setContentSize(NSSize(width: 960, height: 640))
+        // Set the floor explicitly rather than leaning on NSHostingController to derive
+        // it from the SwiftUI min frame (which it only does asynchronously, after the
+        // window is already on screen).
+        w.contentMinSize = NSSize(width: 760, height: 480)
+        w.setContentSize(Self.defaultContentSize())
         w.isReleasedWhenClosed = false
         w.delegate = self
         window = w
         NSApp.activate(ignoringOtherApps: true)
         w.center()
+        // Remember the size/position the user picks and restore it for the next capture
+        // and the next launch, so a one-time resize sticks. Applied after `center()` so a
+        // saved frame wins; the centred default stands the first time.
+        w.setFrameAutosaveName("LumeshotEditorWindow")
         w.makeKeyAndOrderFront(nil)
+    }
+
+    /// A generous default editor size — big enough to mark up a capture without an
+    /// immediate resize — capped so it never exceeds the visible screen.
+    static func defaultContentSize() -> NSSize {
+        let preferred = NSSize(width: 1200, height: 780)
+        guard let visible = NSScreen.main?.visibleFrame.size else { return preferred }
+        return NSSize(width: max(760, min(preferred.width, visible.width * 0.9)),
+                      height: max(480, min(preferred.height, visible.height * 0.9)))
     }
 
     private func finish(_ result: EditorResult?) {
