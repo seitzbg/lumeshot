@@ -8,6 +8,7 @@ _Nothing yet._
 
 ## Releases
 
+- [v0.1.22](docs/releases/v0.1.22.md) — The editor now sizes its window to the capture (1:1 when it fits, scaled to fit the screen when it doesn't), instead of reusing a remembered size.
 - [v0.1.21](docs/releases/v0.1.21.md) — The annotation editor opens at a larger, screen-capped default and remembers the size and position you set.
 - [v0.1.20](docs/releases/v0.1.20.md) — The annotation editor's tools now read as a native macOS sidebar: grouped sections, translucent material, and a Finder-style selected row.
 - [v0.1.19](docs/releases/v0.1.19.md) — The annotation editor's tools now sit in a labelled left-hand rail, so each tool's function is clear at a glance.
