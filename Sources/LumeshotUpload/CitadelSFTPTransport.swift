@@ -56,17 +56,26 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
 public struct CitadelSFTPTransport: SFTPTransport {
     public init() {}
 
+    /// Citadel 0.12.1 — and the swift-nio-ssh it builds on — can only sign with
+    /// the legacy "ssh-rsa" algorithm, which is SHA-1 based. OpenSSH has
+    /// excluded it from `PubkeyAcceptedAlgorithms` by default since 8.8 (2021),
+    /// so an RSA key that authenticates fine with the `ssh` command fails here,
+    /// and the handshake reports only "allAuthenticationOptionsFailed". Naming
+    /// the real cause is the difference between a user switching key type and a
+    /// user re-checking a key that was never the problem.
+    static let rsaSHA1Note = " \u{2014} the key is RSA, and this build can only offer the legacy "
+        + "ssh-rsa (SHA-1) signature, which OpenSSH 8.8 and newer reject by default. "
+        + "Use an Ed25519 key for this destination."
+
     public func upload(_ data: Data, to remotePath: String, host: String, port: Int,
                        username: String, secret: SFTPSecret,
                        knownHostKey: String?,
                        rememberHostKey: @escaping @Sendable (String) -> Void) async throws {
         let auth: SSHAuthenticationMethod
+        var usingRSAKey = false
         if let pem = secret.privateKeyPEM {
             let dk = secret.passphrase.map { Data($0.utf8) }
             do {
-                // VERIFY on Mac: exact Citadel 0.12.1 key-init signature —
-                // Curve25519.Signing.PrivateKey(sshEd25519:decryptionKey:) — confirm it
-                // exists with this name/label set on the resolved SDK before relying on it.
                 if let ed = try? Curve25519.Signing.PrivateKey(sshEd25519: pem, decryptionKey: dk) {
                     auth = .ed25519(username: username, privateKey: ed)
                 } else {
@@ -76,13 +85,9 @@ public struct CitadelSFTPTransport: SFTPTransport {
                     // success) decide; either way the outer `catch` below turns
                     // any real parse failure into a typed UploadError instead of
                     // leaking the raw Citadel/Crypto error.
-                    // VERIFY on Mac: exact Citadel 0.12.1 RSA key-init signature —
-                    // Insecure.RSA.PrivateKey(sshRsa:decryptionKey:) — confirm the type
-                    // name and initializer on the resolved SDK; adjust if it differs.
-                    // The key-then-password-else-throw LOGIC above/below is the
-                    // contract; this one call is what may need adjusting on the Mac.
                     let rsa = try Insecure.RSA.PrivateKey(sshRsa: pem, decryptionKey: dk)   // throws if neither parses
                     auth = .rsa(username: username, privateKey: rsa)
+                    usingRSAKey = true
                 }
             } catch {
                 throw UploadError.missingCredential(
@@ -109,7 +114,8 @@ public struct CitadelSFTPTransport: SFTPTransport {
                 throw UploadError.hostKeyMismatch(
                     HostKeyTrust.mismatchMessage(host: host, saved: saved, presented: presented))
             }
-            throw UploadError.transport("SFTP connect failed: \(error)")
+            throw UploadError.transport(
+                "SFTP connect failed: \(error)" + (usingRSAKey ? Self.rsaSHA1Note : ""))
         }
         do {
             try await client.withSFTP { sftp in

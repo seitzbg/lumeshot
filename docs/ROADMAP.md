@@ -31,7 +31,7 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 | **M3a** — editor core | Non-destructive annotation editor (base image + ordered shape list); v1 vector tools (rectangle/ellipse/line/arrow/freehand), select/move/resize; undo/redo (50-cap); annotate-before-share gate; CoreGraphics flatten. |
 | **M3b** — editor v2 | Completed the v1 toolset: crop (non-destructive), text, highlighter, blur, pixelate, step-number badges; Copy / Save / Upload action split; editor queue for multi-capture. |
 | **M4** — screen recording | ScreenCaptureKit mp4 recording (region/window/display) + on-demand "Export as GIF…" (mp4 never discarded); ⌥⇧6 record hotkey; local-first delivery. |
-| **M5a** — SFTP/FTP | SFTP (Citadel/SwiftNIO-SSH; password + key auth) and FTP/FTPS (libcurl) uploaders — the project's first external dependencies. Stateless connect-per-upload; secrets Keychain-namespaced. |
+| **M5a** — SFTP/FTP | SFTP (Citadel/SwiftNIO-SSH; password + Ed25519 key auth) and FTP/FTPS (libcurl) uploaders — the project's first external dependencies. Stateless connect-per-upload; secrets Keychain-namespaced. Both transports are exercised against real servers by the live tests (`scripts/test-servers/`). |
 | **M5b** — release + polish | Ad-hoc `.dmg` release: `scripts/dmg.sh` + `.github/workflows/release.yml` (push a `v*` tag → build → dmg → GitHub Release). Robustness: atomic Keychain store (no orphan secrets), FTP stall-abort, recorder re-entrancy CI seam. UI polish: elapsed-timer flash fix, GIF-export spinner, inspector keyed on selection. |
 | **Clipboard and uploader selection** | Upload off copies the image; successful upload copies its URL unless the clipboard has changed in the meantime. Multiple uploaders can be configured with one active selection. New uploaders preserve an existing selection; removing the active uploader disables automatic upload. |
 | **Preferences window** | Dedicated tabbed Settings (⌘,): General / Capture / Hotkeys / Uploads / Recording; live hotkey recorder (re-registers instantly); Destinations folded into the Uploads tab. Settings appears in the Dock/app switcher while open. |
@@ -333,8 +333,12 @@ Automated checks cover the delivery logic. GUI and hardware checks for the curre
 Run these when convenient (each is a checklist):
 
 - [ ] **M4 recording** — `docs/smoke-m4.md` (live mp4 start/stop + GIF export; verify `SCStream.addRecordingOutput` starts and the GIF-export error alert presents).
-- [ ] **M5a SFTP/FTP** — `docs/smoke-m5a.md` (real password + key SFTP, plain FTP, FTPS; result URL reachable; secrets purged on remove).
-- [ ] **M5b dmg + polish** — `docs/smoke-m5b.md` (dmg mounts + drag-installs; elapsed timer; GIF spinner; inspector-on-select).
+  The recorder's live tests exist but are gated on a Screen Recording grant the ssh test helper does not hold, so this one still needs a human at the Mac.
+- [x] **M5a SFTP/FTP** — automated on 2026-09-09. `scripts/test-servers/up.sh` starts real SFTP/FTP/HTTP servers and
+  `LiveSFTPTransportTests`/`LiveFTPTransportTests` drive the real transports against them, including checking that the returned public URL serves the uploaded bytes.
+  Two findings: **RSA keys cannot authenticate to OpenSSH 8.8+** (Citadel signs only with SHA-1 `ssh-rsa`; the error now says so and points at Ed25519), and FTPS is proven not to fall back to plaintext but not proven end to end — that needs a trusted certificate and stays in `docs/smoke-m5a.md` along with the Add-sheet/kindLabel UI checks.
+- [x] **M5b dmg + polish** — dmg build/mount/drag-install verified headlessly, release YAML parses, and the elapsed-timer and inspector-on-select regressions are now pinned by tests.
+  The GIF-export spinner is the one item left in `docs/smoke-m5b.md`.
 - [x] **Picsur upload and deletion** — generated-image test succeeded against the user's instance, including authenticated deletion. Alternate formats and viewer-page links remain separate optional checks in `docs/smoke-picsur.md`.
 - [x] **Signing + notarization — distribution half** verified on macOS 26.6.2 (clean Mac, Firefox download): quarantine set, `spctl` → `accepted / source=Notarized Developer ID`, `stapler validate` passes.
 - [x] **Signed release launch** — v0.1.7 launches and opens Settings on macOS 26.6.2; the earlier main-actor launch crash did not recur. Notification authorization is granted.

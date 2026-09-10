@@ -1,0 +1,51 @@
+# Live SFTP/FTP servers for the LumeshotUpload integration tests.
+#
+# These exist so CitadelSFTPTransport and CurlFTPTransport — the two transports
+# that used to be reachable only through the manual docs/smoke-m5a.md checklist —
+# can be exercised against real servers from `swift test`. Start them with
+# ./up.sh, which generates the keys and certificates referenced below and prints
+# the environment the tests read.
+services:
+  sftp:
+    image: atmoz/sftp:alpine
+    container_name: lumeshot-test-sftp
+    ports: ["${LUMESHOT_TEST_SFTP_PORT:-2222}:22"]
+    volumes:
+      - ./state/sftp-upload:/home/lume/upload
+      - ./state/keys/pub:/home/lume/.ssh/keys:ro
+    command: lume:lumepass:1001:1001:upload
+
+  ftp:
+    image: stilliard/pure-ftpd:hardened
+    container_name: lumeshot-test-ftp
+    ports:
+      - "${LUMESHOT_TEST_FTP_PORT:-2121}:21"
+      # pure-ftpd's own entrypoint appends -p 30000:30009 after ADDED_FLAGS, so
+      # that range is the one that takes effect; expose exactly it.
+      - "30000-30009:30000-30009"
+    volumes:
+      - ./state/ftp-home:/home/lume
+      - ./state/tls/pure-ftpd.pem:/etc/ssl/private/pure-ftpd.pem:ro
+    environment:
+      PUBLICHOST: "${LUMESHOT_TEST_HOST:-127.0.0.1}"
+      FTP_USER_NAME: lume
+      FTP_USER_PASS: lumepass
+      FTP_USER_HOME: /home/lume
+      FTP_USER_UID: "1001"
+      FTP_USER_GID: "1001"
+      # --tls=1 accepts both plaintext and TLS, so one server covers the plain-FTP
+      # and the FTPS case, and a plaintext fallback would show up as a *passing*
+      # plain upload rather than being hidden.
+      ADDED_FLAGS: "--tls=1"
+
+  # Serves what the two uploaders wrote, so a test can fetch the public URL the
+  # uploader handed back and compare bytes. That is the contract users actually
+  # depend on — "the link works" — and it is what docs/smoke-m5a.md checked by
+  # pasting the URL into a browser.
+  http:
+    image: nginx:alpine
+    container_name: lumeshot-test-http
+    ports: ["${LUMESHOT_TEST_HTTP_PORT:-8080}:80"]
+    volumes:
+      - ./state/sftp-upload:/usr/share/nginx/html/sftp:ro
+      - ./state/ftp-home:/usr/share/nginx/html/ftp:ro

@@ -437,6 +437,44 @@ import CoreGraphics
         #expect(m.strokeColor == RGBAColor(r: 0, g: 1, b: 0, a: 1))
     }
 
+    /// The P3 walk-through from `docs/smoke-m5b.md`: three annotations with
+    /// three different inspector values, selected one after another. Covers the
+    /// pixelate and text arms of the sync — and, more to the point, that
+    /// *changing* the selection re-syncs rather than leaving the previous
+    /// annotation's values in the toolbar.
+    @Test func selectingEachAnnotationInTurnSyncsThatOnesInspectorValue() {
+        let m = EditorModel(baseImage: base())
+
+        m.setTool(.blur)
+        m.blurRadius = 12
+        m.pointerDown(at: CGPoint(x: 10, y: 10)); m.pointerDragged(to: CGPoint(x: 40, y: 40)); m.pointerUp(at: CGPoint(x: 40, y: 40))
+
+        m.setTool(.pixelate)
+        m.pixelScale = 24
+        m.pointerDown(at: CGPoint(x: 60, y: 10)); m.pointerDragged(to: CGPoint(x: 90, y: 40)); m.pointerUp(at: CGPoint(x: 90, y: 40))
+
+        m.setTool(.text)
+        m.textFontSize = 37
+        m.pointerDown(at: CGPoint(x: 10, y: 60)); m.pointerUp(at: CGPoint(x: 10, y: 60))
+        m.updateEditingText("Hi")   // an empty box is discarded on endTextEditing
+        m.endTextEditing()
+
+        // Drift every inspector value away from all three, the way drawing with
+        // a later tool would.
+        m.blurRadius = 99; m.pixelScale = 99; m.textFontSize = 99
+
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 25, y: 25))     // the blur
+        #expect(m.blurRadius == 12)
+        m.pointerDown(at: CGPoint(x: 75, y: 25))     // the pixelate
+        #expect(m.pixelScale == 24)
+        m.pointerDown(at: CGPoint(x: 12, y: 62))     // the text
+        #expect(m.textFontSize == 37)
+        // Selecting the blur again must not have been left holding the text's size.
+        m.pointerDown(at: CGPoint(x: 25, y: 25))
+        #expect(m.blurRadius == 12)
+    }
+
     @Test func applyInspectorToSelectionUpdatesTheJustSyncedBlurAnnotation() {
         let m = EditorModel(baseImage: base())
         m.setTool(.blur)

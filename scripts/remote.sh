@@ -9,7 +9,8 @@ cmd="${1:-build}"
 shift || true
 
 ssh "$MAC_HOST" "mkdir -p $MAC_DIR"
-rsync -az --delete --exclude '.git' --exclude '.build' --exclude 'dist' ./ "$MAC_HOST:$MAC_DIR/"
+rsync -az --delete --exclude '.git' --exclude '.build' --exclude 'dist' \
+      --exclude 'scripts/test-servers/state' ./ "$MAC_HOST:$MAC_DIR/"
 
 case "$cmd" in
   build)  ssh "$MAC_HOST" "cd $MAC_DIR && swift build 2>&1" ;;

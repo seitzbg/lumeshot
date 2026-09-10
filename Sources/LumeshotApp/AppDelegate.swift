@@ -312,7 +312,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let (settings, _) = SettingsStore(fileURL: SettingsStore.defaultFileURL).loadOrDefault()
         if recordingCoordinator?.isRecording == true {
             menu.addItem(menuItem("Stop Recording", #selector(menuStopRecording)))
-            let elapsed = NSMenuItem(title: "● \(recordingStartedAt.map(elapsedLabel(since:)) ?? "0:00")",
+            let elapsed = NSMenuItem(title: RecordingElapsed.menuTitle(start: recordingStartedAt),
                                      action: nil, keyEquivalent: "")
             elapsed.isEnabled = false
             elapsedMenuItem = elapsed
@@ -382,18 +382,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func elapsedLabel(since start: Date) -> String {
-        let s = Int(Date().timeIntervalSince(start))
-        return String(format: "%d:%02d", s/60, s%60)
-    }
-
     /// Mutates the retained elapsed-time views directly — never calls
     /// `rebuildMenu()` here, so a live recording doesn't tear down/rebuild the
     /// whole NSMenu once a second.
     private func tickElapsed(since start: Date) {
-        let label = elapsedLabel(since: start)
-        elapsedMenuItem?.title = "● \(label)"
-        statusItem?.setTitle(label)
+        // One `now` for both readings, so the menu item and the status-bar title
+        // can never land on different sides of a second boundary.
+        let now = Date()
+        elapsedMenuItem?.title = RecordingElapsed.menuTitle(start: start, now: now)
+        statusItem?.setTitle(RecordingElapsed.label(since: start, now: now))
     }
 
     private func currentUploadAfterCapture() -> Bool {
