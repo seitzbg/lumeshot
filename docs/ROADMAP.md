@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.20 is the current release; the manual signed-build smoke recorded under
+  v0.1.21 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -43,6 +43,13 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 ## Unreleased
 
 _Nothing yet._
+
+## v0.1.21 — released
+
+- The annotation editor window opens at a larger, screen-capped default (up to
+  1200×780, never below 760×480) and persists the size/position the user picks via a
+  frame autosave, so a one-time resize sticks. The window was already resizable. Not
+  yet re-checked in a signed-build smoke.
 
 ## v0.1.20 — released
 
