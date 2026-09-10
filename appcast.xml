@@ -14,6 +14,31 @@
         <description>Updates for Lumeshot, a screenshot and screen-recording tool for macOS.</description>
         <language>en</language>
         <item>
+            <title>0.1.22</title>
+            <pubDate>Thu, 10 Sep 2026 22:16:53 +0000</pubDate>
+            <link>https://github.com/seitzbg/lumeshot</link>
+            <sparkle:version>0.1.22</sparkle:version>
+            <sparkle:shortVersionString>0.1.22</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[One change: the editor now opens sized to the capture.
+
+## The editor window fits what you captured
+
+Instead of opening at a fixed size, the editor now sizes its window to the capture
+itself. A capture opens showing the image at 1:1 — the window is the image's
+on-screen size (its pixels divided by the display's scale factor) plus the tool
+rail and top bar. A capture larger than your display is capped to fit the screen
+(the canvas scales it down to show all of it), and a very small capture still
+opens at a comfortable minimum rather than a tiny window.
+
+This replaces the remembered-size behaviour from v0.1.20/v0.1.21: the size now
+follows each capture rather than reusing the last one. The window remains freely
+resizable once open.
+]]></description>
+            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.22/Lumeshot-0.1.22.dmg" length="8304941" type="application/octet-stream" sparkle:edSignature="SFi1oqNuCXxTZ4kyWY/PBqaSXVAshr0gOqF5nG+GKyWp+Hb2hIbVUFK044h1B3rtIL7BdmcR5pOmO3JWp5TACA=="/>
+        </item>
+        <item>
             <title>0.1.21</title>
             <pubDate>Thu, 10 Sep 2026 21:47:38 +0000</pubDate>
             <link>https://github.com/seitzbg/lumeshot</link>
@@ -59,32 +84,6 @@ Nothing about what the tools do has changed; the list is just easier to scan and
 more at home on macOS.
 ]]></description>
             <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.20/Lumeshot-0.1.20.dmg" length="8303722" type="application/octet-stream" sparkle:edSignature="KExoKmXAGfxJwhKNfYUZ2dYKJFOb2zp/5Hh7Q0hvuG9OIlnUlcuxbjV39YKYpLxSdf/vviTz5DOYQmusGZsLBQ=="/>
-        </item>
-        <item>
-            <title>0.1.19</title>
-            <pubDate>Thu, 10 Sep 2026 19:47:50 +0000</pubDate>
-            <link>https://github.com/seitzbg/lumeshot</link>
-            <sparkle:version>0.1.19</sparkle:version>
-            <sparkle:shortVersionString>0.1.19</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[One change, to make the annotation editor's tools easier to recognise.
-
-## The editing tools are now a labelled rail
-
-The editor's drawing tools used to be a row of icon-only buttons along the top,
-sharing space with the colour, width and finish controls — you had to hover each
-one to find out what it did.
-
-They now sit in a vertical rail down the left side of the editor, each shown as an
-icon **and** its name — Select, Rectangle, Ellipse, Line, Arrow, Freehand, Crop,
-Text, Highlighter, Blur, Pixelate, Step — with the active tool highlighted. The
-top bar keeps the colour, stroke width, undo/redo/delete and the Cancel / Copy /
-Save / Upload buttons. Nothing about what the tools do has changed; they are just
-easier to tell apart. With the tools moved out of the top row, the editor window
-also opens at a more compact size again.
-]]></description>
-            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.19/Lumeshot-0.1.19.dmg" length="8294782" type="application/octet-stream" sparkle:edSignature="Xw9U+dl6euGnAE5PrvlsATzQKf4+w+4GCqcCpMfx8xgD0vJhh6BAdnw41aZeaCCKJbky7VE6LhJymYCJT7lEAQ=="/>
         </item>
     </channel>
 </rss>
