@@ -707,7 +707,8 @@ private struct SFTPSheet: View {
                 }
                 SecureField("Key passphrase", text: $passphrase, prompt: isEdit ? keepPrompt : Text("Optional"))
             } header: { Text("Authentication") } footer: {
-                Text(isEdit ? "Leave all credentials blank to keep the stored ones. Entering any replaces the entire credential set." : "Use a password or private key. Credentials are stored in your Mac’s Keychain.")
+                Text(isEdit ? "Leave all credentials blank to keep the stored ones. Entering any replaces the entire credential set."
+                          : "Use a password or an Ed25519 private key — RSA keys use a SHA-1 signature that current SSH servers reject. Credentials are stored in your Mac’s Keychain.")
             }
             if isEdit, existing?.sftpConfig?.knownHostKey != nil {
                 Text("Host key pinned. Changing the host clears the pin so the new server is trusted on first use.")

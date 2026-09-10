@@ -5,6 +5,14 @@ Run on the Mac after `scripts/remote.sh run`. Diagnostics: `~/Library/Logs/Lumes
 pass to call M4 done; Task 15 (optional ffmpeg palettegen branch) is skippable and does not
 block this checklist.
 
+`ScreenRecorderLiveTests` already records and stops a real stream, but it is gated
+on `CGPreflightScreenCaptureAccess()` and therefore skips over ssh, where the test
+helper holds no Screen Recording grant — granting one to a per-build helper binary
+is exactly the thing that re-points the installed app's TCC grant, so it stays
+gated. The recorder's state machine (start/stop, re-entrancy, stale callbacks) is
+covered by `ScreenRecorderStateMachineTests`, and the elapsed-time formatting the
+last item below checks by eye is pinned by `RecordingElapsedTests`.
+
 - [ ] **Region recording start→stop:** Menu bar → Start Recording ▸ Region (or ⌥⇧6). The
       region overlay appears identically to a region *capture*; drag a selection. Confirm the
       menu-bar icon switches to the red stop-circle and an elapsed-time label starts counting

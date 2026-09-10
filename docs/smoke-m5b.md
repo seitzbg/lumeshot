@@ -1,31 +1,34 @@
-# M5b manual smoke checklist (release dmg + robustness/UI polish)
+# M5b smoke checklist (release dmg + robustness/UI polish)
 
-Run on the Mac after `scripts/remote.sh run` (for the UI items) and via `scripts/remote.sh ssh`
-(for the dmg packaging item). Diagnostics: `~/Library/Logs/Lumeshot.log`. B1 (atomic Keychain
-store), B2 (FTP stall abort), and B3 (recorder re-entrancy guard) are covered by their
-SXCoreTests/SXRecordTests unit tests plus the existing SFTP/FTP live-upload smoke in
-`docs/smoke-m5a.md` — not re-verified here.
+B1 (atomic Keychain store), B2 (FTP stall abort) and B3 (recorder re-entrancy
+guard) are covered by their LumeshotCoreTests/LumeshotRecordTests unit tests plus
+the live SFTP/FTP tests in `docs/smoke-m5a.md` — not re-verified here.
 
-- [ ] **dmg builds, mounts, and drag-installs (R1):** `scripts/remote.sh ssh 'swift build -c
-      release && scripts/bundle.sh && VERSION=0.1.0 scripts/dmg.sh'`; confirm
-      `dist/Lumeshot-0.1.0.dmg` is created. Double-click it in Finder (or `hdiutil attach`);
-      confirm a Finder window opens showing "Lumeshot.app" and an "Applications" symlink;
-      drag the app onto Applications and launch it from there.
-- [ ] **Elapsed timer no longer flashes 0:00 (P1):** Start a recording, wait a few seconds, then
-      trigger any menu rebuild mid-recording (e.g. toggle **System Audio**, which calls
-      `rebuildMenu()`). Confirm the elapsed menu item's time does NOT reset to `0:00` even
-      momentarily — it keeps counting from where it was.
-- [ ] **GIF-export shows a spinner (P2):** History → export an mp4 as GIF. While `isExporting` is
-      true (Cancel/Export both disabled), confirm a spinner + "Exporting…" text is visible next to
-      the buttons, not just two disabled buttons that look frozen.
-- [ ] **Inspector reflects the selected annotation (P3):** In the editor, draw a blur, a pixelate,
-      and a text annotation, each with a distinct blur radius / pixel scale / font size. Switch to
-      the **Select** tool and click each one in turn; confirm the toolbar inspector shows the
-      matching control (Slider/Slider/Stepper, not empty) pre-filled with THAT annotation's real
-      value (not whatever was last set while drawing). Adjust the control and release; confirm it
-      updates that specific annotation only.
-- [ ] **Release workflow YAML sanity:** `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml'))"`
-      exits 0. (The workflow itself only fully runs on a real `v*` tag push — not exercised here.)
+- [x] **dmg builds, mounts, and drag-installs (R1)** — verified headlessly on
+      2026-09-09: `swift build -c release && scripts/bundle.sh && VERSION=… scripts/dmg.sh`
+      produced the dmg, `hdiutil attach` mounted it at `/Volumes/Lumeshot` showing
+      `Lumeshot.app` beside an `Applications -> /Applications` symlink, and copying
+      the app off the volume left a bundle that still passed
+      `codesign --verify --deep --strict` and ran. The Finder window's *appearance*
+      is the only part a human still sees, and v0.1.15/v0.1.17 were installed from
+      a dmg by hand.
+- [ ] **GIF-export shows a spinner (P2):** History → export an mp4 as GIF. While
+      `isExporting` is true (Cancel/Export both disabled), confirm a spinner +
+      "Exporting…" text is visible next to the buttons, not just two disabled
+      buttons that look frozen.
+- [x] **Elapsed timer no longer flashes 0:00 (P1)** — the menu title is derived
+      from the recording's start date rather than a counter, so a rebuild
+      mid-recording re-renders the same time. Pinned by
+      `RecordingElapsedTests.rebuildingTheMenuMidRecordingKeepsTheElapsedTime`.
+- [x] **Inspector reflects the selected annotation (P3)** — pinned by
+      `EditorModelTests.selectingEachAnnotationInTurnSyncsThatOnesInspectorValue`,
+      which draws a blur, a pixelate and a text annotation with three different
+      values, drifts every inspector control away from all of them, then selects
+      each in turn. What is left for a human is that the matching *control*
+      (Slider/Slider/Stepper) appears in the toolbar at all.
+- [x] **Release workflow YAML sanity** — `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml'))"`
+      exits 0. (The workflow only fully runs on a real `v*` tag push; v0.1.15–v0.1.17
+      exercised it for real.)
 
 M5a SFTP/FTP smoke: see `docs/smoke-m5a.md`. M1 capture smoke: see `docs/smoke-m1.md`. M2a upload
 smoke: see `docs/smoke-m2a.md`. M4 recording smoke: see `docs/smoke-m4.md`.
