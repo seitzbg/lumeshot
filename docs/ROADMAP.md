@@ -12,7 +12,7 @@ manual smoke checklists are `docs/smoke-*.md`.
 - **Build/test:** local Mac development via `swift build` and `swift test`; see
   `docs/local-development.md` for the Command Line Tools test flags. The optional
   SSH workflow remains in `scripts/remote.sh`. CI targets macOS 15 / Swift 6.0.
-  v0.1.21 is the current release; the manual signed-build smoke recorded under
+  v0.1.22 is the current release; the manual signed-build smoke recorded under
   v0.1.7 below has not been repeated for it.
 - **Modules:** `LumeshotApp` (executable) + `LumeshotCore` / `LumeshotCapture` / `LumeshotUpload` /
   `LumeshotAnnotate` / `LumeshotRecord` libraries + `Clibcurl` (system libcurl shim). SwiftPM only.
@@ -43,6 +43,14 @@ The v1 milestone arc (M1→M5b) is complete, plus the Preferences window and the
 ## Unreleased
 
 _Nothing yet._
+
+## v0.1.22 — released
+
+- The editor window is sized to the capture: the image opens at 1:1 (its pixels ÷ the
+  display's backing scale, plus the tool rail and top bar), capped to 90% of the visible
+  frame for captures larger than the screen, floored at 760×480 for small ones. Replaces
+  the remembered-size behaviour from v0.1.21. The window stays resizable. Not yet
+  re-checked in a signed-build smoke.
 
 ## v0.1.21 — released
 
