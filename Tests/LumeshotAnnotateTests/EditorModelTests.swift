@@ -36,6 +36,45 @@ import CoreGraphics
         #expect(rect == CGRect(x: 0, y: 0, width: 20, height: 20))
     }
 
+    // MARK: Crop move against an edge (review fix)
+
+    /// Moving a crop against an image edge and back must restore it exactly. The
+    /// move clamps the translation instead of intersecting, so the crop keeps its
+    /// size; deriving the move from the gesture-start rectangle keeps edge contact
+    /// from accumulating, so returning the cursor returns the crop.
+    @Test func movingACropIntoAnEdgeAndBackRestoresItExactly() {
+        let m = EditorModel(baseImage: base(100, 100))
+        m.setTool(.crop)
+        m.pointerDown(at: CGPoint(x: 20, y: 20))
+        m.pointerDragged(to: CGPoint(x: 80, y: 80))
+        m.pointerUp(at: CGPoint(x: 80, y: 80))            // crop 20…80 (60×60)
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 50, y: 50))          // grab its centre
+        m.pointerDragged(to: CGPoint(x: 90, y: 50))       // push the right edge past 100…
+        m.pointerDragged(to: CGPoint(x: 50, y: 50))       // …then return to the start
+        m.pointerUp(at: CGPoint(x: 50, y: 50))
+        guard case .crop(let rect) = m.annotations[0].shape else {
+            Issue.record("expected a crop"); return
+        }
+        #expect(rect == CGRect(x: 20, y: 20, width: 60, height: 60))
+    }
+
+    /// While pushed against an edge the crop stops at it but keeps its full size,
+    /// instead of being shrunk by the part that would cross the boundary.
+    @Test func movingACropPastAnEdgeClampsPositionButKeepsSize() {
+        let m = EditorModel(baseImage: base(100, 100))
+        m.setTool(.crop)
+        m.pointerDown(at: CGPoint(x: 20, y: 20)); m.pointerDragged(to: CGPoint(x: 80, y: 80)); m.pointerUp(at: CGPoint(x: 80, y: 80))
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 50, y: 50))
+        m.pointerDragged(to: CGPoint(x: 90, y: 50))       // +40 in x would run to 60…120
+        m.pointerUp(at: CGPoint(x: 90, y: 50))
+        guard case .crop(let rect) = m.annotations[0].shape else {
+            Issue.record("expected a crop"); return
+        }
+        #expect(rect == CGRect(x: 40, y: 20, width: 60, height: 60))   // stopped at the edge, size intact
+    }
+
     @Test func drawingARectangleAppendsOneAnnotation() {
         let m = EditorModel(baseImage: base())
         m.setTool(.rectangle)
