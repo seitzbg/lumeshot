@@ -11,10 +11,14 @@ import LumeshotCore
     /// the pre-pin snapshot back over it, so the next connection trusted a
     /// presented key afresh.
     ///
-    /// The edit closure fires the background pin, then waits briefly. Under the
-    /// old separate load/save the pin completes during that wait and the following
-    /// save overwrites it; under the transaction the background write blocks on
-    /// the lock until the edit commits, so both survive.
+    /// Deterministic, not timing-based: the edit closure releases the background
+    /// pin, waits until it has reached its transaction attempt, then waits for it
+    /// to *complete*. Under the old split load/save no lock is held during the
+    /// closure, so the pin completes and the following save overwrites it (the
+    /// completion wait returns) — the bug. Under the transaction the lock is held
+    /// during the closure, so the pin is blocked until the edit commits; that
+    /// completion wait times out (confirming it is blocked, not lost) and both
+    /// writes survive once the lock is released.
     @Test func aPreferenceEditDoesNotDropAConcurrentlyLearnedPin() throws {
         let dir = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
@@ -30,21 +34,32 @@ import LumeshotCore
         let prefs = PreferencesModel(store: store, credentials: UnusedCredentials(),
                                      onChange: {}, applyHotkeys: { _ in })
 
-        let pinWritten = DispatchSemaphore(value: 0)
+        let startPin = DispatchSemaphore(value: 0)
+        let reachedMutate = DispatchSemaphore(value: 0)
+        let pinDone = DispatchSemaphore(value: 0)
+
+        // The SSH host-key callback, firing on a background thread mid-edit.
+        DispatchQueue.global().async {
+            startPin.wait()          // not until the edit is in flight
+            reachedMutate.signal()   // about to enter the pin transaction
+            _ = try? store.mutate { pinned in
+                if let i = pinned.upload.destinations.firstIndex(where: { $0.id == "d" }) {
+                    pinned.upload.destinations[i].sftpConfig?.knownHostKey = "SHA256:learned"
+                }
+            }
+            pinDone.signal()
+        }
+
         prefs.update { s in
             s.filenameTemplate = "changed-by-preference"
-            // The SSH host-key callback, firing on a background thread mid-edit.
-            DispatchQueue.global().async {
-                _ = try? store.mutate { pinned in
-                    if let i = pinned.upload.destinations.firstIndex(where: { $0.id == "d" }) {
-                        pinned.upload.destinations[i].sftpConfig?.knownHostKey = "SHA256:learned"
-                    }
-                }
-                pinWritten.signal()
-            }
-            Thread.sleep(forTimeInterval: 0.2)   // give the background write time to land
+            startPin.signal()
+            reachedMutate.wait()
+            // Old split load/save holds no lock here, so the pin completes and is
+            // then overwritten (this returns). The transaction holds the lock, so
+            // the pin is blocked until this closure returns; bound the wait.
+            _ = pinDone.wait(timeout: .now() + 1.0)
         }
-        pinWritten.wait()
+        pinDone.wait()   // the pin has fully completed before we read the file
 
         let onDisk = store.loadOrDefault().0
         #expect(onDisk.filenameTemplate == "changed-by-preference")   // the edit survived…

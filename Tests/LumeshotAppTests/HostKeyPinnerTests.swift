@@ -56,6 +56,44 @@ import LumeshotCore
         #expect(pinnedKey(store, id: "d") == "SHA256:A")   // B never overwrote A
     }
 
+    /// The same race with the two pinners fired *concurrently* behind a barrier:
+    /// the `SettingsStore.mutate` lock must serialize them so exactly one key is
+    /// pinned and the other is reported as a conflict against it — never both
+    /// accepted, and never a lost write.
+    @Test func twoConcurrentFirstUsePinnersSerializeToOneWinnerAndOneConflict() throws {
+        let store = try storeWithUnpinnedSFTP(id: "d", host: "h", port: 22)
+        let service = service(store)
+        let a = service.hostKeyPinner(for: "d", host: "h", port: 22)
+        let b = service.hostKeyPinner(for: "d", host: "h", port: 22)
+
+        let start = DispatchSemaphore(value: 0)
+        let group = DispatchGroup()
+        let results = ResultsBox()
+        for (pinner, key) in [(a, "SHA256:A"), (b, "SHA256:B")] {
+            group.enter()
+            DispatchQueue.global().async {
+                start.wait()                 // both released together
+                results.add(pinner(key))
+                group.leave()
+            }
+        }
+        start.signal(); start.signal()
+        group.wait()
+
+        let outcomes = results.all
+        #expect(outcomes.count == 2)
+        #expect(outcomes.filter { $0 == .accepted }.count == 1)
+        let stored = pinnedKey(store, id: "d")
+        #expect(stored == "SHA256:A" || stored == "SHA256:B")
+        // The loser conflicts, naming the stored (winning) key as the saved one.
+        guard let conflict = outcomes.first(where: { if case .conflict = $0 { return true }; return false }),
+              case .conflict(let saved, let presented) = conflict else {
+            Issue.record("expected exactly one conflict outcome"); return
+        }
+        #expect(saved == stored)
+        #expect(presented != stored)
+    }
+
     /// If the destination was retargeted (or removed) while connecting, the key
     /// from the endpoint that actually answered is accepted but not stapled onto
     /// the new endpoint.
@@ -72,4 +110,12 @@ import LumeshotCore
         let pin = UploadService(credentials: UnusedCredentials()).hostKeyPinner(for: "d", host: "h", port: 22)
         #expect(pin("SHA256:anything") == .accepted)
     }
+}
+
+/// Collects pin outcomes from concurrent threads.
+private final class ResultsBox: @unchecked Sendable {
+    private let lock = NSLock()
+    private var _all: [HostKeyPinResult] = []
+    func add(_ r: HostKeyPinResult) { lock.lock(); _all.append(r); lock.unlock() }
+    var all: [HostKeyPinResult] { lock.lock(); defer { lock.unlock() }; return _all }
 }
