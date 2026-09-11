@@ -39,6 +39,35 @@ public enum ResponseURLParser {
         return out
     }
 
+    /// Like `resolve`, but treats a present-but-empty substitution as a failure
+    /// (nil) rather than concatenating it with the template's literals.
+    ///
+    /// `resolve` deliberately keeps an empty value ("") distinct from an absent
+    /// one (nil) — but for a link that is only usable filled in, an empty token
+    /// is not usable: `"https://host/i/{json:data.id}.png"` against `{"id":""}`
+    /// assembled into `"https://host/i/.png"`, a non-empty and syntactically
+    /// valid URL that was reported as a successful upload despite carrying no
+    /// image id. Any token resolving to empty (including `{response}` over an
+    /// empty body) fails the whole template here, so the caller can reject a
+    /// required link and drop an unresolved optional one.
+    public static func resolveNonEmpty(_ template: String, context: ResponseContext) -> String? {
+        var out = ""
+        var rest = Substring(template)
+        while let open = rest.firstIndex(of: "{") {
+            out += rest[rest.startIndex..<open]
+            guard let close = rest[open...].firstIndex(of: "}") else {
+                out += rest[open...]          // unmatched '{' — emit literally
+                return out.isEmpty ? nil : out
+            }
+            let token = String(rest[rest.index(after: open)..<close])
+            guard let value = value(for: token, context: context), !value.isEmpty else { return nil }
+            out += value
+            rest = rest[rest.index(after: close)...]
+        }
+        out += rest
+        return out.isEmpty ? nil : out
+    }
+
     /// The token's value, or nil when it cannot be extracted from this response.
     /// `{response}` is the one token that always resolves — an empty body is a
     /// real answer, not a missing one.

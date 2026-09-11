@@ -69,7 +69,14 @@ final class HistoryModel: ObservableObject {
     }
 
     func open(_ urlString: String) {
-        guard let url = URL(string: urlString) else { return }
+        // Only ever open an http(s) link. A row recorded before result URLs were
+        // validated (or a custom uploader whose server returned a file:/custom
+        // scheme) must not turn "open the uploaded image" into launching a local
+        // file or another app's URL handler.
+        guard let url = WebLink.openable(urlString) else {
+            AppLog.log("History: refused to open a non-web link")
+            return
+        }
         NSWorkspace.shared.open(url)
     }
 

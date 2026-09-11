@@ -33,7 +33,10 @@ public struct PicsurUploader: Uploader {
         uploader.url = "{json:data.id}"
         uploader.deletionURL = "{json:data.delete_key}"
 
-        let raw = try await CustomUploaderClient(config: uploader, http: http).upload(file)
+        // The result of this engine call is a bare image id, not a public link,
+        // so opt out of the http(s) validation a direct custom uploader gets.
+        let raw = try await CustomUploaderClient(config: uploader, http: http,
+                                                 validatesPublicURL: false).upload(file)
         let id = raw.url
         return UploadResult(url: config.url(id: id),
                             thumbnailURL: config.thumbnailURL(id: id),

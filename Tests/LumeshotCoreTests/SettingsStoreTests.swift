@@ -62,6 +62,35 @@ private func tempFile() -> URL {
         }
     }
 
+    /// A settings file that exists but cannot be read must not be mistaken for an
+    /// empty configuration. `mutate` treated `loadOrDefault`'s fallback as an
+    /// authoritative snapshot, so a change would write the defaults over the
+    /// (recoverable) file and erase every destination, filename template and
+    /// pinned host key. The transaction has to abort instead, leaving the file
+    /// byte-for-byte intact.
+    @Test func mutateOnUnreadableFileThrowsAndLeavesItUntouched() throws {
+        let url = tempFile()
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(),
+                                                withIntermediateDirectories: true)
+        let store = SettingsStore(fileURL: url)
+        var saved = AppSettings.default
+        saved.filenameTemplate = "KEEP_ME"
+        saved.upload = saved.upload.addingOrUpdating(
+            UploadDestination(id: "d1", name: "D1", kind: .imgur, imgurClientID: "client"))
+        try store.save(saved)
+        let before = try Data(contentsOf: url)
+
+        try FileManager.default.setAttributes([.posixPermissions: 0], ofItemAtPath: url.path)
+        defer { try? FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path) }
+
+        #expect(throws: (any Error).self) {
+            try store.mutate { $0.filenameTemplate = "OVERWRITTEN" }
+        }
+
+        try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: url.path)
+        #expect(try Data(contentsOf: url) == before)   // destinations + template preserved
+    }
+
     @Test func defaultsHaveExpectedHotkeys() {
         let d = AppSettings.default
         #expect(d.hotkeys.fullscreen == HotkeyCombo(keyCode: 20, modifiers: 2560)) // ⌥⇧3
