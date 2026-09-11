@@ -79,41 +79,66 @@ struct UploadService {
         }
     }
 
-    /// Persists a first-seen SSH host key against the destination, so every
-    /// later connection is checked against it instead of trusting anything.
-    /// Re-reads settings at call time because the pin arrives mid-upload, well
-    /// after any snapshot we might have taken.
+    /// Persists a first-seen SSH host key against the destination and returns
+    /// whether the connection may proceed, so every later connection is checked
+    /// against the pin instead of trusting anything. Re-reads settings at call
+    /// time because the pin arrives mid-upload, well after any snapshot we might
+    /// have taken.
+    ///
+    /// The trust decision is made *inside* the transaction, not from the
+    /// validator's snapshot: two uploads to a never-pinned destination each begin
+    /// as "first use", and once one pins key A the other must not still be treated
+    /// as first use. If the second presents a different key, that is now a
+    /// conflict with the pin on disk — reported so the handshake fails closed,
+    /// rather than a silent no-op that let the stale first-use decision succeed.
     ///
     /// `host` and `port` are the endpoint that actually presented the key. They
     /// are checked again at write time because the destination can be edited to
     /// point somewhere else while the upload is still connecting: the id alone
     /// would then staple this server's fingerprint onto a different one, and
     /// every later connection there would fail as a host-key mismatch.
-    private func hostKeyPinner(for destinationID: String, host: String,
-                               port: Int) -> @Sendable (String) -> Void {
-        guard let settingsStore else { return { _ in } }
+    func hostKeyPinner(for destinationID: String, host: String,
+                       port: Int) -> @Sendable (String) -> HostKeyPinResult {
+        guard let settingsStore else { return { _ in .accepted } }
         return { fingerprint in
             // One transaction, because this runs on a NIO event-loop thread while
             // the main actor may be saving a settings edit of its own. Loading and
             // saving separately let the two interleave and drop one of the writes.
             do {
+                var result: HostKeyPinResult = .accepted
                 var pinned = false
                 try settingsStore.mutate { settings in
                     guard let index = settings.upload.destinations
                         .firstIndex(where: { $0.id == destinationID }),
                           let current = settings.upload.destinations[index].sftpConfig,
-                          current.host == host, current.port == port,
-                          (current.knownHostKey ?? "").isEmpty
-                    else { return }
-                    settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
-                    pinned = true
+                          current.host == host, current.port == port
+                    else {
+                        // The destination was edited to a different endpoint (or
+                        // removed) while this connection was in flight. We cannot
+                        // pin against it, but the handshake to the endpoint that
+                        // actually presented the key is a legitimate first use —
+                        // accept without persisting.
+                        return
+                    }
+                    let existing = current.knownHostKey ?? ""
+                    if existing.isEmpty {
+                        settings.upload.destinations[index].sftpConfig?.knownHostKey = fingerprint
+                        pinned = true
+                    } else if existing != fingerprint {
+                        result = .conflict(saved: existing, presented: fingerprint)
+                    }
                 }
                 if pinned {
                     AppLog.log("SFTP: pinned host key for \(destinationID): \(fingerprint)")
+                } else if case .conflict(let saved, let presented) = result {
+                    AppLog.log("SFTP: refused host key for \(destinationID); pinned \(saved), presented \(presented)")
                 }
+                return result
             } catch {
-                // Not fatal: the upload proceeds, we simply re-learn next time.
+                // Fail closed: a trust decision we could not record would leave the
+                // next connection in first-use mode, re-trusting whatever appears.
                 AppLog.log("SFTP: could not pin host key for \(destinationID): \(error)")
+                return .persistenceFailed("\(error)")
             }
         }
     }

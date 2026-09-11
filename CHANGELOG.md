@@ -4,7 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-_Nothing yet._
+- SFTP now fails closed when two first-time uploads to the same destination race and the second server presents a different host key than the one just pinned, instead of silently trusting it.
+- A failed screen-recording upload no longer writes the raw server response to the log, matching the redaction the still-image path already had — an error body can echo an API key or deletion token.
+- Editing General/Capture/Recording/Shortcut preferences no longer overwrites an SSH host key learned from a connection at the same moment.
+- The editor keeps its Cancel/Copy/Save/Upload buttons on screen at the smallest window size: the text, blur and pixelate controls now live in the left tool rail rather than crowding the top bar.
+- Moving a crop against an image edge and back no longer permanently shrinks it.
 
 ## Releases
 

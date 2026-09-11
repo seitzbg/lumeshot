@@ -72,9 +72,10 @@ struct EditorView: View {
                     .frame(minWidth: 480, minHeight: 360)
             }
         }
-        // The top bar (colour, width, undo/redo/delete, finish buttons) sets the floor;
-        // the tools now live in the left rail, so the window no longer has to be wide
-        // enough to lay all of them out in one row.
+        // The top bar (colour, width, undo/redo/delete, finish buttons) sets the floor.
+        // Its contents are the same for every tool — the tools and their per-tool
+        // parameters both live in the left rail — so the minimum width no longer has
+        // to grow to fit an inspector next to the fixed-width finish buttons.
         .frame(minWidth: 760, minHeight: 480)
         .alert("Couldn’t produce the image",
                isPresented: Binding(get: { exportError != nil },
@@ -111,7 +112,14 @@ struct EditorView: View {
                             .foregroundStyle(.secondary)
                             .padding(.horizontal, 16)
                             .padding(.bottom, 3)
-                        ForEach(group.items) { item in toolRow(item) }
+                        ForEach(group.items) { item in
+                            toolRow(item)
+                            // Tool-specific parameters live under their tool in the
+                            // rail, not in the top bar: the top bar's finish buttons
+                            // are fixed-width, so an inspector crammed beside them
+                            // overflowed and clipped Upload at the window minimum.
+                            if item.tool == effectiveInspectorTool { railInspector(for: item.tool) }
+                        }
                     }
                 }
             }
@@ -172,8 +180,6 @@ struct EditorView: View {
                    })
                 .frame(width: 90)
                 .help("Stroke width")
-
-            inspector
 
             Divider().frame(height: 20)
 
@@ -254,35 +260,41 @@ struct EditorView: View {
         }
     }
 
-    /// Tool-specific creation parameters. Editing a control changes the model's
-    /// published default; releasing it (`onEditingChanged == false`) applies the value
-    /// to a matching selected shape via `applyInspectorToSelection()`.
-    @ViewBuilder private var inspector: some View {
-        switch effectiveInspectorTool {
-        case .text:
-            Stepper("Text \(Int(model.textFontSize))pt",
-                    value: $model.textFontSize, in: 8...96, step: 1,
-                    onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
-                .fixedSize()
-                .help("Text size")
-        case .blur:
-            HStack(spacing: 4) {
-                Image(systemName: "drop")
-                Slider(value: $model.blurRadius, in: 1...40,
-                       onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
-                    .frame(width: 90)
+    /// Tool-specific parameters for the selected/active tool, shown in the rail
+    /// directly under that tool. Editing a control changes the model's published
+    /// default; releasing it (`onEditingChanged == false`) applies the value to a
+    /// matching selected shape via `applyInspectorToSelection()`. Indented under
+    /// the tool row's label so it reads as belonging to that tool.
+    @ViewBuilder private func railInspector(for tool: EditorTool) -> some View {
+        Group {
+            switch tool {
+            case .text:
+                Stepper("Size \(Int(model.textFontSize))pt",
+                        value: $model.textFontSize, in: 8...96, step: 1,
+                        onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                    .controlSize(.small)
+                    .help("Text size")
+            case .blur:
+                railSlider("Radius", value: $model.blurRadius, in: 1...40).help("Blur radius")
+            case .pixelate:
+                railSlider("Scale", value: $model.pixelScale, in: 4...40).help("Pixelate scale")
+            default:
+                EmptyView()
             }
-            .help("Blur radius")
-        case .pixelate:
-            HStack(spacing: 4) {
-                Image(systemName: "squareshape.split.3x3")
-                Slider(value: $model.pixelScale, in: 4...40,
-                       onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
-                    .frame(width: 90)
-            }
-            .help("Pixelate scale")
-        default:
-            EmptyView()
+        }
+        .padding(.leading, 34)
+        .padding(.trailing, 14)
+        .padding(.bottom, 3)
+    }
+
+    /// A captioned slider sized to fill the rail, applying its value on release.
+    private func railSlider(_ label: String, value: Binding<Double>,
+                            in range: ClosedRange<Double>) -> some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(label).font(.caption2).foregroundStyle(.secondary)
+            Slider(value: value, in: range,
+                   onEditingChanged: { editing in if !editing { model.applyInspectorToSelection() } })
+                .controlSize(.small)
         }
     }
 }

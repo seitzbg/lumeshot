@@ -9,12 +9,14 @@ public struct SFTPUploader: Uploader {
     let secret: SFTPSecret
     let transport: SFTPTransport
     /// Invoked when a host key is trusted on first use, so the owner can pin it
-    /// in settings. The uploader itself stays stateless.
-    let rememberHostKey: @Sendable (String) -> Void
+    /// in settings; it returns whether the connection may proceed. The uploader
+    /// itself stays stateless. The default trusts without persisting, for callers
+    /// (tests, non-app) that keep no settings store.
+    let rememberHostKey: @Sendable (String) -> HostKeyPinResult
 
     public init(config: SFTPConfig, secret: SFTPSecret,
                transport: SFTPTransport = CitadelSFTPTransport(),
-               rememberHostKey: @escaping @Sendable (String) -> Void = { _ in }) {
+               rememberHostKey: @escaping @Sendable (String) -> HostKeyPinResult = { _ in .accepted }) {
         self.config = config
         self.secret = secret
         self.transport = transport
