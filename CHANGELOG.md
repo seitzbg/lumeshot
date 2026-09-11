@@ -4,21 +4,11 @@ Release notes describe the changes in each published version.
 
 ## Unreleased
 
-- SFTP now fails closed when two first-time uploads to the same destination race and the second server presents a different host key than the one just pinned, instead of silently trusting it.
-- A failed screen-recording upload no longer writes the raw server response to the log, matching the redaction the still-image path already had — an error body can echo an API key or deletion token.
-- Editing General/Capture/Recording/Shortcut preferences no longer overwrites an SSH host key learned from a connection at the same moment.
-- The editor keeps its Cancel/Copy/Save/Upload buttons on screen at the smallest window size: the text, blur and pixelate controls now live in the left tool rail rather than crowding the top bar.
-- Moving a crop against an image edge and back no longer permanently shrinks it.
-- A settings file that exists but cannot be read is no longer treated as an empty configuration: preference edits and SSH host-key checks now abort instead of overwriting your saved uploaders with defaults or trusting a host key as if none were pinned.
-- A failed SFTP upload no longer writes the server's status message to the log (it can echo a remote path or a token); the log keeps the SSH status code and the error type.
-- A custom uploader whose server returns a non-web value — a `file:` URL, an app scheme, or an error page — is treated as a failed upload instead of being copied to the clipboard, and History and notifications only open `http(s)` links.
-- A custom uploader response that leaves the image id empty is treated as a failed upload, instead of copying a broken link such as `https://host/i/.png`.
-- Resizing an annotation by dragging a handle past its opposite edge and back no longer drags the anchored edge with it, so a crop keeps its intended size.
-- Increasing a text annotation's font size no longer pushes the text out of its box and drops it from the exported image; the box grows to fit the larger text.
-- Lumeshot no longer advertises itself as an opener for MP4 and GIF files, which only produced an import error; opening a file still imports `.sxcu` uploader configs.
+_Nothing yet._
 
 ## Releases
 
+- [v0.1.23](docs/releases/v0.1.23.md) — A dozen code-review fixes across settings safety, SFTP and log redaction, custom-uploader link validation, and the annotation editor.
 - [v0.1.22](docs/releases/v0.1.22.md) — The editor now sizes its window to the capture (1:1 when it fits, scaled to fit the screen when it doesn't), instead of reusing a remembered size.
 - [v0.1.21](docs/releases/v0.1.21.md) — The annotation editor opens at a larger, screen-capped default and remembers the size and position you set.
 - [v0.1.20](docs/releases/v0.1.20.md) — The annotation editor's tools now read as a native macOS sidebar: grouped sections, translucent material, and a Finder-style selected row.
