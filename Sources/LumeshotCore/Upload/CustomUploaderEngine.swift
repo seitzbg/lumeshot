@@ -59,8 +59,17 @@ public enum CustomUploaderEngine {
                                headers: config.headers, body: body, contentType: contentType)
     }
 
+    /// Parses an upload response into a result.
+    ///
+    /// `requirePublicURL` controls what the resolved result URL is allowed to
+    /// be. For a real destination the result IS the public link, so it must be
+    /// an absolute http(s) URL (a `file:` URL, custom scheme or HTML page must
+    /// not be reported as success and copied to the clipboard). Picsur, however,
+    /// reuses this engine to extract a bare image id and composes the URL
+    /// itself, so it passes `false` to keep raw-field extraction working.
     public static func parseResult(config: CustomUploaderConfig, status: Int,
-                                   body: Data, headers: [String: String]) throws -> UploadResult {
+                                   body: Data, headers: [String: String],
+                                   requirePublicURL: Bool = true) throws -> UploadResult {
         guard (200..<300).contains(status) else {
             throw UploadError.http(status: status,
                                    body: String(data: body, encoding: .utf8) ?? "")
@@ -68,21 +77,22 @@ public enum CustomUploaderEngine {
         let context = ResponseContext(body: String(data: body, encoding: .utf8) ?? "",
                                       headers: headers, regexList: config.regexList)
         // Optional extras: a thumbnail or deletion link that cannot be extracted
-        // is dropped. The upload itself succeeded, and losing a deletion token is
-        // not worth failing it over.
+        // — a missing token, or one present but empty — is dropped. The upload
+        // itself succeeded, and losing a deletion token is not worth failing it
+        // over, but an empty token must not assemble into a broken link either.
         func resolveOptional(_ template: String?) -> String? {
             guard let template, !template.isEmpty else { return nil }
-            guard let value = ResponseURLParser.resolve(template, context: context),
-                  !value.isEmpty else { return nil }
-            return value
+            return ResponseURLParser.resolveNonEmpty(template, context: context)
         }
         // The result URL is not optional. A template that cannot be filled in is
         // a failed upload, however healthy the status code looked: the literal
         // parts of the template would otherwise assemble into a plausible but
-        // wrong link, which then replaces the screenshot on the clipboard.
+        // wrong link, which then replaces the screenshot on the clipboard. An
+        // empty required token is rejected the same way (resolveNonEmpty), so a
+        // "https://host/i/{json:data.id}.png" with an empty id does not slip
+        // through as "https://host/i/.png".
         func resolveRequired(_ template: String) throws -> String {
-            guard let value = ResponseURLParser.resolve(template, context: context),
-                  !value.isEmpty else {
+            guard let value = ResponseURLParser.resolveNonEmpty(template, context: context) else {
                 throw UploadError.badResponse(
                     "The response did not contain the values the URL template asks for.")
             }
@@ -94,7 +104,15 @@ public enum CustomUploaderEngine {
         // URL -- otherwise an HTML error page would be copied to the clipboard.
         let url: String
         if let template = config.url, !template.isEmpty {
-            url = try resolveRequired(template)
+            let resolved = try resolveRequired(template)
+            if requirePublicURL, let web = WebLink.openable(resolved) {
+                url = web.absoluteString
+            } else if requirePublicURL {
+                throw UploadError.badResponse(
+                    "The upload succeeded but the result is not a usable http(s) link.")
+            } else {
+                url = resolved
+            }
         } else if let fromBody = Self.responseBodyAsURL(context.body) {
             url = fromBody
         } else {
@@ -107,13 +125,7 @@ public enum CustomUploaderEngine {
 
     /// The trimmed response body when it is a usable http(s) URL, else nil.
     static func responseBodyAsURL(_ body: String) -> String? {
-        let trimmed = body.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty,
-              let c = URLComponents(string: trimmed),
-              let scheme = c.scheme?.lowercased(), scheme == "http" || scheme == "https",
-              let host = c.host, !host.isEmpty
-        else { return nil }
-        return trimmed
+        WebLink.openable(body)?.absoluteString
     }
 
     private static func escape(_ s: String) -> String {

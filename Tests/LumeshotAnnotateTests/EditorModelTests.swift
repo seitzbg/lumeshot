@@ -681,4 +681,71 @@ import CoreGraphics
         m.undo()
         #expect(m.annotations.isEmpty)
     }
+
+    // MARK: Resize handle across the opposite edge (review fix)
+
+    /// Dragging a resize handle past the opposite edge and back must leave the
+    /// opposite (anchored) edge where it was. The resize used to be derived from
+    /// the previously-standardized rectangle, so once the grabbed edge crossed
+    /// the far one, standardization swapped them while `activeHandle` kept its
+    /// identity — subsequent events then dragged the wrong edge and moved the
+    /// anchor. Here the crop's right edge (x=80) must stay put.
+    @Test func resizingAHandlePastTheOppositeEdgeAndBackKeepsTheAnchor() {
+        let m = EditorModel(baseImage: base(100, 100))
+        m.setTool(.crop)
+        m.pointerDown(at: CGPoint(x: 20, y: 20))
+        m.pointerDragged(to: CGPoint(x: 80, y: 80))
+        m.pointerUp(at: CGPoint(x: 80, y: 80))            // crop 20…80 (60×60)
+        m.setTool(.select)
+        m.pointerDown(at: CGPoint(x: 20, y: 50))          // grab the LEFT edge handle
+        m.pointerDragged(to: CGPoint(x: 90, y: 50))       // drag it past the right edge (80)…
+        m.pointerDragged(to: CGPoint(x: 100, y: 50))      // …further out…
+        m.pointerDragged(to: CGPoint(x: 20, y: 50))       // …then back to where it started
+        m.pointerUp(at: CGPoint(x: 20, y: 50))
+        guard case .crop(let rect) = m.annotations[0].shape else {
+            Issue.record("expected a crop"); return
+        }
+        #expect(rect == CGRect(x: 20, y: 20, width: 60, height: 60))
+    }
+
+    // MARK: Text stays visible after a font-size change (review fix)
+
+    /// A committed text box has a fixed height sized to its original font. The
+    /// inspector used to change only the font size, keeping that box; a larger
+    /// font then no longer fit the box CoreText clips to, so the export drew no
+    /// text at all while still "succeeding". The box must grow to fit.
+    @Test func enlargingTextKeepsItInTheFlattenedImage() throws {
+        let m = EditorModel(baseImage: base(400, 200))
+        m.strokeColor = .red
+        m.setTool(.text)
+        m.pointerDown(at: CGPoint(x: 10, y: 10))          // places an empty text box, enters edit
+        m.pointerUp(at: CGPoint(x: 10, y: 10))
+        m.updateEditingText("Hello")
+        m.endTextEditing()                                 // commits the non-empty placement
+
+        let before = Self.countRed(try #require(m.flatten()))
+        #expect(before > 0)                                // sanity: text renders at the default size
+
+        m.textFontSize = 96
+        m.applyInspectorToSelection()                      // change only the font size
+        #expect(Self.countRed(try #require(m.flatten())) > 0)   // the enlarged text is still exported
+    }
+
+    /// Counts pixels that are predominantly red (the text colour) in a flattened
+    /// bitmap, so "the text disappeared" is an assertion about actual output.
+    private static func countRed(_ image: CGImage) -> Int {
+        let w = image.width, h = image.height
+        var buf = [UInt8](repeating: 0, count: w * h * 4)
+        let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+        let ctx = CGContext(data: &buf, width: w, height: h, bitsPerComponent: 8,
+                            bytesPerRow: w * 4, space: cs,
+                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var count = 0, i = 0
+        while i < buf.count {
+            if buf[i] > 200, buf[i + 1] < 80, buf[i + 2] < 80 { count += 1 }
+            i += 4
+        }
+        return count
+    }
 }

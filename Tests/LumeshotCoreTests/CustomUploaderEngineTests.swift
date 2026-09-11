@@ -134,6 +134,35 @@ private let png = FilePart(fieldName: "IGNORED", filename: "shot.png",
         }
     }
 
+    /// An explicit template that resolves to a non-web value — a `file:` URL, a
+    /// custom app scheme, or arbitrary text — must not be reported as a
+    /// successful upload. It would replace the screenshot on the clipboard and,
+    /// opened from History, launch a local app or file instead of a web link.
+    @Test(arguments: ["file:///Applications/Calculator.app", "myapp://open", "not a url"])
+    func anExplicitTemplateResolvingToANonWebValueIsRejected(link: String) {
+        var config = CustomUploaderConfig(requestURL: "https://up/api")
+        config.url = "{json:data.link}"
+        let body = Data("{\"data\":{\"link\":\"\(link)\"}}".utf8)
+        #expect(throws: UploadError.self) {
+            _ = try CustomUploaderEngine.parseResult(config: config, status: 200, body: body, headers: [:])
+        }
+    }
+
+    /// A required token that is present but empty ("") must not concatenate with
+    /// the template's literals into a plausible-but-broken link. This is distinct
+    /// from a missing token (the field is present, its value is empty) and from a
+    /// non-web URL (the assembled string is a syntactically valid https URL, so
+    /// validating the final URL alone would not catch it).
+    @Test func aRequiredEmptyIdentifierIsNotASuccessfulURL() {
+        var config = CustomUploaderConfig(requestURL: "https://example.invalid/upload")
+        config.url = "https://example.invalid/i/{json:data.id}.png"
+        #expect(throws: UploadError.self) {
+            _ = try CustomUploaderEngine.parseResult(
+                config: config, status: 200,
+                body: Data(#"{"data":{"id":""}}"#.utf8), headers: [:])
+        }
+    }
+
     /// A thumbnail or deletion link that cannot be extracted is dropped, not
     /// fatal: the upload itself succeeded.
     @Test func optionalLinksAreDroppedWhenTheirTokensAreMissing() throws {
