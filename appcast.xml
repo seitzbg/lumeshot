@@ -14,6 +14,67 @@
         <description>Updates for Lumeshot, a screenshot and screen-recording tool for macOS.</description>
         <language>en</language>
         <item>
+            <title>0.1.23</title>
+            <pubDate>Fri, 11 Sep 2026 18:42:47 +0000</pubDate>
+            <link>https://github.com/seitzbg/lumeshot</link>
+            <sparkle:version>0.1.23</sparkle:version>
+            <sparkle:shortVersionString>0.1.23</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[A maintenance release: a dozen fixes from two rounds of code review of v0.1.22,
+covering upload reliability and privacy, settings safety, and the annotation
+editor. No new features and no configuration changes — existing uploaders,
+settings and captures are unaffected.
+
+## Settings and SSH safety
+
+- A `settings.json` that exists but cannot be read (a permissions problem, a
+  transient disk error) is no longer treated as an empty configuration. A
+  preference change would previously overwrite the unreadable file with defaults,
+  erasing your saved uploaders, filename template and pinned host keys; and an
+  SSH host-key check could trust a new key as if none had been pinned. Both now
+  stop and leave the file untouched rather than acting on defaults.
+- Editing General/Capture/Recording/Shortcut preferences no longer overwrites an
+  SSH host key that a connection pinned at the same moment.
+- When two first-time SFTP uploads to the same destination race and the second
+  server presents a different host key than the one just pinned, the second
+  connection now fails closed instead of silently trusting it.
+
+## Upload logging and result handling
+
+- A failed SFTP upload no longer writes the server's status message to
+  `~/Library/Logs/Lumeshot.log` — it can echo a remote path or a token. The SSH
+  status code and the error type are kept.
+- A failed screen-recording upload no longer writes the raw server response to
+  the log either, matching the redaction the still-image path already had.
+- A custom uploader whose server returns something that is not a web link — a
+  `file:` URL, an app scheme, or an HTML error page — is now treated as a failed
+  upload instead of being copied to the clipboard. History and notifications only
+  open `http(s)` links, so an older entry can't launch a local file or another
+  app.
+- A custom uploader response that leaves the image id empty is treated as a
+  failed upload rather than copying a broken link such as `https://host/i/.png`.
+
+## Annotation editor
+
+- Resizing an annotation by dragging a handle past its opposite edge and back no
+  longer drags the anchored edge along with it, so a crop keeps its intended size.
+- Increasing a text annotation's font size no longer pushes the text out of its
+  box and drops it from the exported image; the box grows to fit the larger text.
+- Moving a crop against an image edge and back no longer permanently shrinks it.
+- The editor keeps its Cancel/Copy/Save/Upload buttons on screen at the smallest
+  window size: the text, blur and pixelate controls now live in the left tool
+  rail rather than crowding the top bar.
+
+## File handling
+
+- Lumeshot no longer advertises itself as an opener for MP4 and GIF files, which
+  only produced an import error. Opening a file still imports `.sxcu` uploader
+  configs.
+]]></description>
+            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.23/Lumeshot-0.1.23.dmg" length="8314237" type="application/octet-stream" sparkle:edSignature="dxH9oVK1kCB4JBEs92SlDx7kzyDQDn0ggYTEfOxA/QqNp2QaZA9DgnfaojHXRAGozGP5Ccjal7R1Mz2wfAoOBw=="/>
+        </item>
+        <item>
             <title>0.1.22</title>
             <pubDate>Thu, 10 Sep 2026 22:16:53 +0000</pubDate>
             <link>https://github.com/seitzbg/lumeshot</link>
@@ -60,30 +121,6 @@ always been resizable; this just gives it a roomier starting size and makes your
 own size stick.
 ]]></description>
             <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.21/Lumeshot-0.1.21.dmg" length="8304545" type="application/octet-stream" sparkle:edSignature="Upy8XO4+Cpw4wGsG17x+quf+xDhi5WDMZy8V6MG3E0aga4xmQ1J5CDMbJbJypGPJzx46YbdyTx2LQ/H6KPW0Bg=="/>
-        </item>
-        <item>
-            <title>0.1.20</title>
-            <pubDate>Thu, 10 Sep 2026 20:32:24 +0000</pubDate>
-            <link>https://github.com/seitzbg/lumeshot</link>
-            <sparkle:version>0.1.20</sparkle:version>
-            <sparkle:shortVersionString>0.1.20</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[One change, refining the look of the annotation editor's tool list.
-
-## The editing tools now read as a native sidebar
-
-The tool rail on the left of the editor has been reworked to look and feel like a
-standard macOS sidebar. The tools are organised under quiet section headers —
-**Shapes** (Select, Rectangle, Ellipse, Line, Arrow, Freehand), **Redact** (Blur,
-Pixelate) and **Annotate** (Text, Highlighter, Step, Crop) — the sidebar carries
-the system's translucent material, and the active tool is shown as a full,
-accent-coloured row the way selection looks in Finder and Mail.
-
-Nothing about what the tools do has changed; the list is just easier to scan and
-more at home on macOS.
-]]></description>
-            <enclosure url="https://github.com/seitzbg/lumeshot/releases/download/v0.1.20/Lumeshot-0.1.20.dmg" length="8303722" type="application/octet-stream" sparkle:edSignature="KExoKmXAGfxJwhKNfYUZ2dYKJFOb2zp/5Hh7Q0hvuG9OIlnUlcuxbjV39YKYpLxSdf/vviTz5DOYQmusGZsLBQ=="/>
         </item>
     </channel>
 </rss>
