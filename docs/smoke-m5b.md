@@ -25,7 +25,7 @@ the live SFTP/FTP tests in `docs/smoke-m5a.md` — not re-verified here.
       which draws a blur, a pixelate and a text annotation with three different
       values, drifts every inspector control away from all of them, then selects
       each in turn. What is left for a human is that the matching *control*
-      (Slider/Slider/Stepper) appears in the toolbar at all.
+      (Slider/Slider/Stepper) appears in the left tool rail, under its tool.
 - [x] **Release workflow YAML sanity** — `python3 -c "import yaml; yaml.safe_load(open('.github/workflows/release.yml'))"`
       exits 0. (The workflow only fully runs on a real `v*` tag push; v0.1.15–v0.1.17
       exercised it for real.)

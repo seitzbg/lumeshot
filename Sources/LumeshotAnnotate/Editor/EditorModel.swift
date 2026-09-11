@@ -56,7 +56,12 @@ public final class EditorModel: ObservableObject {
     private var draft: Annotation?           // shape being drawn
     private var drawAnchor: CGPoint?         // draw start point
     private var activeHandle: HandleKind?    // resize in progress
-    private var lastDragPoint: CGPoint?      // move in progress
+    // A move is derived from the gesture-start snapshot plus the total offset
+    // from the pointer-down anchor — never accumulated event-to-event. Clamping
+    // a crop at an edge must not feed back into the next event's starting point,
+    // or dragging to an edge and back would leave the crop shifted and shrunken.
+    private var moveAnchor: CGPoint?              // pointer-down point of a move
+    private var moveStartAnnotation: Annotation?  // the annotation when the move began
     private var gestureStartState: [Annotation]?  // document before the gesture
     private var textEditStartState: [Annotation]?   // document before a text placement
 
@@ -118,12 +123,10 @@ public final class EditorModel: ObservableObject {
             // A crop dragged past an edge stops at it instead of leaving the
             // image; anything that would leave nothing behind is not applied.
             if let clamped = clampedToImage(resized) { annotations[index] = clamped }
-        } else if let last = lastDragPoint, let id = selectedID,
+        } else if let anchor = moveAnchor, let start = moveStartAnnotation, let id = selectedID,
                   let index = annotations.firstIndex(where: { $0.id == id }) {
-            let delta = CGVector(dx: point.x - last.x, dy: point.y - last.y)
-            let moved = annotations[index].moved(by: delta)
-            if let clamped = clampedToImage(moved) { annotations[index] = clamped }
-            lastDragPoint = point
+            let delta = CGVector(dx: point.x - anchor.x, dy: point.y - anchor.y)
+            annotations[index] = clampedMove(start.moved(by: delta))
         }
     }
 
@@ -142,7 +145,8 @@ public final class EditorModel: ObservableObject {
         draft = nil
         drawAnchor = nil
         activeHandle = nil
-        lastDragPoint = nil
+        moveAnchor = nil
+        moveStartAnnotation = nil
     }
 
     // MARK: Commands
@@ -328,7 +332,8 @@ public final class EditorModel: ObservableObject {
         // Otherwise pick the topmost annotation under the point.
         if let hit = annotations.last(where: { $0.hitTest(point, tolerance: hitTolerance) }) {
             selectedID = hit.id
-            lastDragPoint = point
+            moveAnchor = point
+            moveStartAnnotation = hit
             syncInspector(to: hit)
         } else {
             selectedID = nil
@@ -428,6 +433,27 @@ public final class EditorModel: ObservableObject {
         guard !clamped.isNull, !clamped.isEmpty else { return nil }
         var result = annotation
         result.shape = .crop(rect: clamped)
+        return result
+    }
+
+    /// Confines a *moved* crop to the image by clamping its position while
+    /// preserving its size. `clampedToImage` intersects, which is right for
+    /// drawing and resizing but destructive for a move: a crop nudged past an
+    /// edge would be trimmed, and the trimmed rectangle — not the original —
+    /// would carry into the next event, so returning the cursor could not
+    /// restore the lost width or height. Combined with an anchor-relative move
+    /// (see `pointerDragged`), clamping the translation keeps a move fully
+    /// reversible. Non-crop shapes translate freely: an arrow may run off an edge
+    /// because it is drawn, not used to select pixels.
+    private func clampedMove(_ annotation: Annotation) -> Annotation {
+        guard case .crop(let rect) = annotation.shape else { return annotation }
+        let r = rect.standardized
+        let maxX = max(0, CGFloat(baseImage.width) - r.width)
+        let maxY = max(0, CGFloat(baseImage.height) - r.height)
+        var result = annotation
+        result.shape = .crop(rect: CGRect(x: min(max(0, r.minX), maxX),
+                                          y: min(max(0, r.minY), maxY),
+                                          width: r.width, height: r.height))
         return result
     }
 

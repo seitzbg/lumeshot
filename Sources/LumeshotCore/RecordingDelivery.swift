@@ -84,7 +84,13 @@ public enum RecordingDelivery {
             // Log the underlying error too. The notification carries a friendly
             // message and then vanishes, which left a real SFTP failure with no
             // recorded cause anywhere — the still path has logged this since M2a.
-            effects.log("Recording upload failed: \(error)")
+            //
+            // Use the same redacting formatter the still path uses: interpolating
+            // the raw error re-exposes an HTTP response body — which can echo an
+            // API key, signed URL or deletion token — into ~/Library/Logs, the one
+            // place outside the Keychain. `diagnostic` keeps the status and the
+            // app-authored reason while dropping anything the server sent.
+            effects.log("Recording upload failed: \(UploadFeedback.diagnostic(for: error))")
             effects.notify(title: "Upload failed", body: "\(UploadFeedback.message(for: error)) Local file kept.", fileURL: fileURL)
             try? history?.setURL(id: entryID, url: nil, deletionURL: nil, failed: true)
         }

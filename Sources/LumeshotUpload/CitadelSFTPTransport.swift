@@ -14,9 +14,18 @@ import LumeshotCore
 /// back through a lock-guarded box rather than shared mutable state.
 final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
     private let knownHostKey: String?
-    private let remember: @Sendable (String) -> Void
+    private let remember: @Sendable (String) -> HostKeyPinResult
     private let lock = NSLock()
     private var _mismatch: (saved: String, presented: String)?
+
+    /// Whether to accept the presented key, or refuse it (fail closed) with a
+    /// typed reason. Pure and NIO-free so the trust-and-pin logic — the part the
+    /// concurrent-first-use race lives in — is unit-testable without a live SSH
+    /// server or a constructed public key.
+    enum Outcome: Equatable {
+        case accept
+        case reject(UploadError)
+    }
 
     /// Set when the connection was refused because the key changed, so the
     /// caller can report which fingerprints were involved instead of a generic
@@ -26,9 +35,37 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         return _mismatch
     }
 
-    init(knownHostKey: String?, remember: @escaping @Sendable (String) -> Void) {
+    init(knownHostKey: String?, remember: @escaping @Sendable (String) -> HostKeyPinResult) {
         self.knownHostKey = knownHostKey
         self.remember = remember
+    }
+
+    /// Decides the fate of a presented fingerprint. On first use, the persistence
+    /// transaction (`remember`) has the last word: it, not this validator's stale
+    /// `knownHostKey` snapshot, knows whether another connection has pinned a
+    /// different key in the meantime.
+    func outcome(forPresented presented: String) -> Outcome {
+        switch HostKeyTrust.decide(saved: knownHostKey, presented: presented) {
+        case .match:
+            return .accept
+        case .trustOnFirstUse(let fingerprint):
+            switch remember(fingerprint) {
+            case .accepted:
+                return .accept
+            case .conflict(let saved, let presented):
+                recordMismatch(saved: saved, presented: presented)
+                return .reject(.hostKeyMismatch(presented))
+            case .persistenceFailed(let reason):
+                return .reject(.transport("could not record the server's host key: \(reason)"))
+            }
+        case .mismatch(let saved, let presented):
+            recordMismatch(saved: saved, presented: presented)
+            return .reject(.hostKeyMismatch(presented))
+        }
+    }
+
+    private func recordMismatch(saved: String, presented: String) {
+        lock.lock(); _mismatch = (saved, presented); lock.unlock()
     }
 
     func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
@@ -37,15 +74,11 @@ final class TOFUHostKeyValidator: NIOSSHClientServerAuthenticationDelegate, @unc
         let blob = Array(buffer.readableBytesView)
         let presented = HostKeyTrust.fingerprint(sha256Digest: Array(SHA256.hash(data: blob)))
 
-        switch HostKeyTrust.decide(saved: knownHostKey, presented: presented) {
-        case .match:
+        switch outcome(forPresented: presented) {
+        case .accept:
             validationCompletePromise.succeed(())
-        case .trustOnFirstUse(let fingerprint):
-            remember(fingerprint)
-            validationCompletePromise.succeed(())
-        case .mismatch(let saved, let presented):
-            lock.lock(); _mismatch = (saved, presented); lock.unlock()
-            validationCompletePromise.fail(UploadError.hostKeyMismatch(presented))
+        case .reject(let error):
+            validationCompletePromise.fail(error)
         }
     }
 }
@@ -70,7 +103,7 @@ public struct CitadelSFTPTransport: SFTPTransport {
     public func upload(_ data: Data, to remotePath: String, host: String, port: Int,
                        username: String, secret: SFTPSecret,
                        knownHostKey: String?,
-                       rememberHostKey: @escaping @Sendable (String) -> Void) async throws {
+                       rememberHostKey: @escaping @Sendable (String) -> HostKeyPinResult) async throws {
         let auth: SSHAuthenticationMethod
         var usingRSAKey = false
         if let pem = secret.privateKeyPEM {

@@ -193,7 +193,7 @@ struct LiveSFTPTransportTests {
     @Test func aFirstConnectionLearnsTheHostKeyFingerprint() async throws {
         let learned = LockedValueBox<String?>(nil)
         let uploader = SFTPUploader(config: config(), secret: SFTPSecret(password: LiveUploadServers.password),
-                                    rememberHostKey: { learned.set($0) })
+                                    rememberHostKey: { learned.set($0); return .accepted })
 
         _ = try await uploader.upload(
             LiveUploadServers.part(LiveUploadServers.filename("sftp-tofu"), bytes: Data("x".utf8)))

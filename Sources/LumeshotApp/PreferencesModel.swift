@@ -28,12 +28,16 @@ final class PreferencesModel: ObservableObject {
     /// edits here and Uploads-tab edits (routed through `destinations`) never
     /// clobber each other — each reloads the full file immediately before
     /// mutating and saving its own slice.
+    ///
+    /// The whole load-modify-save runs inside one `store.mutate` transaction.
+    /// Separate `loadOrDefault` + `save` calls each took the lock individually but
+    /// left the interval between them unguarded: the SSH host-key callback pins a
+    /// fingerprint from a background thread mid-edit, and a preference save that
+    /// had loaded the pre-pin settings would then write the stale copy back,
+    /// dropping the pin so the next connection trusts a presented key afresh.
     func update(_ mutate: (inout AppSettings) -> Void) {
-        var (s, _) = store.loadOrDefault()
-        mutate(&s)
         do {
-            try store.save(s)
-            settings = s
+            settings = try store.mutate { mutate(&$0) }
             onChange()
         } catch {
             AppLog.log("Preferences: save failed: \(error)")

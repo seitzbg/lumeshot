@@ -18,7 +18,7 @@ import LumeshotCore
         do {
             try await transport.upload(Data("x".utf8), to: "/tmp/f", host: "127.0.0.1", port: 1,
                                        username: "u", secret: secret,
-                                       knownHostKey: nil, rememberHostKey: { _ in })
+                                       knownHostKey: nil, rememberHostKey: { _ in .accepted })
             Issue.record("expected upload to throw for a malformed private key")
         } catch let error as UploadError {
             guard case .missingCredential = error else {

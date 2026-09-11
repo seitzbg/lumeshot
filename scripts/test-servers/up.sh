@@ -29,7 +29,13 @@ chmod 777 "$S/sftp-upload" "$S/ftp-home" 2>/dev/null || true
 # throwaway, but a fixed credential on a published port is not something to ship
 # in a repo.
 if [ ! -f "$S/password" ]; then
-    (umask 077; LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32 > "$S/password")
+    # `tr -dc … </dev/urandom | head -c 32` reads naturally but aborts the whole
+    # script under `set -o pipefail`: head closes the pipe once it has 32 bytes,
+    # tr is then killed by SIGPIPE (141), and pipefail makes that the pipeline's
+    # exit status — so a fresh setup died here before generating keys or starting
+    # Docker. openssl reads a finite amount and has no such failure mode; 16 bytes
+    # is 32 hex characters (128 bits), ample for a throwaway lab account.
+    (umask 077; openssl rand -hex 16 > "$S/password")
 fi
 PASSWORD="$(cat "$S/password")"
 

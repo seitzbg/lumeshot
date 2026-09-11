@@ -168,6 +168,31 @@ private struct Boom: Error {}
         #expect(effects.notifications.contains { $0.0.contains("Local file kept.") })
     }
 
+    /// The failure log records the *reason* but must never carry a raw HTTP
+    /// response body: a server can echo the request back on an error, so the body
+    /// can hold an API key, signed URL or deletion token, and the log is a plain
+    /// file in ~/Library/Logs outside the Keychain. The still path already redacts
+    /// through the diagnostic formatter; the recording path used to interpolate
+    /// the raw error and leak it.
+    @Test func aFailedRecordingUploadDoesNotLogTheResponseBody() async throws {
+        let fileURL = try tempFile()
+        let history = try tempHistoryStore()
+        let effects = MockEffects()
+        await RecordingDelivery.deliver(
+            fileURL: fileURL, capturedAt: Date(), destinationName: "SFTP",
+            shouldUpload: true, showNotification: true, mime: "video/mp4",
+            history: history, effects: effects,
+            upload: { _, _, _ in
+                throw UploadError.http(status: 403, body: "api_key=REVIEW_SYNTHETIC_SECRET_9042")
+            })
+        // The reason is still recorded, so a real failure stays diagnosable…
+        #expect(effects.logged.contains { $0.contains("Recording upload failed") })
+        #expect(effects.logged.contains { $0.contains("403") })
+        // …but nothing the server sent, including any secret echoed in the body.
+        #expect(!effects.logged.contains { $0.contains("REVIEW_SYNTHETIC_SECRET_9042") })
+        #expect(!effects.logged.contains { $0.contains("api_key") })
+    }
+
     @Test func aSuccessfulRecordingUploadLogsTheURL() async throws {
         let fileURL = try tempFile()
         let history = try tempHistoryStore()

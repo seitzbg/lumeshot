@@ -17,9 +17,9 @@ private final class FakeSFTPTransport: SFTPTransport, @unchecked Sendable {
     func upload(_ data: Data, to remotePath: String, host: String, port: Int,
                username: String, secret: SFTPSecret,
                knownHostKey: String?,
-               rememberHostKey: @escaping @Sendable (String) -> Void) async throws {
+               rememberHostKey: @escaping @Sendable (String) -> HostKeyPinResult) async throws {
         receivedKnownHostKey = knownHostKey
-        if let hostKeyToRemember { rememberHostKey(hostKeyToRemember) }
+        if let hostKeyToRemember { _ = rememberHostKey(hostKeyToRemember) }
         receivedData = data
         receivedRemotePath = remotePath
         receivedHost = host
@@ -125,7 +125,7 @@ private final class FakeSFTPTransport: SFTPTransport, @unchecked Sendable {
         _ = try await SFTPUploader(config: config(knownHostKey: nil),
                                    secret: SFTPSecret(password: "pw"),
                                    transport: transport,
-                                   rememberHostKey: { box.value = $0 }).upload(file)
+                                   rememberHostKey: { box.value = $0; return .accepted }).upload(file)
         #expect(box.value == "SHA256:learned")
     }
 

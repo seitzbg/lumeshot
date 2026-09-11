@@ -161,7 +161,7 @@ private final class FlakyCredentials: CredentialStore, @unchecked Sendable {
         settings.upload.destinations[0].sftpConfig?.host = "elsewhere.example.com"
         try store.save(settings)
 
-        uploader.rememberHostKey("SHA256:from-the-original-host")
+        _ = uploader.rememberHostKey("SHA256:from-the-original-host")
 
         let saved = store.loadOrDefault().0.upload.destinations[0].sftpConfig
         #expect(saved?.host == "elsewhere.example.com")
@@ -180,7 +180,7 @@ private final class FlakyCredentials: CredentialStore, @unchecked Sendable {
 
         let service = UploadService(credentials: FlakyCredentials(), settingsStore: store)
         let uploader = try #require(try service.uploader(for: destination) as? SFTPUploader)
-        uploader.rememberHostKey("SHA256:learned")
+        _ = uploader.rememberHostKey("SHA256:learned")
 
         #expect(store.loadOrDefault().0.upload.destinations[0].sftpConfig?.knownHostKey
                 == "SHA256:learned")

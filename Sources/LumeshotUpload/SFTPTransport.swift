@@ -7,10 +7,13 @@ import LumeshotCore
 public protocol SFTPTransport: Sendable {
     /// - Parameters:
     ///   - knownHostKey: the pinned fingerprint, or nil to trust on first use.
-    ///   - rememberHostKey: called with the presented fingerprint when it is
-    ///     learned for the first time, so the caller can persist the pin.
+    ///   - rememberHostKey: called with the presented fingerprint on first use to
+    ///     persist the pin. It returns whether the connection may proceed: the
+    ///     transaction can discover that another connection pinned a *different*
+    ///     key first, in which case it reports a conflict and the handshake must
+    ///     fail closed rather than trust the presented key.
     func upload(_ data: Data, to remotePath: String, host: String, port: Int,
                username: String, secret: SFTPSecret,
                knownHostKey: String?,
-               rememberHostKey: @escaping @Sendable (String) -> Void) async throws
+               rememberHostKey: @escaping @Sendable (String) -> HostKeyPinResult) async throws
 }
