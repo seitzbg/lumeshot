@@ -56,6 +56,11 @@ public final class EditorModel: ObservableObject {
     private var draft: Annotation?           // shape being drawn
     private var drawAnchor: CGPoint?         // draw start point
     private var activeHandle: HandleKind?    // resize in progress
+    // Like a move, a resize is derived from the gesture-start snapshot, not the
+    // previously-resized rectangle. Feeding the standardized intermediate back in
+    // let a handle dragged across the opposite edge swap which edge it drives —
+    // the "fixed" anchor would then start to move once the drag crossed over.
+    private var resizeStartAnnotation: Annotation?  // the annotation when the resize began
     // A move is derived from the gesture-start snapshot plus the total offset
     // from the pointer-down anchor — never accumulated event-to-event. Clamping
     // a crop at an edge must not feed back into the next event's starting point,
@@ -117,9 +122,9 @@ public final class EditorModel: ObservableObject {
     public func pointerDragged(to point: CGPoint) {
         if draft != nil, let anchor = drawAnchor {
             draft = updatedDraft(anchor: anchor, to: point)
-        } else if let handle = activeHandle, let id = selectedID,
+        } else if let handle = activeHandle, let start = resizeStartAnnotation, let id = selectedID,
                   let index = annotations.firstIndex(where: { $0.id == id }) {
-            let resized = annotations[index].resized(handle: handle, to: point)
+            let resized = start.resized(handle: handle, to: point)
             // A crop dragged past an edge stops at it instead of leaving the
             // image; anything that would leave nothing behind is not applied.
             if let clamped = clampedToImage(resized) { annotations[index] = clamped }
@@ -145,6 +150,7 @@ public final class EditorModel: ObservableObject {
         draft = nil
         drawAnchor = nil
         activeHandle = nil
+        resizeStartAnnotation = nil
         moveAnchor = nil
         moveStartAnnotation = nil
     }
@@ -263,7 +269,16 @@ public final class EditorModel: ObservableObject {
         switch annotations[index].shape {
         case .blur(let rect, _):        updated = .blur(rect: rect, radius: blurRadius)
         case .pixelate(let rect, _):    updated = .pixelate(rect: rect, scale: pixelScale)
-        case .text(let rect, let str, _): updated = .text(rect: rect, string: str, fontSize: textFontSize)
+        case .text(let rect, let str, _):
+            // Grow the box so the new font still fits: CoreText clips to the box,
+            // so a larger font in the old (smaller) box would render nothing.
+            // Keep the origin and wrapping width; never shrink below the current
+            // height, so a manually enlarged box is preserved.
+            let std = rect.standardized
+            let height = Swift.max(std.height,
+                                   TextBoxLayout.fittingHeight(string: str, fontSize: textFontSize, width: std.width))
+            let box = CGRect(x: std.minX, y: std.minY, width: std.width, height: height)
+            updated = .text(rect: box, string: str, fontSize: textFontSize)
         default:                        updated = nil
         }
         // Wired to slider/stepper release, so a press-release with no actual value
@@ -327,6 +342,7 @@ public final class EditorModel: ObservableObject {
         if let selected = selectedAnnotation,
            let handle = selected.handle(at: point, tolerance: handleTolerance) {
             activeHandle = handle
+            resizeStartAnnotation = selected
             return
         }
         // Otherwise pick the topmost annotation under the point.

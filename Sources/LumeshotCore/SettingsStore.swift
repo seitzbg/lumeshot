@@ -4,6 +4,28 @@ public enum SettingsLoadIssue: Equatable, Sendable {
     case corruptBackedUp(URL)
     case corruptBackupFailed(String)   // corrupt file left in place
     case readFailed(String)            // file exists but could not be read
+
+    /// Whether recovering to defaults would destroy still-recoverable settings.
+    ///
+    /// `corruptBackedUp` is safe to proceed on: the original bytes were moved to
+    /// a `.corrupt` sidecar, so nothing is lost and there is no valid pin left to
+    /// honour. `readFailed` (present but unreadable) and `corruptBackupFailed`
+    /// (corrupt and we could not set it aside) are not: the real file is still
+    /// there, and writing defaults over it — or trusting a host key as if none
+    /// were pinned — would silently discard it.
+    var recoveryWouldDiscardSettings: Bool {
+        switch self {
+        case .corruptBackedUp: return false
+        case .readFailed, .corruptBackupFailed: return true
+        }
+    }
+}
+
+/// Thrown by `mutate` when the current settings cannot be loaded safely, so a
+/// transaction never turns recovery defaults into permission to overwrite the
+/// file or trust a host key. See `SettingsLoadIssue.recoveryWouldDiscardSettings`.
+public struct SettingsUnavailableError: Error, Equatable, Sendable {
+    public let issue: SettingsLoadIssue
 }
 
 public struct SettingsStore: Sendable {
@@ -71,7 +93,14 @@ public struct SettingsStore: Sendable {
     public func mutate(_ body: (inout AppSettings) throws -> Void) throws -> AppSettings {
         Self.transaction.lock()
         defer { Self.transaction.unlock() }
-        let original = loadOrDefault().0
+        let (original, issue) = loadOrDefault()
+        // A read/backup failure means the fallback defaults are NOT an
+        // authoritative snapshot: proceeding would write them over a file that
+        // is merely unreadable, and would let a host-key pinner treat "no
+        // destinations found" as first use. Abort before the closure runs.
+        if let issue, issue.recoveryWouldDiscardSettings {
+            throw SettingsUnavailableError(issue: issue)
+        }
         var settings = original
         try body(&settings)
         if settings != original { try save(settings) }

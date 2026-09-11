@@ -26,23 +26,16 @@
     <key>LSApplicationCategoryType</key><string>public.app-category.utilities</string>
     <key>NSHighResolutionCapable</key><true/>
     <key>NSPrincipalClass</key><string>NSApplication</string>
+    <!-- Only .sxcu is a real document type: opening one imports an uploader.
+         MP4 and GIF were declared as alternate viewers, but the sole open
+         handler imports every file as .sxcu — so "Open With Lumeshot" on a
+         recording produced an import error, not a preview. Until a media
+         preview flow exists, do not advertise handling media. -->
     <key>CFBundleDocumentTypes</key>
     <array>
         <dict>
             <key>CFBundleTypeName</key><string>Lumeshot Custom Uploader</string>
             <key>CFBundleTypeExtensions</key><array><string>sxcu</string></array>
-            <key>CFBundleTypeRole</key><string>Viewer</string>
-            <key>LSHandlerRank</key><string>Alternate</string>
-        </dict>
-        <dict>
-            <key>CFBundleTypeName</key><string>Lumeshot Recording</string>
-            <key>CFBundleTypeExtensions</key><array><string>mp4</string></array>
-            <key>CFBundleTypeRole</key><string>Viewer</string>
-            <key>LSHandlerRank</key><string>Alternate</string>
-        </dict>
-        <dict>
-            <key>CFBundleTypeName</key><string>Lumeshot Animated GIF</string>
-            <key>CFBundleTypeExtensions</key><array><string>gif</string></array>
             <key>CFBundleTypeRole</key><string>Viewer</string>
             <key>LSHandlerRank</key><string>Alternate</string>
         </dict>

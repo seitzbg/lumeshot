@@ -100,6 +100,29 @@ public struct CitadelSFTPTransport: SFTPTransport {
         + "ssh-rsa (SHA-1) signature, which OpenSSH 8.8 and newer reject by default. "
         + "Use an Ed25519 key for this destination."
 
+    /// A transport-failure reason that carries no server-supplied text.
+    ///
+    /// `\(error)` on a Citadel error can quote the server verbatim: an
+    /// SSH_FXP_STATUS surfaces as `SFTPMessage.Status` (directly, or wrapped in
+    /// `SFTPError.errorStatus`), whose description embeds the server's `message`
+    /// — which can echo a remote path, or an auth/error string that leaks a
+    /// token — and that reason is written to `~/Library/Logs/Lumeshot.log`. Keep
+    /// the typed SSH_FX_* status code and the error type/case (all fixed, app-
+    /// or library-authored), and never interpolate the free-form description. An
+    /// app-authored prefix like "SFTP write failed:" does not make it safe.
+    static func redactedReason(_ error: Error) -> String {
+        if let status = error as? SFTPMessage.Status {
+            return "SFTP status \(status.errorCode)"
+        }
+        if let sftp = error as? SFTPError {
+            if case .errorStatus(let status) = sftp { return "SFTP status \(status.errorCode)" }
+            return "SFTPError.\(sftp)"                    // remaining cases carry no server text
+        }
+        if let ssh = error as? SSHClientError { return "SSHClientError.\(ssh)" }
+        if let urlError = error as? URLError { return "URLError(\(urlError.code.rawValue))" }
+        return String(describing: type(of: error))       // type only; no server-influenced text
+    }
+
     public func upload(_ data: Data, to remotePath: String, host: String, port: Int,
                        username: String, secret: SFTPSecret,
                        knownHostKey: String?,
@@ -157,7 +180,7 @@ public struct CitadelSFTPTransport: SFTPTransport {
                 everyCredentialRejected = true
             }
             throw UploadError.transport(
-                "SFTP connect failed: \(error)"
+                "SFTP connect failed: \(Self.redactedReason(error))"
                 + (usingRSAKey && everyCredentialRejected ? Self.rsaSHA1Note : ""))
         }
         do {
@@ -169,7 +192,7 @@ public struct CitadelSFTPTransport: SFTPTransport {
             try await client.close()
         } catch {
             try? await client.close()   // explicit close on the error path (no fire-and-forget Task)
-            throw UploadError.transport("SFTP write failed: \(error)")
+            throw UploadError.transport("SFTP write failed: \(Self.redactedReason(error))")
         }
     }
 }

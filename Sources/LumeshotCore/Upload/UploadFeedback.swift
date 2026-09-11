@@ -24,8 +24,10 @@ public enum UploadFeedback {
         case .emptyURL: return "no usable URL in the response"
         case .unsupported(let reason): return "unsupported: \(reason)"
         case .missingCredential(let account): return "missing credential: \(account)"
-        // Composed by our own transports from the underlying network or SSH
-        // error, so it names the actual cause and carries nothing the server sent.
+        // Composed by our own transports, which redact the underlying network or
+        // SSH error down to a typed category/status code before wrapping it — so
+        // the reason names the actual cause and carries nothing the server sent.
+        // (An SFTP server's status message, for one, can echo a path or a token.)
         case .transport(let reason): return "transport: \(reason)"
         case .badResponse(let reason): return "bad response: \(reason)"
         case .hostKeyMismatch: return "SSH host key mismatch"

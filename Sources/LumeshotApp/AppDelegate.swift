@@ -438,7 +438,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         performSxcuImport(from: url)
     }
 
+    /// Whether the app opens this file. Only `.sxcu` is a real document type
+    /// (opening one imports an uploader). Everything else — including the MP4/GIF
+    /// the bundle used to advertise as an alternate viewer — is declined, so a
+    /// recording is never read whole and mis-parsed as uploader JSON.
+    static func handlesOpenedFile(_ filename: String) -> Bool {
+        (filename as NSString).pathExtension.lowercased() == "sxcu"
+    }
+
     func application(_ sender: NSApplication, openFile filename: String) -> Bool {
+        guard Self.handlesOpenedFile(filename) else {
+            // Decline (return false) so the OS reports it accurately, rather than
+            // reading the whole file and failing to decode it as an uploader.
+            AppLog.log("Open file declined (unsupported type): \((filename as NSString).lastPathComponent)")
+            return false
+        }
         performSxcuImport(from: URL(fileURLWithPath: filename))
         return true
     }

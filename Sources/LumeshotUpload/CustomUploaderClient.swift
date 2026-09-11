@@ -5,6 +5,10 @@ public struct CustomUploaderClient: Uploader {
     private let config: CustomUploaderConfig
     private let http: HTTPClient
     private let boundaryProvider: @Sendable () -> String
+    /// Whether the parsed result URL must be a public http(s) link. True for a
+    /// real custom uploader (and Imgur), whose result IS the shareable link;
+    /// false for Picsur, which extracts a bare id here and composes the URL.
+    private let validatesPublicURL: Bool
 
     /// Writes prologue + file bytes + epilogue to a temp file, copying the
     /// payload in chunks so peak memory is one chunk rather than the whole
@@ -42,11 +46,13 @@ public struct CustomUploaderClient: Uploader {
     }
 
     public init(config: CustomUploaderConfig, http: HTTPClient,
+                validatesPublicURL: Bool = true,
                 boundaryProvider: @escaping @Sendable () -> String = {
                     "SXBoundary-" + UUID().uuidString
                 }) {
         self.config = config
         self.http = http
+        self.validatesPublicURL = validatesPublicURL
         self.boundaryProvider = boundaryProvider
     }
 
@@ -74,6 +80,7 @@ public struct CustomUploaderClient: Uploader {
         }
         let response = try await http.send(request)
         return try CustomUploaderEngine.parseResult(config: config, status: response.status,
-                                                    body: response.body, headers: response.headers)
+                                                    body: response.body, headers: response.headers,
+                                                    requirePublicURL: validatesPublicURL)
     }
 }

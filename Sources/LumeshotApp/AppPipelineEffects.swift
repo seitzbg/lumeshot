@@ -126,7 +126,7 @@ final class AppPipelineEffects: NSObject, PipelineEffects, UNUserNotificationCen
         let userInfo = response.notification.request.content.userInfo
         // Logged because a report like "clicking it did the wrong thing" is
         // otherwise undiagnosable: the post is logged, the response was not.
-        if let urlString = userInfo["url"] as? String, let url = URL(string: urlString) {
+        if let urlString = userInfo["url"] as? String, let url = WebLink.openable(urlString) {
             AppLog.log("Notification action: open URL")
             DispatchQueue.main.async {
                 self.notedResponse()

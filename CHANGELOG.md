@@ -9,6 +9,13 @@ Release notes describe the changes in each published version.
 - Editing General/Capture/Recording/Shortcut preferences no longer overwrites an SSH host key learned from a connection at the same moment.
 - The editor keeps its Cancel/Copy/Save/Upload buttons on screen at the smallest window size: the text, blur and pixelate controls now live in the left tool rail rather than crowding the top bar.
 - Moving a crop against an image edge and back no longer permanently shrinks it.
+- A settings file that exists but cannot be read is no longer treated as an empty configuration: preference edits and SSH host-key checks now abort instead of overwriting your saved uploaders with defaults or trusting a host key as if none were pinned.
+- A failed SFTP upload no longer writes the server's status message to the log (it can echo a remote path or a token); the log keeps the SSH status code and the error type.
+- A custom uploader whose server returns a non-web value — a `file:` URL, an app scheme, or an error page — is treated as a failed upload instead of being copied to the clipboard, and History and notifications only open `http(s)` links.
+- A custom uploader response that leaves the image id empty is treated as a failed upload, instead of copying a broken link such as `https://host/i/.png`.
+- Resizing an annotation by dragging a handle past its opposite edge and back no longer drags the anchored edge with it, so a crop keeps its intended size.
+- Increasing a text annotation's font size no longer pushes the text out of its box and drops it from the exported image; the box grows to fit the larger text.
+- Lumeshot no longer advertises itself as an opener for MP4 and GIF files, which only produced an import error; opening a file still imports `.sxcu` uploader configs.
 
 ## Releases
 
